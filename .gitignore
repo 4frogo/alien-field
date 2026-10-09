@@ -1,0 +1,11 @@
+# Godot 4
+.godot/
+*.godot.imported
+
+# Sistema
+Thumbs.db
+.DS_Store
+
+# Temporarios do projeto
+test_*.gd
+test_*.gd.uid

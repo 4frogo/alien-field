@@ -1,0 +1,19 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+uid="uid://c7kmo3x3d87ej"
+path="res://.godot/imported/Starship Defenders.mp3-6eda28a67602feeee1b53c327eef185f.mp3str"
+
+[deps]
+
+source_file="res://assets/Starship Defenders.mp3"
+dest_files=["res://.godot/imported/Starship Defenders.mp3-6eda28a67602feeee1b53c327eef185f.mp3str"]
+
+[params]
+
+loop=false
+loop_offset=0
+bpm=0
+beat_count=0
+bar_beats=4

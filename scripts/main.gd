@@ -169,6 +169,34 @@ func _ready() -> void:
 	charge_txt.visible = false
 	hud.add_child(charge_txt)
 
+	# botoes touch (celular): FOGO segura = atira/carrega, solta = super
+	if DisplayServer.is_touchscreen_available():
+		var fogo := Button.new()
+		fogo.text = "FOGO"
+		fogo.add_theme_font_size_override("font_size", 24)
+		if _fonte() != null:
+			fogo.add_theme_font_override("font", _fonte())
+		fogo.add_theme_color_override("font_color", Color(0.5, 1.0, 0.6))
+		var sf := StyleBoxFlat.new()
+		sf.bg_color = Color(0.02, 0.12, 0.05, 0.6)
+		sf.border_color = Color(0.35, 1.0, 0.55)
+		sf.set_border_width_all(2)
+		sf.set_corner_radius_all(65)
+		fogo.add_theme_stylebox_override("normal", sf)
+		fogo.position = Vector2(395, 730)
+		fogo.size = Vector2(130, 130)
+		fogo.button_down.connect(func(): player.set("fogo_touch", true))
+		fogo.button_up.connect(func(): player.set("fogo_touch", false))
+		hud.add_child(fogo)
+		var pt := Button.new()
+		pt.text = "II"
+		pt.add_theme_font_size_override("font_size", 20)
+		pt.add_theme_color_override("font_color", Color(0.8, 0.9, 0.85))
+		pt.position = Vector2(250, 12)
+		pt.size = Vector2(44, 44)
+		pt.pressed.connect(_alternar_pause)
+		hud.add_child(pt)
+
 	# camada de pause (sempre ativa pra responder no P)
 	pause_layer = CanvasLayer.new()
 	pause_layer.layer = 60
@@ -201,13 +229,16 @@ func _ready() -> void:
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_P:
-		if em_menu or vidas <= 0:
-			return
-		get_tree().paused = not get_tree().paused
-		if pause_layer != null:
-			pause_layer.visible = get_tree().paused
-		if musica != null and musica.has_method("set_pausado"):
-			musica.call("set_pausado", get_tree().paused)
+		_alternar_pause()
+
+func _alternar_pause() -> void:
+	if em_menu or vidas <= 0:
+		return
+	get_tree().paused = not get_tree().paused
+	if pause_layer != null:
+		pause_layer.visible = get_tree().paused
+	if musica != null and musica.has_method("set_pausado"):
+		musica.call("set_pausado", get_tree().paused)
 
 func _spawn_boss() -> void:
 	if boss != null and is_instance_valid(boss):

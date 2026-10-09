@@ -6,6 +6,7 @@ var shoot_cooldown := 0.0
 var invencivel := 0.0
 var move_target := Vector2.ZERO
 var dragging := false
+var fogo_touch := false
 
 signal atirar(pos: Vector2)
 signal super_tiro(pos: Vector2)
@@ -191,8 +192,8 @@ func _process(delta: float) -> void:
 	var alvo_sy := 1.0 - dir.y * 0.04 - absf(dir.x) * 0.03
 	scale = scale.lerp(Vector2(alvo_sx, alvo_sy), minf(1.0, 8.0 * delta))
 
-	# tiro manual na tecla L + super carregado 3s
-	var segurando := Input.is_key_pressed(KEY_L)
+	# tiro manual na tecla L / botao touch + super carregado 3s
+	var segurando := Input.is_key_pressed(KEY_L) or fogo_touch
 	if segurando:
 		if not carregando:
 			carregando = true

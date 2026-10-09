@@ -13,48 +13,84 @@ var use_image := false
 var bg_sprites: Array = []
 var bg_h_list: Array = []
 var total_cover := 0.0
+var texs_dim1: Array = []
+var texs_dim2: Array = []
+var dimensao := 1
+# camada infinita: poeira, meteoros e filetes (nunca repete)
+var poeira_inf: Array = []
+var spawn_t := 0.0
+var meteoros: Array = []
+var met_t := 4.0
+var tempo_total := 0.0
+var rng_inf := RandomNumberGenerator.new()
+
+func _montar_coluna(lista: Array) -> void:
+	for sp in bg_sprites:
+		if is_instance_valid(sp):
+			sp.queue_free()
+	bg_sprites.clear()
+	bg_h_list.clear()
+	total_cover = 0.0
+	if lista.is_empty():
+		use_image = false
+		return
+	use_image = true
+	var y_cursor := 1400.0
+	var idx := 0
+	while y_cursor > -1400.0 and idx < 12:
+		var tex: Texture2D = lista[idx % lista.size()]
+		var tw := float(tex.get_width())
+		var th := float(tex.get_height())
+		if tw <= 0 or th <= 0:
+			idx += 1
+			continue
+		var s := 540.0 / tw
+		var h := th * s
+		var sp := Sprite2D.new()
+		sp.texture = tex
+		sp.scale = Vector2(s, s)
+		sp.position = Vector2(270, y_cursor - h / 2.0)
+		sp.z_index = -10
+		add_child(sp)
+		bg_sprites.append(sp)
+		bg_h_list.append(h)
+		total_cover += h
+		y_cursor -= h
+		idx += 1
+
+func trocar_dimensao(n: int) -> void:
+	# 1 = fase inicial (bg), 2 = outra dimensao (bg2+; cai pra bg se nao existir)
+	dimensao = n
+	if n == 2 and not texs_dim2.is_empty():
+		_montar_coluna(texs_dim2)
+	else:
+		_montar_coluna(texs_dim1)
 
 func _ready() -> void:
 	z_index = -10
-	var paths: Array = [
-		"res://assets/bg.png", "res://assets/bg.jpg",
+	var paths1: Array = ["res://assets/bg.png", "res://assets/bg.jpg"]
+	var paths2: Array = [
+		"res://assets/redfuture.png",
 		"res://assets/bg2.png", "res://assets/bg2.jpg",
 		"res://assets/bg3.png", "res://assets/bg3.jpg",
 		"res://assets/bg4.png", "res://assets/bg4.jpg",
 		"res://assets/bg5.png", "res://assets/bg5.jpg",
 		"res://assets/fase.png", "res://assets/background.png"
 	]
-	var texs: Array = []
-	for p in paths:
+	for p in paths1:
 		if ResourceLoader.exists(p):
 			var t := load(p) as Texture2D
 			if t != null:
-				texs.append(t)
-	if texs.size() > 0:
-		use_image = true
-		# monta uma coluna longa (~3200px) ciclando as texturas para variar
-		var y_cursor := 1400.0
-		var idx := 0
-		while y_cursor > -1400.0 and idx < 12:
-			var tex: Texture2D = texs[idx % texs.size()]
-			var tw := float(tex.get_width())
-			var th := float(tex.get_height())
-			if tw <= 0 or th <= 0:
-				idx += 1
-				continue
-			var s := 540.0 / tw
-			var h := th * s
-			var sp := Sprite2D.new()
-			sp.texture = tex
-			sp.scale = Vector2(s, s)
-			sp.position = Vector2(270, y_cursor - h / 2.0)
-			sp.z_index = -10
-			add_child(sp)
-			bg_sprites.append(sp)
-			bg_h_list.append(h)
-			total_cover += h
-			y_cursor -= h
-			idx += 1
+				texs_dim1.append(t)
+	for p in paths2:
+		if ResourceLoader.exists(p):
+			var t := load(p) as Texture2D
+			if t != null:
+				texs_dim2.append(t)
+	if texs_dim1.is_empty() and not texs_dim2.is_empty():
+		texs_dim1 = texs_dim2.duplicate()
+	if not texs_dim1.is_empty():
+		_montar_coluna(texs_dim1)
 		return
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 1337
@@ -75,13 +111,17 @@ func _ready() -> void:
 		})
 
 func _process(delta: float) -> void:
+	tempo_total += delta
+	var resp := 1.0 + 0.15 * sin(tempo_total * 0.13) # respiracao: voo vivo, nao mecanico
 	if use_image:
 		for i in bg_sprites.size():
 			var sp: Sprite2D = bg_sprites[i]
-			sp.position.y += scroll_speed * delta
+			sp.position.y += scroll_speed * resp * delta
 			var h: float = bg_h_list[i]
 			if sp.position.y - h / 2.0 > 1100:
 				sp.position.y -= total_cover
+		_atualiza_infinito(delta, resp)
+		queue_redraw()
 		return
 	scroll += scroll_speed * delta
 	if scroll > 36.0:
@@ -93,8 +133,13 @@ func _process(delta: float) -> void:
 			a["pos"].x = randf_range(90, 450)
 	queue_redraw()
 
+func _atualiza_infinito(delta: float, resp: float) -> void:
+	# objetos removidos: so nebulosa a deriva + respiracao
+	pass
+
 func _draw() -> void:
 	if use_image:
+		_draw_infinito()
 		return
 	# ceu
 	draw_rect(Rect2(0, 0, 540, 960), Color(0.008, 0.03, 0.02))
@@ -121,6 +166,13 @@ func _draw() -> void:
 	# paredes do canyon
 	_draw_wall(true)
 	_draw_wall(false)
+
+func _draw_infinito() -> void:
+	# so nebulosas a deriva (sem objetos)
+	var nx1 := 270.0 + sin(tempo_total * 0.07) * 60.0
+	var nx2 := 270.0 + sin(tempo_total * 0.05 + 2.0) * 80.0
+	draw_circle(Vector2(nx1, 330), 200, Color(0.03, 0.14, 0.07, 0.30))
+	draw_circle(Vector2(nx2, 680), 240, Color(0.02, 0.10, 0.06, 0.28))
 
 func _draw_wall(is_left: bool) -> void:
 	var rocks := rocks_left if is_left else rocks_right

@@ -67,10 +67,35 @@ func setup(p_tipo: String, p_pos: Vector2, p_dir: Vector2 = Vector2(0, 1)) -> vo
 		hp = 6
 		hp_max = 6
 		vel_base = 32.0
-		for bp in ["res://assets/upgrade1.png", "res://assets/upgrade1.jpg", "res://assets/Upgrade1.png", "res://assets/Upgrade1.jpg"]:
-			if ResourceLoader.exists(bp):
-				_criar_sprite(bp, 70.0, "")
-				break
+		_criar_sprite_bonus()
+
+func _criar_sprite_bonus() -> void:
+	# icone Upgrade1: recorte central + mascara circular (adeus quadrado)
+	for bp in ["res://assets/Upgrade1.jpg", "res://assets/upgrade1.jpg", "res://assets/Upgrade1.png", "res://assets/upgrade1.png"]:
+		if ResourceLoader.exists(bp):
+			var tex := load(bp) as Texture2D
+			if tex == null:
+				continue
+			var tw := float(tex.get_width())
+			var th := float(tex.get_height())
+			if tw <= 0 or th <= 0:
+				continue
+			var lado := minf(tw, th) * 0.86
+			var atlas := AtlasTexture.new()
+			atlas.atlas = tex
+			atlas.region = Rect2((tw - lado) / 2.0, (th - lado) / 2.0 - th * 0.03, lado, lado)
+			sprite = Sprite2D.new()
+			sprite.texture = atlas
+			var s := 74.0 / lado
+			sprite.scale = Vector2(s, s)
+			if ResourceLoader.exists("res://assets/bonus_ring.gdshader"):
+				var sh := load("res://assets/bonus_ring.gdshader") as Shader
+				var mat := ShaderMaterial.new()
+				mat.shader = sh
+				sprite.material = mat
+			add_child(sprite)
+			tem_sprite = true
+			break
 
 func _process(delta: float) -> void:
 	tempo += delta

@@ -108,6 +108,9 @@ func setup_triplotiro(p: Vector2, v: Vector2, p_dano: int = 6) -> void:
 					var sh := load("res://assets/remove_black.gdshader") as Shader
 					var mat := ShaderMaterial.new()
 					mat.shader = sh
+					# corte mais forte: tira a sombra cinza do JPG sem comer os raios
+					mat.set_shader_parameter("cutoff", 0.13)
+					mat.set_shader_parameter("feather", 0.12)
 					fx.material = mat
 				add_child(fx)
 				break

@@ -12,12 +12,23 @@ const MusicScript := preload("res://scripts/music.gd")
 const ArmaScript := preload("res://scripts/arma.gd")
 const BuracoScript := preload("res://scripts/buraco_negro.gd")
 const FeixeScript := preload("res://scripts/feixe.gd")
+const PortalScript := preload("res://scripts/portal.gd")
 
 var player: Node2D
 var hud: CanvasLayer
 var boss: Node2D = null
 var sfx: Node = null
 var musica: Node = null
+var bg_no: Node2D = null
+var dimensao := 1
+var tempo_fase := 0.0
+var portal: Node2D = null
+var portal_label: Label = null
+var transicao_layer: CanvasLayer = null
+var transicao_anim := 0.0
+var em_transicao := false
+var transicao_trocou := false
+var portal_chegada: Node2D = null
 var turret_timer := 3.0
 
 var tiros: Array = []
@@ -78,6 +89,7 @@ func _ready() -> void:
 	var bg := Node2D.new()
 	bg.set_script(BgScript)
 	add_child(bg)
+	bg_no = bg
 
 	player = Node2D.new()
 	player.set_script(PlayerScript)
@@ -138,6 +150,18 @@ func _ready() -> void:
 	power_label.position = Vector2(18, 70)
 	power_label.visible = false
 	hud.add_child(power_label)
+
+	portal_label = Label.new()
+	portal_label.text = "ATRAVESSE O PORTAL"
+	portal_label.add_theme_font_size_override("font_size", 24)
+	if _fonte() != null:
+		portal_label.add_theme_font_override("font", _fonte())
+	portal_label.add_theme_color_override("font_color", Color(1, 0.3, 0.12))
+	portal_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	portal_label.position = Vector2(0, 560)
+	portal_label.size = Vector2(540, 36)
+	portal_label.visible = false
+	hud.add_child(portal_label)
 
 	# barrinha de carga do super tiro (segue a nave)
 	charge_bar = ProgressBar.new()
@@ -220,6 +244,101 @@ func _alternar_pause() -> void:
 		pause_layer.visible = get_tree().paused
 	if musica != null and musica.has_method("set_pausado"):
 		musica.call("set_pausado", get_tree().paused)
+
+func _spawn_portal() -> void:
+	if portal != null and is_instance_valid(portal):
+		return
+	portal = Node2D.new()
+	portal.set_script(PortalScript)
+	add_child(portal)
+	portal.position = Vector2(270, 400)
+	if portal_label != null:
+		portal_label.visible = true
+	if sfx != null:
+		sfx.call("boss")
+
+func _entrar_dimensao2() -> void:
+	if dimensao == 2 or em_transicao:
+		return
+	# congela e mostra a transicao dramatica antes do mundo novo
+	em_transicao = true
+	transicao_anim = 0.0
+	transicao_trocou = false
+	if portal != null and is_instance_valid(portal):
+		portal.queue_free()
+	portal = null
+	if portal_label != null:
+		portal_label.visible = false
+	if player != null and is_instance_valid(player):
+		player.visible = false
+	for e in inimigos:
+		if is_instance_valid(e):
+			_fx_explosao((e as Node2D).position, false)
+			e.queue_free()
+	inimigos.clear()
+	_mostrar_transicao()
+	if musica != null and musica.has_method("trocar_para_transicao"):
+		musica.call("trocar_para_transicao")
+
+func _mostrar_transicao() -> void:
+	transicao_layer = CanvasLayer.new()
+	transicao_layer.layer = 45
+	add_child(transicao_layer)
+	var center := Vector2(270, 480) # fixo: nunca corta nem sai do centro
+	for p in ["res://assets/transicao.jpg", "res://assets/transicao.png"]:
+		if ResourceLoader.exists(p):
+			var tex := load(p) as Texture2D
+			if tex != null:
+				var sp := Sprite2D.new()
+				sp.texture = tex
+				var sc := minf(540.0 / float(tex.get_width()), 960.0 / float(tex.get_height()))
+				sp.scale = Vector2(sc, sc) * 0.9
+				sp.set_meta("fit", sc)
+				sp.position = center
+				sp.name = "Art"
+				sp.modulate.a = 0.0
+				transicao_layer.add_child(sp)
+				break
+	var flash := ColorRect.new()
+	flash.color = Color(1, 1, 1, 1)
+	flash.set_anchors_preset(Control.PRESET_FULL_RECT)
+	flash.name = "Flash"
+	transicao_layer.add_child(flash)
+	# dissolve + poeira (scripts Poeira/Dissolve)
+	var art2 := transicao_layer.get_node_or_null("Art") as Sprite2D
+	if art2 != null and ResourceLoader.exists("res://assets/transicao_dissolve.gdshader"):
+		var dsh := load("res://assets/transicao_dissolve.gdshader") as Shader
+		var dmat := ShaderMaterial.new()
+		dmat.shader = dsh
+		dmat.set_shader_parameter("progresso", 0.0)
+		art2.material = dmat
+	var poe := Node2D.new()
+	poe.set_script(preload("res://scripts/poeira.gd"))
+	poe.name = "Poeira"
+	transicao_layer.add_child(poe)
+
+func _fim_transicao() -> void:
+	# mundo novo perigoso (imagem ainda se desfazendo por cima)
+	dimensao = 2
+	tempo_fase = 0.0
+	boss_ja_entrou = false
+	aviso_dragao = false
+	if bg_no != null and is_instance_valid(bg_no):
+		bg_no.call("trocar_dimensao", 2)
+	# portal de chegada onde a nave vai surgir
+	if portal_chegada != null and is_instance_valid(portal_chegada):
+		portal_chegada.queue_free()
+	portal_chegada = Node2D.new()
+	portal_chegada.set_script(PortalScript)
+	add_child(portal_chegada)
+	portal_chegada.position = Vector2(270, 800)
+	portal_chegada.scale = Vector2(0.7, 0.7)
+	if player != null and is_instance_valid(player):
+		player.position = Vector2(270, 800)
+		player.set("scale", Vector2(0.15, 0.15))
+		player.set("surgindo", true)
+	for i in 2:
+		_spawn_small()
 
 func _spawn_boss() -> void:
 	if boss != null and is_instance_valid(boss):
@@ -434,6 +553,55 @@ func _process(delta: float) -> void:
 		return
 	if em_menu:
 		return
+	if em_transicao:
+		transicao_anim += delta
+		var art := transicao_layer.get_node_or_null("Art") as Sprite2D if transicao_layer != null else null
+		var flash := transicao_layer.get_node_or_null("Flash") as ColorRect if transicao_layer != null else null
+		var poe := transicao_layer.get_node_or_null("Poeira") if transicao_layer != null else null
+		# dissolve 0.4 -> 2.2 com poeira subindo
+		var prog := clampf((transicao_anim - 0.4) / 1.8, 0.0, 1.0)
+		if art != null:
+			# zoom dramatico 0.9 -> 1.0 do fit (sem cortar) + fade in
+			var k := minf(1.0, transicao_anim * 1.6)
+			var e := 1.0 - pow(1.0 - k, 3.0)
+			var fit: float = float(art.get_meta("fit", 1.0))
+			var s: float = fit * (0.9 + 0.1 * e)
+			art.scale = Vector2(s, s)
+			art.modulate.a = minf(1.0, transicao_anim * 3.0)
+			if art.material != null and art.material is ShaderMaterial:
+				(art.material as ShaderMaterial).set_shader_parameter("progresso", prog)
+		if poe != null and poe.has_method("set"):
+			poe.set("intensidade", prog)
+		if flash != null:
+			# clarão que some rapido
+			flash.color.a = maxf(0.0, 1.0 - transicao_anim * 4.0)
+		if not transicao_trocou and transicao_anim >= 1.8:
+			transicao_trocou = true
+			_fim_transicao()
+		# 2.0: nave surge do portal crescendo
+		if transicao_anim >= 2.0 and player != null and is_instance_valid(player) and not player.visible:
+			player.visible = true
+			player.set("invencivel", 3.0)
+			if sfx != null:
+				sfx.call("boss")
+		if player != null and is_instance_valid(player) and bool(player.get("surgindo")):
+			var ks := clampf((transicao_anim - 2.0) / 0.8, 0.15, 1.0)
+			player.set("scale", Vector2(ks, ks))
+		if portal_chegada != null and is_instance_valid(portal_chegada):
+			var kp := clampf(1.0 - (transicao_anim - 2.0) / 0.8, 0.0, 1.0)
+			portal_chegada.scale = Vector2(0.7 * kp, 0.7 * kp)
+		if transicao_anim >= 3.0:
+			em_transicao = false
+			if player != null and is_instance_valid(player):
+				player.set("surgindo", false)
+				player.set("scale", Vector2.ONE)
+			if portal_chegada != null and is_instance_valid(portal_chegada):
+				portal_chegada.queue_free()
+			portal_chegada = null
+			if transicao_layer != null:
+				transicao_layer.queue_free()
+				transicao_layer = null
+		return
 	if vidas <= 0:
 		game_over_timer += delta
 		_mostrar_gameover(delta)
@@ -442,20 +610,30 @@ func _process(delta: float) -> void:
 			_reiniciar()
 		return
 
-	# 37s alerta vermelho 3s antes, 40s chefao entra
+	# FASE 1: portal abre aos 18s | DIMENSAO 2: chefao 35s depois de entrar
 	tempo_batalha += delta
-	if not aviso_dragao and tempo_batalha >= 37.0:
-		aviso_dragao = true
-		if aviso_label != null:
-			aviso_label.visible = true
-			aviso_tempo = 5.0
-		if aviso_tex != null:
-			aviso_tex.visible = true
-		if sfx != null:
-			sfx.call("boss")
-	if not boss_ja_entrou and tempo_batalha >= 40.0:
-		boss_ja_entrou = true
-		_spawn_boss()
+	tempo_fase += delta
+	if dimensao == 1:
+		if portal == null and tempo_batalha >= 18.0:
+			_spawn_portal()
+		if portal != null and is_instance_valid(portal) and player != null and is_instance_valid(player):
+			if player.position.distance_to(portal.position) < 80.0:
+				_entrar_dimensao2()
+		if tempo_batalha >= 100.0:
+			_entrar_dimensao2() # fallback: nunca trava
+	else:
+		if not aviso_dragao and tempo_fase >= 32.0:
+			aviso_dragao = true
+			if aviso_label != null:
+				aviso_label.visible = true
+				aviso_tempo = 5.0
+			if aviso_tex != null:
+				aviso_tex.visible = true
+			if sfx != null:
+				sfx.call("boss")
+		if not boss_ja_entrou and tempo_fase >= 35.0:
+			boss_ja_entrou = true
+			_spawn_boss()
 	if aviso_label != null and aviso_label.visible:
 		aviso_tempo -= delta
 		# pisca texto + pulsa o degrade vermelho
@@ -847,6 +1025,26 @@ func _reiniciar() -> void:
 	escudo = 100.0
 	abates = 0
 	chefe_sem_escudo = 0
+	dimensao = 1
+	tempo_fase = 0.0
+	em_transicao = false
+	transicao_anim = 0.0
+	transicao_trocou = false
+	if transicao_layer != null:
+		transicao_layer.queue_free()
+		transicao_layer = null
+	if portal_chegada != null and is_instance_valid(portal_chegada):
+		portal_chegada.queue_free()
+	portal_chegada = null
+	if player != null and is_instance_valid(player):
+		player.set("surgindo", false)
+	if portal != null and is_instance_valid(portal):
+		portal.queue_free()
+	portal = null
+	if portal_label != null:
+		portal_label.visible = false
+	if bg_no != null and is_instance_valid(bg_no):
+		bg_no.call("trocar_dimensao", 1)
 	tempo_batalha = 0.0
 	boss_ja_entrou = false
 	aviso_dragao = false
@@ -908,6 +1106,11 @@ func _ir_para_menu() -> void:
 	tiros.clear()
 	tiros_inimigos.clear()
 	boss = null
+	if portal != null and is_instance_valid(portal):
+		portal.queue_free()
+	portal = null
+	if portal_label != null:
+		portal_label.visible = false
 	if player != null and is_instance_valid(player):
 		player.call("set_equipado", false)
 	for a in armas:

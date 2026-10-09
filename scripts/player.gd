@@ -31,6 +31,7 @@ var cacos: Array = []
 var pontos_energia: Array = []
 var tempo_escudo := 0.0
 var impulso := 0.0
+var surgindo := false
 
 func escudo_atingido() -> void:
 	escudo_flash = 1.0
@@ -191,9 +192,10 @@ func _process(delta: float) -> void:
 	# efeito 3D: inclina (bank) pros lados, arfagem vertical leve
 	var alvo_rot := dir.x * 0.32
 	rotation = lerpf(rotation, alvo_rot, minf(1.0, 10.0 * delta))
-	var alvo_sx := 1.0 + absf(dir.x) * 0.10
-	var alvo_sy := 1.0 - dir.y * 0.04 - absf(dir.x) * 0.03
-	scale = scale.lerp(Vector2(alvo_sx, alvo_sy), minf(1.0, 8.0 * delta))
+	if not surgindo:
+		var alvo_sx := 1.0 + absf(dir.x) * 0.10
+		var alvo_sy := 1.0 - dir.y * 0.04 - absf(dir.x) * 0.03
+		scale = scale.lerp(Vector2(alvo_sx, alvo_sy), minf(1.0, 8.0 * delta))
 
 	# tiro manual na tecla L / botao touch + super carregado 3s
 	var segurando := Input.is_key_pressed(KEY_L) or fogo_touch

@@ -1,0 +1,19 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+uid="uid://cm5lccwdnrbaa"
+path="res://.godot/imported/Starship Interceptorv1.mp3-79dcc9b620952629f09e0f8854c74bc2.mp3str"
+
+[deps]
+
+source_file="res://assets/Starship Interceptorv1.mp3"
+dest_files=["res://.godot/imported/Starship Interceptorv1.mp3-79dcc9b620952629f09e0f8854c74bc2.mp3str"]
+
+[params]
+
+loop=false
+loop_offset=0
+bpm=0
+beat_count=0
+bar_beats=4

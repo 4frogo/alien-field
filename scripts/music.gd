@@ -19,6 +19,17 @@ func _ready() -> void:
 	player.stream = _gerar_psy()
 	player.play()
 
+func trocar_para_transicao() -> void:
+	if player == null:
+		return
+	for p in ["res://assets/Starship Interceptorv1.mp3", "res://assets/Starship Interceptorv1.ogg", "res://assets/Starship Interceptorv1.wav"]:
+		if ResourceLoader.exists(p):
+			var s := load(p) as AudioStream
+			if s != null:
+				player.stream = s
+				player.play()
+				return
+
 func trocar_para_boss() -> void:
 	if player == null:
 		return

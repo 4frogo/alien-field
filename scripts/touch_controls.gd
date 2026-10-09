@@ -1,14 +1,15 @@
 extends Node2D
-# Controles touch: analogico esquerda move, circulo verde direita atira
+# Controles touch: direcional embaixo-esquerda + botao FOGO embaixo-direita
 
 var player: Node2D = null
 var main_ref: Node = null
-var joy_base := Vector2(100, 800)
-var joy_pos := Vector2(100, 800)
-var joy_r := 75.0
-var joy_id := -1
-var fire_center := Vector2(440, 790)
-var fire_r := 60.0
+var pad_center := Vector2(115, 785)
+var pad_braco := 58.0
+var pad_morto := 26.0
+# indice do toque -> direcao que ele segura
+var toques_dir := {}
+var fire_center := Vector2(425, 785)
+var fire_r := 64.0
 var fire_ids := {}
 var pause_center := Vector2(500, 44)
 var pause_r := 34.0
@@ -16,50 +17,87 @@ var pause_r := 34.0
 func _process(_delta: float) -> void:
 	queue_redraw()
 
+func _direcao_de(p: Vector2) -> Vector2:
+	var d := p - pad_center
+	var out := Vector2.ZERO
+	if absf(d.x) > pad_morto:
+		out.x = 1.0 if d.x > 0 else -1.0
+	if absf(d.y) > pad_morto:
+		out.y = 1.0 if d.y > 0 else -1.0
+	return out
+
+func _atualiza_analog() -> void:
+	var soma := Vector2.ZERO
+	for k in toques_dir:
+		soma += toques_dir[k]
+	if player != null:
+		player.set("analog", soma.limit_length(1.0))
+
 func _input(event: InputEvent) -> void:
 	if not visible or player == null:
 		return
 	if event is InputEventScreenTouch:
 		var p: Vector2 = event.position
 		if event.pressed:
-			if joy_id < 0 and p.distance_to(joy_base) < 115.0:
-				joy_id = event.index
-				_atualiza_knob(p)
-			elif p.distance_to(fire_center) < 100.0:
+			if p.x < 270.0 and p.y > 600.0:
+				var d := _direcao_de(p)
+				if d != Vector2.ZERO or p.distance_to(pad_center) < pad_braco + 45.0:
+					toques_dir[event.index] = d
+					_atualiza_analog()
+			elif p.distance_to(fire_center) < 105.0:
 				fire_ids[event.index] = true
 				player.set("fogo_touch", true)
 			elif p.distance_to(pause_center) < 55.0:
 				if main_ref != null and main_ref.has_method("_alternar_pause"):
 					main_ref.call("_alternar_pause")
 		else:
-			if event.index == joy_id:
-				joy_id = -1
-				joy_pos = joy_base
-				player.set("analog", Vector2.ZERO)
+			if toques_dir.has(event.index):
+				toques_dir.erase(event.index)
+				_atualiza_analog()
 			if fire_ids.has(event.index):
 				fire_ids.erase(event.index)
 				if fire_ids.is_empty():
 					player.set("fogo_touch", false)
 	elif event is InputEventScreenDrag:
-		if event.index == joy_id:
-			_atualiza_knob(event.position)
+		if toques_dir.has(event.index):
+			toques_dir[event.index] = _direcao_de(event.position)
+			_atualiza_analog()
 
-func _atualiza_knob(p: Vector2) -> void:
-	var off := (p - joy_base).limit_length(joy_r)
-	joy_pos = joy_base + off
-	player.set("analog", off / joy_r)
+func _botao_dir(c: Vector2, r: float, ativa: bool, seta: Vector2) -> void:
+	draw_circle(c, r, Color(0.08, 0.25, 0.1, 0.75 if ativa else 0.4))
+	draw_arc(c, r, 0, TAU, 28, Color(0.4, 1.0, 0.55, 1.0 if ativa else 0.6), 2.5)
+	var ponta := c + seta * (r * 0.45)
+	var base := c - seta * (r * 0.25)
+	var per := Vector2(-seta.y, seta.x) * r * 0.35
+	var cor := Color(0.6, 1.0, 0.65, 1.0 if ativa else 0.55)
+	draw_colored_polygon(PackedVector2Array([ponta, base + per, base - per]), cor)
 
 func _draw() -> void:
-	# analogico
-	draw_circle(joy_base, joy_r, Color(0.05, 0.2, 0.08, 0.45))
-	draw_arc(joy_base, joy_r, 0, TAU, 40, Color(0.35, 1.0, 0.55, 0.8), 2.5)
-	draw_circle(joy_pos, 30.0, Color(0.1, 0.35, 0.15, 0.7))
-	draw_arc(joy_pos, 30.0, 0, TAU, 32, Color(0.45, 1.0, 0.6, 0.9), 2.0)
-	# circulo de tiro (acende ao segurar)
+	var cima := Vector2.ZERO
+	var baixo := Vector2.ZERO
+	var esq := Vector2.ZERO
+	var dirc := Vector2.ZERO
+	for k in toques_dir:
+		var d: Vector2 = toques_dir[k]
+		if d.y < 0:
+			cima = Vector2(0, -1)
+		if d.y > 0:
+			baixo = Vector2(0, 1)
+		if d.x < 0:
+			esq = Vector2(-1, 0)
+		if d.x > 0:
+			dirc = Vector2(1, 0)
+	_botao_dir(pad_center + Vector2(0, -pad_braco), 30.0, cima != Vector2.ZERO, Vector2(0, -1))
+	_botao_dir(pad_center + Vector2(0, pad_braco), 30.0, baixo != Vector2.ZERO, Vector2(0, 1))
+	_botao_dir(pad_center + Vector2(-pad_braco, 0), 30.0, esq != Vector2.ZERO, Vector2(-1, 0))
+	_botao_dir(pad_center + Vector2(pad_braco, 0), 30.0, dirc != Vector2.ZERO, Vector2(1, 0))
+	draw_circle(pad_center, 16.0, Color(0.1, 0.3, 0.14, 0.6))
+	# botao de tiro
 	var atirando := not fire_ids.is_empty()
-	draw_circle(fire_center, fire_r, Color(0.1, 0.8, 0.3, 0.35 if atirando else 0.12))
-	draw_arc(fire_center, fire_r, 0, TAU, 40, Color(0.35, 1.0, 0.5, 1.0 if atirando else 0.7), 3.0)
-	draw_circle(fire_center, 10.0, Color(0.5, 1.0, 0.6, 0.9 if atirando else 0.4))
+	draw_circle(fire_center, fire_r, Color(0.1, 0.5, 0.18, 0.75 if atirando else 0.4))
+	draw_arc(fire_center, fire_r, 0, TAU, 44, Color(0.4, 1.0, 0.55, 1.0), 3.5)
+	var fnt := ThemeDB.fallback_font
+	draw_string(fnt, fire_center + Vector2(-32, 8), "FOGO", HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(0.75, 1.0, 0.8, 1.0 if atirando else 0.7))
 	# pausa
 	draw_arc(pause_center, 22.0, 0, TAU, 28, Color(0.7, 0.8, 0.75, 0.7), 2.0)
 	draw_line(pause_center + Vector2(-6, -8), pause_center + Vector2(-6, 8), Color(0.8, 0.9, 0.85, 0.8), 3.0)

@@ -7,6 +7,8 @@ var invencivel := 0.0
 var move_target := Vector2.ZERO
 var dragging := false
 var fogo_touch := false
+var analog := Vector2.ZERO
+var usa_analogico := false
 
 signal atirar(pos: Vector2)
 signal super_tiro(pos: Vector2)
@@ -171,7 +173,8 @@ func _process(delta: float) -> void:
 		dir.y -= 1
 	if Input.is_key_pressed(KEY_S) or Input.is_key_pressed(KEY_DOWN):
 		dir.y += 1
-	position += dir.normalized() * speed * delta
+	dir += analog
+	position += dir.normalized() * speed * delta if dir.length() > 0.05 else Vector2.ZERO
 
 	if dragging and move_target != Vector2.ZERO:
 		var antes := position
@@ -246,6 +249,9 @@ func _process(delta: float) -> void:
 	queue_redraw()
 
 func _input(event: InputEvent) -> void:
+	# no celular o TouchControls assume: ignora toques pra nao arrastar a nave
+	if usa_analogico and (event is InputEventScreenTouch or event is InputEventScreenDrag):
+		return
 	if event is InputEventMouseButton:
 		dragging = event.pressed
 		if event.pressed:

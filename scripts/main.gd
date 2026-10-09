@@ -169,33 +169,14 @@ func _ready() -> void:
 	charge_txt.visible = false
 	hud.add_child(charge_txt)
 
-	# botoes touch (celular): FOGO segura = atira/carrega, solta = super
+	# controles touch (celular): analogico + circulo de tiro (sem botoes)
 	if DisplayServer.is_touchscreen_available():
-		var fogo := Button.new()
-		fogo.text = "FOGO"
-		fogo.add_theme_font_size_override("font_size", 24)
-		if _fonte() != null:
-			fogo.add_theme_font_override("font", _fonte())
-		fogo.add_theme_color_override("font_color", Color(0.5, 1.0, 0.6))
-		var sf := StyleBoxFlat.new()
-		sf.bg_color = Color(0.02, 0.12, 0.05, 0.6)
-		sf.border_color = Color(0.35, 1.0, 0.55)
-		sf.set_border_width_all(2)
-		sf.set_corner_radius_all(65)
-		fogo.add_theme_stylebox_override("normal", sf)
-		fogo.position = Vector2(395, 730)
-		fogo.size = Vector2(130, 130)
-		fogo.button_down.connect(func(): player.set("fogo_touch", true))
-		fogo.button_up.connect(func(): player.set("fogo_touch", false))
-		hud.add_child(fogo)
-		var pt := Button.new()
-		pt.text = "II"
-		pt.add_theme_font_size_override("font_size", 20)
-		pt.add_theme_color_override("font_color", Color(0.8, 0.9, 0.85))
-		pt.position = Vector2(250, 12)
-		pt.size = Vector2(44, 44)
-		pt.pressed.connect(_alternar_pause)
-		hud.add_child(pt)
+		var tc := Node2D.new()
+		tc.set_script(preload("res://scripts/touch_controls.gd"))
+		add_child(tc)
+		tc.set("player", player)
+		tc.set("main_ref", self)
+		player.set("usa_analogico", true)
 
 	# camada de pause (sempre ativa pra responder no P)
 	pause_layer = CanvasLayer.new()

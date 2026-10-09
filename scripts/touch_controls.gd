@@ -33,35 +33,43 @@ func _atualiza_analog() -> void:
 	if player != null:
 		player.set("analog", soma.limit_length(1.0))
 
+# indice do toque -> zona ("dir" ou "fogo")
+var zona := {}
+
 func _input(event: InputEvent) -> void:
 	if not visible or player == null:
 		return
 	if event is InputEventScreenTouch:
-		var p: Vector2 = event.position
+		# viewport -> coordenadas do jogo (tela do celular tem escala diferente)
+		var p: Vector2 = make_canvas_position_local(event.position)
 		if event.pressed:
-			if p.x < 270.0 and p.y > 600.0:
-				var d := _direcao_de(p)
-				if d != Vector2.ZERO or p.distance_to(pad_center) < pad_braco + 45.0:
-					toques_dir[event.index] = d
-					_atualiza_analog()
-			elif p.distance_to(fire_center) < 105.0:
+			if p.distance_to(fire_center) < 95.0 and p.x > 300.0:
+				zona[event.index] = "fogo"
 				fire_ids[event.index] = true
 				player.set("fogo_touch", true)
+			elif p.x < 270.0 and p.y > 600.0:
+				zona[event.index] = "dir"
+				toques_dir[event.index] = _direcao_de(p)
+				_atualiza_analog()
+			# fora das zonas: ignora (nunca move a nave)
 			elif p.distance_to(pause_center) < 55.0:
 				if main_ref != null and main_ref.has_method("_alternar_pause"):
 					main_ref.call("_alternar_pause")
 		else:
-			if toques_dir.has(event.index):
+			if zona.get(event.index) == "dir" or toques_dir.has(event.index):
 				toques_dir.erase(event.index)
 				_atualiza_analog()
-			if fire_ids.has(event.index):
+			if zona.get(event.index) == "fogo" or fire_ids.has(event.index):
 				fire_ids.erase(event.index)
 				if fire_ids.is_empty():
 					player.set("fogo_touch", false)
+			zona.erase(event.index)
 	elif event is InputEventScreenDrag:
-		if toques_dir.has(event.index):
-			toques_dir[event.index] = _direcao_de(event.position)
-			_atualiza_analog()
+		if zona.get(event.index) != "dir":
+			return
+		var p: Vector2 = make_canvas_position_local(event.position)
+		toques_dir[event.index] = _direcao_de(p)
+		_atualiza_analog()
 
 func _botao_dir(c: Vector2, r: float, ativa: bool, seta: Vector2) -> void:
 	draw_circle(c, r, Color(0.08, 0.25, 0.1, 0.75 if ativa else 0.4))

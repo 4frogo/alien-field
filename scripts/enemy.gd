@@ -55,10 +55,7 @@ func setup(p_tipo: String, p_pos: Vector2, p_dir: Vector2 = Vector2(0, 1)) -> vo
 	elif tipo == "boss":
 		hp = 120
 		hp_max = 120
-		if ResourceLoader.exists("res://assets/naveguerreira.png"):
-			_criar_sprite("res://assets/naveguerreira.png", 300.0)
-		elif ResourceLoader.exists("res://assets/naveguerreira.jpg"):
-			_criar_sprite("res://assets/naveguerreira.jpg", 300.0)
+		_criar_sprite_boss()
 	elif tipo == "turret":
 		hp = 6
 		hp_max = 6
@@ -68,6 +65,41 @@ func setup(p_tipo: String, p_pos: Vector2, p_dir: Vector2 = Vector2(0, 1)) -> vo
 		hp_max = 6
 		vel_base = 32.0
 		_criar_sprite_bonus()
+
+func _criar_sprite_boss() -> void:
+	# boss1_clean.png: fundo removido de verdade, alfa real
+	for bp in ["res://assets/boss1_clean.png", "res://assets/boss1.png", "res://assets/boss1.jpg", "res://assets/naveguerreira.png", "res://assets/naveguerreira.jpg"]:
+		if ResourceLoader.exists(bp):
+			var tex := load(bp) as Texture2D
+			if tex == null:
+				continue
+			var tw := float(tex.get_width())
+			var th := float(tex.get_height())
+			if tw <= 0 or th <= 0:
+				continue
+			sprite = Sprite2D.new()
+			if bp.ends_with("boss1.png"):
+				var atlas := AtlasTexture.new()
+				atlas.atlas = tex
+				atlas.region = Rect2(0, 0, tw, th * 0.925)
+				sprite.texture = atlas
+			else:
+				sprite.texture = tex
+			var s := 300.0 / tw
+			sprite.scale = Vector2(s, s)
+			if ResourceLoader.exists("res://assets/boss_cut.gdshader"):
+				var csh := load("res://assets/boss_cut.gdshader") as Shader
+				var cmat := ShaderMaterial.new()
+				cmat.shader = csh
+				sprite.material = cmat
+			elif not bp.ends_with("_clean.png") and ResourceLoader.exists("res://assets/remove_black.gdshader"):
+				var sh := load("res://assets/remove_black.gdshader") as Shader
+				var mat := ShaderMaterial.new()
+				mat.shader = sh
+				sprite.material = mat
+			add_child(sprite)
+			tem_sprite = true
+			break
 
 func _criar_sprite_bonus() -> void:
 	# icone Upgrade1: recorte central + mascara circular (adeus quadrado)
@@ -118,9 +150,12 @@ func _process(delta: float) -> void:
 			vivo = false
 			queue_free()
 	elif tipo == "boss":
-		# boss rapido pros lados
+		# boss vivo: desliza, inclina nas curvas e respira
 		position.y = 152.0 + sin(tempo * 2.0) * 16.0
 		position.x = 270.0 + sin(tempo * 1.35) * 135.0
+		rotation = cos(tempo * 1.35) * 0.07
+		var resp := 1.0 + 0.02 * sin(tempo * 3.1)
+		scale = Vector2(resp, resp)
 		if randf() < delta * 1.1:
 			quer_atirar.emit(position + Vector2(randf_range(-40, 40), 80), true)
 	else:

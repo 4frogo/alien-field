@@ -10,11 +10,24 @@ var dano := 1
 var e_super := false
 var e_triplo := false
 var e_laser := false
+var e_disparo := false
 var perfurante := false
 var vida_perfurante := 99
 var fx: Sprite2D = null
 var fx_base := Vector2.ONE
 var fx_fase := 0.0
+var plasma: Sprite2D = null
+
+func setup_disparo(p: Vector2, v: Vector2, qual: int = 0) -> void:
+	# tiro normal desenhado a mao: raio de energia (sem imagem)
+	position = p
+	vel = v
+	amigo = true
+	dano = 1
+	e_disparo = true
+	raio = 9.0
+	fx = null
+	fx_fase = float(qual) * 2.1 + randf() * 0.6
 
 func _fazer_textura_feixe(w: int = 64, h: int = 256) -> ImageTexture:
 	var img := Image.create(w, h, false, Image.FORMAT_RGBA8)
@@ -80,7 +93,7 @@ func _aplicar_shader_inimigo(sp: Sprite2D, carga: float, vel: float) -> void:
 		sp.material = mat
 
 func setup_triplotiro(p: Vector2, v: Vector2, p_dano: int = 6) -> void:
-	# leque triplo: imagem cheia, bocas na base encostando no bico da nave
+	# triplo 100% procedural: orbe de plasma + 3 raios desenhados
 	position = p
 	vel = v
 	amigo = true
@@ -89,31 +102,20 @@ func setup_triplotiro(p: Vector2, v: Vector2, p_dano: int = 6) -> void:
 	e_triplo = true
 	perfurante = false
 	raio = 40.0
+	fx = null
 	fx_fase = randf() * TAU
-	for bp in ["res://assets/triplotiro.jpg", "res://assets/triplotiro.png", "res://assets/tirotriplo.png", "res://assets/tirotriplo.jpg"]:
-		if ResourceLoader.exists(bp):
-			var tex := load(bp) as Texture2D
-			if tex != null:
-				fx = Sprite2D.new()
-				fx.texture = tex
-				var tw := float(tex.get_width())
-				if tw > 0:
-					var s := 170.0 / tw
-					# variacao por rajada pra nao parecer carimbo
-					s *= randf_range(0.94, 1.06)
-					fx_base = Vector2(s, s)
-					fx.scale = fx_base
-					fx.rotation = randf_range(-0.05, 0.05)
-				if ResourceLoader.exists("res://assets/remove_black.gdshader"):
-					var sh := load("res://assets/remove_black.gdshader") as Shader
-					var mat := ShaderMaterial.new()
-					mat.shader = sh
-					# corte mais forte: tira a sombra cinza do JPG sem comer os raios
-					mat.set_shader_parameter("cutoff", 0.13)
-					mat.set_shader_parameter("feather", 0.12)
-					fx.material = mat
-				add_child(fx)
-				break
+	# base: orbe de plasma verde animado por tras dos raios
+	plasma = Sprite2D.new()
+	plasma.texture = _fazer_textura_radial()
+	plasma.scale = Vector2(1.55, 1.55)
+	if ResourceLoader.exists("res://assets/energy_ball.gdshader"):
+		var psh := load("res://assets/energy_ball.gdshader") as Shader
+		var pmat := ShaderMaterial.new()
+		pmat.shader = psh
+		pmat.set_shader_parameter("charge", 1.0)
+		pmat.set_shader_parameter("speed", 7.0)
+		plasma.material = pmat
+	add_child(plasma)
 
 func setup_gigante(p: Vector2, v: Vector2) -> void:
 	# bola do chefao - gigante, maior que a nave
@@ -171,12 +173,76 @@ func _process(delta: float) -> void:
 		fx.scale = fx_base * (1.0 + 0.07 * sin(t * 21.0))
 		fx.rotation += sin(t * 13.0) * 0.012
 		fx.modulate = Color(1.0, 1.0, 1.0, 0.9 + 0.1 * sin(t * 27.0))
+	if e_triplo and plasma != null:
+		plasma.rotation -= delta * 2.5
+		var ps := 1.55 * (1.0 + 0.09 * sin((tempo + fx_fase) * 17.0))
+		plasma.scale = Vector2(ps, ps)
+	if e_disparo and fx != null:
+		# cristal vivo: pulso suave + cintilacao (mantem o tom verde)
+		var td := tempo + fx_fase
+		fx.scale = fx_base * (1.0 + 0.06 * sin(td * 19.0))
+		fx.modulate = Color(0.82, 1.0, 0.88, 0.92 + 0.08 * sin(td * 25.0))
 	if position.y < -40 or position.y > 1000 or position.x < -20 or position.x > 560:
 		vivo = false
 		queue_free()
 	queue_redraw()
 
+func _raio_plasma(base: Vector2, ang: float, comp: float, fase: float) -> void:
+	# raio de plasma em 3 camadas com tremor eletrico
+	var c := comp * (1.0 + 0.09 * sin(tempo * 21.0 + fase))
+	var dir := Vector2(sin(ang), -cos(ang))
+	var bal := sin(tempo * 37.0 + fase * 2.0) * 2.0
+	var ponta := base + dir * c + Vector2(bal, 0)
+	var per := Vector2(-dir.y, dir.x)
+	var w := 8.0
+	draw_colored_polygon(PackedVector2Array([base + per * w, base - per * w, ponta]), Color(0.12, 0.85, 0.3, 0.40))
+	var w2 := w * 0.55
+	var ponta2 := base + dir * (c * 0.82)
+	draw_colored_polygon(PackedVector2Array([base + per * w2, base - per * w2, ponta2]), Color(0.35, 1.0, 0.5, 0.9))
+	var w3 := w * 0.25
+	var ponta3 := base + dir * (c * 0.6)
+	draw_colored_polygon(PackedVector2Array([base + per * w3, base - per * w3, ponta3]), Color(0.92, 1.0, 0.94, 0.95))
+	# lingua eletrica na ponta
+	var zig := ponta + Vector2(sin(tempo * 47.0 + fase * 3.0) * 5.0, -8.0)
+	draw_line(ponta, zig, Color(0.7, 1.0, 0.75, 0.8), 1.5)
+
 func _draw() -> void:
+	if e_disparo:
+		# raio de energia desenhado a mao, tremeluzindo
+		var t := tempo * 25.0 + fx_fase
+		var pul := 1.0 + 0.12 * sin(t)
+		# rastro
+		draw_circle(Vector2(0, 12), 5.0, Color(0.15, 0.9, 0.35, 0.25))
+		draw_circle(Vector2(0, 8), 3.0, Color(0.4, 1.0, 0.5, 0.4))
+		# corpo: losango alongado em 3 camadas
+		var w := 6.5 * pul
+		var tip := -24.0 * pul
+		draw_colored_polygon(PackedVector2Array([Vector2(0, tip), Vector2(w, -4), Vector2(0, 12), Vector2(-w, -4)]), Color(0.15, 0.85, 0.32, 0.55))
+		var w2 := w * 0.55
+		var tip2 := -19.0 * pul
+		draw_colored_polygon(PackedVector2Array([Vector2(0, tip2), Vector2(w2, -3), Vector2(0, 9), Vector2(-w2, -3)]), Color(0.4, 1.0, 0.55, 0.9))
+		var w3 := w * 0.25
+		draw_colored_polygon(PackedVector2Array([Vector2(0, tip2 + 3.0), Vector2(w3, -2), Vector2(0, 7), Vector2(-w3, -2)]), Color(0.93, 1.0, 0.94, 0.95))
+		# faisca na ponta
+		draw_circle(Vector2(sin(t * 1.7) * 2.0, tip), 2.0, Color(0.9, 1.0, 0.9, 0.8))
+		return
+	if e_triplo:
+		# brasa na boca
+		var brasa := 0.7 + 0.3 * sin(tempo * 23.0 + fx_fase)
+		draw_circle(Vector2(0, 20), 20.0 * brasa, Color(0.2, 1.0, 0.45, 0.35))
+		draw_circle(Vector2(0, 20), 10.0 * brasa, Color(0.7, 1.0, 0.75, 0.6))
+		# 3 raios de plasma em leque
+		_raio_plasma(Vector2(-26, 14), -0.20, 56.0, fx_fase)
+		_raio_plasma(Vector2(0, 10), 0.0, 70.0, fx_fase + 2.1)
+		_raio_plasma(Vector2(26, 14), 0.20, 56.0, fx_fase + 4.2)
+		# faiscas orbitando o orbe de plasma
+		for i in 7:
+			var a := tempo * 4.5 + TAU * float(i) / 7.0
+			var pp := Vector2(cos(a), sin(a)) * 62.0
+			var tw := 0.5 + 0.5 * sin(tempo * 11.0 + float(i) * 2.2)
+			draw_circle(pp, 3.2 * tw + 1.0, Color(0.5, 1.0, 0.6, 0.85))
+			draw_circle(pp, 1.4, Color(0.95, 1.0, 0.95, 0.95))
+		return
 	if e_laser and fx != null:
 		_draw_vortice()
 		_draw_raios()

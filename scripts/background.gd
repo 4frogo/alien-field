@@ -69,14 +69,18 @@ func trocar_dimensao(n: int) -> void:
 func _ready() -> void:
 	z_index = -10
 	var paths1: Array = ["res://assets/bg.png", "res://assets/bg.jpg"]
-	var paths2: Array = [
-		"res://assets/redfuture.png",
-		"res://assets/bg2.png", "res://assets/bg2.jpg",
-		"res://assets/bg3.png", "res://assets/bg3.jpg",
-		"res://assets/bg4.png", "res://assets/bg4.jpg",
-		"res://assets/bg5.png", "res://assets/bg5.jpg",
-		"res://assets/fase.png", "res://assets/background.png"
-	]
+	# arena do boss: loop seamless unico = infinito de verdade
+	var paths2: Array = ["res://assets/cenarioV_seamless.png"]
+	if not ResourceLoader.exists("res://assets/cenarioV_seamless.png"):
+		paths2 = [
+			"res://assets/cenarioV.png",
+			"res://assets/redfuture.png",
+			"res://assets/bg2.png", "res://assets/bg2.jpg",
+			"res://assets/bg3.png", "res://assets/bg3.jpg",
+			"res://assets/bg4.png", "res://assets/bg4.jpg",
+			"res://assets/bg5.png", "res://assets/bg5.jpg",
+			"res://assets/fase.png", "res://assets/background.png"
+		]
 	for p in paths1:
 		if ResourceLoader.exists(p):
 			var t := load(p) as Texture2D

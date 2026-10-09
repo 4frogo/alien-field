@@ -445,12 +445,14 @@ func _on_player_atirar(pos: Vector2) -> void:
 		add_child(flash)
 		flash.call("setup", pos, Color(0.45, 1.0, 0.6), 30.0)
 	else:
-		# tiro triplo normal
-		for off in [Vector2(0, 0), Vector2(-10, 8), Vector2(10, 8)]:
+		# tiro normal novo: 3 cristais da imagem disparo.png
+		var noffs := [Vector2(-12, 8), Vector2(0, 0), Vector2(12, 8)]
+		var nvels := [Vector2(-35, -615), Vector2(0, -630), Vector2(35, -615)]
+		for i in 3:
 			var b := Node2D.new()
 			b.set_script(BulletScript)
 			add_child(b)
-			b.call("setup", pos + off, Vector2(0, -620), true, 1, false)
+			b.call("setup_disparo", pos + noffs[i], nvels[i], i)
 			tiros.append(b)
 	_fx_tiro(pos)
 	# som do tiro do player mutado por enquanto

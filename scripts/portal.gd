@@ -14,20 +14,18 @@ func _draw() -> void:
 	if not ativo:
 		return
 	var pulse := 0.9 + 0.1 * sin(tempo * 3.0)
-	# brasa vermelha externa
-	draw_circle(Vector2.ZERO, raio * 1.45 * pulse, Color(0.5, 0.03, 0.02, 0.30))
-	draw_circle(Vector2.ZERO, raio * 1.2 * pulse, Color(0.8, 0.08, 0.05, 0.35))
-	# aneis de energia girando (desenhados com rotacao do no)
-	for i in 3:
-		var rr := raio * (0.95 + float(i) * 0.14)
-		var ini := float(i) * 2.1
-		draw_arc(Vector2.ZERO, rr, ini, ini + 4.2, 36, Color(1, 0.15 - float(i) * 0.03, 0.08, 0.85 - float(i) * 0.2), 4.0 - float(i))
-		draw_arc(Vector2.ZERO, rr, ini + PI, ini + PI + 2.0, 28, Color(0.1, 0.0, 0.0, 0.9), 5.0)
-	# nucleo negro absoluto com borda vermelha quente
-	draw_circle(Vector2.ZERO, raio * 0.72, Color(0, 0, 0, 1))
-	draw_arc(Vector2.ZERO, raio * 0.72, 0, TAU, 48, Color(1, 0.2, 0.08, 0.95), 3.0)
-	draw_arc(Vector2.ZERO, raio * 0.6, -tempo * 2.0, -tempo * 2.0 + 5.0, 36, Color(1, 0.45, 0.15, 0.8), 2.5)
+	# brasa vermelha externa (suave, sem aneis chapados)
+	draw_circle(Vector2.ZERO, raio * 1.5 * pulse, Color(0.45, 0.03, 0.02, 0.25))
+	draw_circle(Vector2.ZERO, raio * 1.18 * pulse, Color(0.75, 0.07, 0.04, 0.30))
 	_draw_vortice()
+	# nucleo negro absoluto com borda vermelha quente
+	draw_circle(Vector2.ZERO, raio * 0.7, Color(0, 0, 0, 1))
+	draw_arc(Vector2.ZERO, raio * 0.7, 0, TAU, 48, Color(1, 0.2, 0.08, 0.95), 3.0)
+	# 2 segmentos quentes orbitando (pontos de succao)
+	var q1 := tempo * 2.6
+	var q2 := -tempo * 1.8 + 2.0
+	draw_arc(Vector2.ZERO, raio * 0.82, q1, q1 + 1.1, 20, Color(1, 0.75, 0.35, 0.95), 4.0)
+	draw_arc(Vector2.ZERO, raio * 1.02, q2, q2 + 0.8, 18, Color(1, 0.25, 0.08, 0.9), 2.5)
 	_draw_raios()
 
 func _draw_vortice() -> void:
@@ -55,13 +53,13 @@ func _draw_vortice() -> void:
 		draw_line(p1, p2, Color(1, 0.15, 0.06, 0.85), 2.5)
 
 func _draw_raios() -> void:
-	# raios negros e vermelhos cuspidos pra fora (regerados a cada frame)
+	# raios de energia: fio vermelho com nucleo escuro (nunca rabisco preto puro)
 	var rng := RandomNumberGenerator.new()
 	var passo := int(tempo / 0.09)
-	for b in 8:
+	for b in 6:
 		rng.seed = passo * 977 + b * 131
 		var a := rng.randf_range(0.0, TAU)
-		var r0 := raio * rng.randf_range(0.7, 0.9)
+		var r0 := raio * rng.randf_range(0.85, 1.05)
 		var pts := PackedVector2Array([Vector2(cos(a), sin(a)) * r0])
 		var rr := r0
 		var aa := a
@@ -69,8 +67,8 @@ func _draw_raios() -> void:
 			rr += rng.randf_range(18.0, 42.0)
 			aa += rng.randf_range(-0.5, 0.5)
 			pts.append(Vector2(cos(aa), sin(aa)) * rr)
-		var cor := Color(0.05, 0.0, 0.0, 0.95) if b % 2 == 0 else Color(1, 0.12, 0.05, 0.9)
-		draw_polyline(pts, cor, 4.0 if b % 2 == 0 else 2.5)
+		draw_polyline(pts, Color(1, 0.14, 0.05, 0.55), 6.0)
+		draw_polyline(pts, Color(0.12, 0.0, 0.0, 0.95), 2.5)
 	# faiscas vermelhas orbitando
 	rng.seed = passo * 57 + 3
 	for i in 10:

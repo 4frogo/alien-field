@@ -17,14 +17,23 @@ var pause_r := 34.0
 func _process(_delta: float) -> void:
 	queue_redraw()
 
+func _seta_em(p: Vector2) -> Vector2:
+	# so as 4 setas respondem (nada de area generica)
+	for s in [Vector2(0, -1), Vector2(0, 1), Vector2(-1, 0), Vector2(1, 0)]:
+		if p.distance_to(pad_center + s * pad_braco) < 44.0:
+			return s
+	return Vector2.ZERO
+
 func _direcao_de(p: Vector2) -> Vector2:
+	# deslize: direcao unica dominante perto do pad
+	if p.distance_to(pad_center) > 120.0:
+		return Vector2.ZERO
 	var d := p - pad_center
-	var out := Vector2.ZERO
-	if absf(d.x) > pad_morto:
-		out.x = 1.0 if d.x > 0 else -1.0
-	if absf(d.y) > pad_morto:
-		out.y = 1.0 if d.y > 0 else -1.0
-	return out
+	if d.length() < pad_morto:
+		return Vector2.ZERO
+	if absf(d.x) > absf(d.y):
+		return Vector2(1.0 if d.x > 0 else -1.0, 0)
+	return Vector2(0, 1.0 if d.y > 0 else -1.0)
 
 func _atualiza_analog() -> void:
 	var soma := Vector2.ZERO
@@ -43,15 +52,16 @@ func _input(event: InputEvent) -> void:
 		# viewport -> coordenadas do jogo (tela do celular tem escala diferente)
 		var p: Vector2 = make_canvas_position_local(event.position)
 		if event.pressed:
-			if p.distance_to(fire_center) < 95.0 and p.x > 300.0:
+			var s := _seta_em(p)
+			if s != Vector2.ZERO:
+				zona[event.index] = "dir"
+				toques_dir[event.index] = s
+				_atualiza_analog()
+			elif p.distance_to(fire_center) < 80.0:
 				zona[event.index] = "fogo"
 				fire_ids[event.index] = true
 				player.set("fogo_touch", true)
-			elif p.x < 270.0 and p.y > 600.0:
-				zona[event.index] = "dir"
-				toques_dir[event.index] = _direcao_de(p)
-				_atualiza_analog()
-			# fora das zonas: ignora (nunca move a nave)
+			# resto da tela: ignora (nao move nem atira)
 			elif p.distance_to(pause_center) < 55.0:
 				if main_ref != null and main_ref.has_method("_alternar_pause"):
 					main_ref.call("_alternar_pause")

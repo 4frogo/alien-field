@@ -4,8 +4,6 @@ extends Node2D
 var speed := 300.0
 var shoot_cooldown := 0.0
 var invencivel := 0.0
-var move_target := Vector2.ZERO
-var dragging := false
 var fogo_touch := false
 var analog := Vector2.ZERO
 var usa_analogico := false
@@ -177,13 +175,6 @@ func _process(delta: float) -> void:
 	dir += analog
 	position += dir.normalized() * speed * delta if dir.length() > 0.05 else Vector2.ZERO
 
-	if dragging and move_target != Vector2.ZERO:
-		var antes := position
-		position = position.lerp(move_target, 12.0 * delta)
-		var arrasto := (position - antes) / maxf(delta, 0.001) / speed
-		if arrasto.length() > 0.15:
-			dir = arrasto.limit_length(1.0)
-
 	position.x = clamp(position.x, 95.0, 445.0)
 	position.y = clamp(position.y, 400.0, 900.0)
 	# impulso pros propulsores (0 parado, 1 movendo)
@@ -251,21 +242,9 @@ func _process(delta: float) -> void:
 	queue_redraw()
 
 func _input(event: InputEvent) -> void:
-	# no celular o TouchControls assume: ignora toques pra nao arrastar a nave
+	# PC: somente WASD (sem mouse). Celular: TouchControls assume.
 	if usa_analogico and (event is InputEventScreenTouch or event is InputEventScreenDrag):
 		return
-	if event is InputEventMouseButton:
-		dragging = event.pressed
-		if event.pressed:
-			move_target = get_global_mouse_position()
-	elif event is InputEventMouseMotion and dragging:
-		move_target = get_global_mouse_position()
-	elif event is InputEventScreenTouch:
-		dragging = event.pressed
-		if event.pressed:
-			move_target = event.position
-	elif event is InputEventScreenDrag:
-		move_target = event.position
 
 func _draw() -> void:
 	_draw_escudo_fundo()

@@ -83,8 +83,8 @@ func setup(p_tipo: String, p_pos: Vector2, p_dir: Vector2 = Vector2(0, 1)) -> vo
 		escala0 = sprite.scale
 
 func _criar_sprite_boss() -> void:
-	# boss1_clean.png: fundo removido de verdade, alfa real
-	for bp in ["res://assets/boss1_clean.png", "res://assets/boss1.png", "res://assets/boss1.jpg", "res://assets/naveguerreira.png", "res://assets/naveguerreira.jpg"]:
+	# boss001_clean.png: fundo removido de verdade, alfa real
+	for bp in ["res://assets/boss001_clean.png", "res://assets/boss1_clean.png", "res://assets/boss1.png", "res://assets/boss1.jpg", "res://assets/naveguerreira.png", "res://assets/naveguerreira.jpg"]:
 		if ResourceLoader.exists(bp):
 			var tex := load(bp) as Texture2D
 			if tex == null:
@@ -95,10 +95,7 @@ func _criar_sprite_boss() -> void:
 				continue
 			sprite = Sprite2D.new()
 			if bp.ends_with("_clean.png"):
-				var atlas := AtlasTexture.new()
-				atlas.atlas = tex
-				atlas.region = Rect2(0, 0, tw, th * 0.972)
-				sprite.texture = atlas
+				sprite.texture = tex
 			elif bp.ends_with("boss1.png"):
 				var atlas := AtlasTexture.new()
 				atlas.atlas = tex

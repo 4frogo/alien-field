@@ -12,6 +12,14 @@ var sprite: Sprite2D = null
 var tem_sprite := false
 var dir_entrada := Vector2(0, 1)
 var vel_base := 65.0
+var entrando := false
+var flash := 0.0
+var escala0 := Vector2.ONE
+var t_entrada := 0.0
+var pe0 := Vector2.ZERO
+var pe1 := Vector2.ZERO
+var pec := Vector2.ZERO
+var brilho_nucleo: Sprite2D = null
 
 signal quer_atirar(pos: Vector2, grande: bool)
 
@@ -52,6 +60,12 @@ func setup(p_tipo: String, p_pos: Vector2, p_dir: Vector2 = Vector2(0, 1)) -> vo
 			_criar_sprite("res://assets/capangaV.png", 78.0, "res://assets/remove_white.gdshader")
 		elif ResourceLoader.exists("res://assets/enemy_small.png"):
 			_criar_sprite("res://assets/enemy_small.png", 70.0)
+		# entrada em curva: bezier ate a formacao
+		entrando = true
+		t_entrada = 0.0
+		pe0 = p_pos
+		pe1 = Vector2(clampf(base_x, 100.0, 440.0), randf_range(90.0, 170.0))
+		pec = (pe0 + pe1) * 0.5 + Vector2(randf_range(-160.0, 160.0), -40.0)
 	elif tipo == "boss":
 		hp = 120
 		hp_max = 120
@@ -65,6 +79,8 @@ func setup(p_tipo: String, p_pos: Vector2, p_dir: Vector2 = Vector2(0, 1)) -> vo
 		hp_max = 6
 		vel_base = 32.0
 		_criar_sprite_bonus()
+	if sprite != null:
+		escala0 = sprite.scale
 
 func _criar_sprite_boss() -> void:
 	# boss1_clean.png: fundo removido de verdade, alfa real
@@ -78,7 +94,12 @@ func _criar_sprite_boss() -> void:
 			if tw <= 0 or th <= 0:
 				continue
 			sprite = Sprite2D.new()
-			if bp.ends_with("boss1.png"):
+			if bp.ends_with("_clean.png"):
+				var atlas := AtlasTexture.new()
+				atlas.atlas = tex
+				atlas.region = Rect2(0, 0, tw, th * 0.972)
+				sprite.texture = atlas
+			elif bp.ends_with("boss1.png"):
 				var atlas := AtlasTexture.new()
 				atlas.atlas = tex
 				atlas.region = Rect2(0, 0, tw, th * 0.925)
@@ -100,6 +121,24 @@ func _criar_sprite_boss() -> void:
 			add_child(sprite)
 			tem_sprite = true
 			break
+	# brilho do nucleo: pulsa e cresce com o dano (boca abrindo)
+	if sprite != null:
+		brilho_nucleo = Sprite2D.new()
+		brilho_nucleo.texture = _fazer_brilho()
+		brilho_nucleo.position = Vector2(0, 30)
+		brilho_nucleo.modulate = Color(1, 0.3, 0.15, 0.4)
+		add_child(brilho_nucleo)
+
+func _fazer_brilho() -> ImageTexture:
+	var tam := 64
+	var img := Image.create(tam, tam, false, Image.FORMAT_RGBA8)
+	var c := float(tam) / 2.0
+	for y in tam:
+		for x in tam:
+			var d := Vector2(float(x) - c + 0.5, float(y) - c + 0.5).length() / c
+			var a := clampf(1.0 - d, 0.0, 1.0)
+			img.set_pixel(x, y, Color(1, 1, 1, a * a))
+	return ImageTexture.create_from_image(img)
 
 func _criar_sprite_bonus() -> void:
 	# icone Upgrade1: recorte central + mascara circular (adeus quadrado)
@@ -131,7 +170,26 @@ func _criar_sprite_bonus() -> void:
 
 func _process(delta: float) -> void:
 	tempo += delta
+	flash = maxf(0.0, flash - delta * 5.0)
+	if sprite != null:
+		var f := flash
+		sprite.modulate = Color(1.0, 1.0 - 0.75 * f, 1.0 - 0.75 * f)
+		if tipo != "boss":
+			sprite.scale = sprite.scale.lerp(escala0 * (1.0 + 0.12 * f), minf(1.0, 10.0 * delta))
 	if tipo == "small":
+		if entrando:
+			# bezier de entrada com ease-out
+			t_entrada += delta / 1.8
+			var k := minf(1.0, t_entrada)
+			var e := 1.0 - pow(1.0 - k, 3.0)
+			var a := pe0.lerp(pec, e)
+			var b := pec.lerp(pe1, e)
+			position = a.lerp(b, e)
+			base_x = pe1.x
+			if k >= 1.0:
+				entrando = false
+			queue_redraw()
+			return
 		position += dir_entrada * vel_base * delta
 		# ondulacao lateral
 		var perp := Vector2(-dir_entrada.y, dir_entrada.x)
@@ -150,14 +208,37 @@ func _process(delta: float) -> void:
 			vivo = false
 			queue_free()
 	elif tipo == "boss":
+		if entrando:
+			queue_redraw()
+			return
 		# boss vivo: desliza, inclina nas curvas e respira
-		position.y = 152.0 + sin(tempo * 2.0) * 16.0
-		position.x = 270.0 + sin(tempo * 1.35) * 135.0
-		rotation = cos(tempo * 1.35) * 0.07
+		# fases: 3 (>66%) tiro mirado | 2 (>33%) leque triplo | 1 enfurecido
+		var fase := 3 if hp > 80 else (2 if hp > 40 else 1)
+		var mult := 1.0 if fase == 3 else (1.35 if fase == 2 else 1.8)
+		position.y = 152.0 + sin(tempo * 2.0 * mult) * 16.0
+		position.x = 270.0 + sin(tempo * 1.35 * mult) * (135.0 if fase > 1 else 160.0)
+		rotation = cos(tempo * 1.35 * mult) * 0.07
 		var resp := 1.0 + 0.02 * sin(tempo * 3.1)
 		scale = Vector2(resp, resp)
-		if randf() < delta * 1.1:
-			quer_atirar.emit(position + Vector2(randf_range(-40, 40), 80), true)
+		# nucleo abre conforme apanha
+		if brilho_nucleo != null:
+			var falta := 1.0 - clampf(float(hp) / 120.0, 0.0, 1.0)
+			var pb := 0.8 + 2.2 * falta + 0.25 * sin(tempo * 6.0)
+			brilho_nucleo.scale = Vector2(pb, pb)
+			brilho_nucleo.modulate.a = 0.3 + 0.6 * falta + 0.15 * sin(tempo * 6.0)
+		if fase == 1 and flash <= 0.0 and sprite != null:
+			sprite.modulate = Color(1.0, 0.72, 0.72)
+		if fase == 3:
+			if randf() < delta * 1.1:
+				quer_atirar.emit(position + Vector2(randf_range(-40, 40), 80), true)
+		elif fase == 2:
+			if randf() < delta * 1.5:
+				quer_atirar.emit(position + Vector2(-55, 70), true)
+				quer_atirar.emit(position + Vector2(0, 85), true)
+				quer_atirar.emit(position + Vector2(55, 70), true)
+		else:
+			if randf() < delta * 2.0:
+				quer_atirar.emit(position + Vector2(randf_range(-70, 70), 80), true)
 	else:
 		# bonus: desce devagar no meio, sem atirar
 		position.y += vel_base * delta
@@ -169,6 +250,9 @@ func _process(delta: float) -> void:
 
 func levar_dano(d: int) -> bool:
 	hp -= d
+	flash = 1.0
+	if sprite != null and tipo != "boss":
+		sprite.scale = escala0 * 1.12
 	if hp <= 0:
 		vivo = false
 		queue_free()

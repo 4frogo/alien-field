@@ -20,6 +20,9 @@ var boss: Node2D = null
 var sfx: Node = null
 var musica: Node = null
 var bg_no: Node2D = null
+var cam: Camera2D = null
+var trauma := 0.0
+var hitstop_id := 0
 var dimensao := 1
 var tempo_fase := 0.0
 var portal: Node2D = null
@@ -64,6 +67,9 @@ var pause_layer: CanvasLayer = null
 var last_beep := 0
 var abates := 0
 var chefe_sem_escudo := 0
+var frames_boom: SpriteFrames = null
+var morto_id := 0
+var dano_no_chefe := false
 
 func _registrar_abate() -> void:
 	abates += 1
@@ -77,8 +83,46 @@ func _fonte() -> Font:
 		fonte_horror = load("res://assets/horror.ttf") as Font
 	return fonte_horror
 
+func _gerar_flipbook_boom() -> SpriteFrames:
+	# 7 frames procedurais 64px: nucleo branco -> laranja -> fumaca
+	var sf := SpriteFrames.new()
+	sf.set_animation_speed("default", 14)
+	sf.set_animation_loop("default", false)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 2024
+	for f in 7:
+		var tam := 64
+		var img := Image.create(tam, tam, false, Image.FORMAT_RGBA8)
+		var c := float(tam) / 2.0
+		var k := float(f) / 6.0
+		for y in tam:
+			for x in tam:
+				var d := Vector2(float(x) - c + 0.5, float(y) - c + 0.5).length() / c
+				var corpo := clampf((1.0 - k) * 1.1 - d, 0.0, 1.0)
+				var anel := clampf(1.0 - absf(d - k * 0.9) * 3.0, 0.0, 1.0) * (1.0 - k * 0.6)
+				var r := clampf(corpo * 1.2 + anel, 0.0, 1.0)
+				var g := clampf(corpo * (1.0 - k * 0.7) + anel * 0.5, 0.0, 1.0)
+				var b := clampf(corpo * (1.0 - k) * (1.0 - k) + anel * 0.15, 0.0, 1.0)
+				var a := clampf(maxf(corpo, anel * 0.9) + (0.25 if k > 0.5 else 0.0), 0.0, 1.0)
+				if d < 1.0:
+					img.set_pixel(x, y, Color(r, g, b, a))
+		sf.add_frame("default", ImageTexture.create_from_image(img))
+	return sf
+
+func _boom_flipbook(pos: Vector2, escala: float) -> void:
+	if frames_boom == null:
+		return
+	var a := AnimatedSprite2D.new()
+	a.sprite_frames = frames_boom
+	a.position = pos
+	a.scale = Vector2(escala, escala)
+	add_child(a)
+	a.play("default")
+	a.animation_finished.connect(a.queue_free)
+
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	frames_boom = _gerar_flipbook_boom()
 	sfx = Node.new()
 	sfx.set_script(SfxScript)
 	add_child(sfx)
@@ -90,6 +134,12 @@ func _ready() -> void:
 	bg.set_script(BgScript)
 	add_child(bg)
 	bg_no = bg
+
+	# camera do jogo (shake/hit-stop); HUD fica parado
+	cam = Camera2D.new()
+	cam.position = Vector2(270, 480)
+	add_child(cam)
+	cam.make_current()
 
 	player = Node2D.new()
 	player.set_script(PlayerScript)
@@ -231,6 +281,7 @@ func _ready() -> void:
 
 	for i in 3:
 		_spawn_small()
+	_cartao_fase()
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_P:
@@ -244,6 +295,26 @@ func _alternar_pause() -> void:
 		pause_layer.visible = get_tree().paused
 	if musica != null and musica.has_method("set_pausado"):
 		musica.call("set_pausado", get_tree().paused)
+
+func _cartao_fase() -> void:
+	# cartao FASE 1-3 deslizando com tween
+	var card := Label.new()
+	card.text = "FASE 1-3"
+	card.add_theme_font_size_override("font_size", 64)
+	if _fonte() != null:
+		card.add_theme_font_override("font", _fonte())
+	card.add_theme_color_override("font_color", Color(0.5, 1.0, 0.6))
+	card.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	card.position = Vector2(560, 420)
+	card.size = Vector2(540, 90)
+	card.modulate.a = 0.0
+	hud.add_child(card)
+	var tw := create_tween().set_parallel(true)
+	tw.tween_property(card, "position:x", 0.0, 0.6).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tw.tween_property(card, "modulate:a", 1.0, 0.4)
+	tw.chain().tween_interval(1.2)
+	tw.tween_property(card, "modulate:a", 0.0, 0.5)
+	tw.tween_callback(card.queue_free)
 
 func _spawn_portal() -> void:
 	if portal != null and is_instance_valid(portal):
@@ -304,6 +375,24 @@ func _mostrar_transicao() -> void:
 	flash.set_anchors_preset(Control.PRESET_FULL_RECT)
 	flash.name = "Flash"
 	transicao_layer.add_child(flash)
+	# quadrinhos da travessia
+	var falas := ["O PORTAL SE ABRIU...", "A FROTA FICOU PARA TRAS", "SO RESTOU VOCE"]
+	for i in 3:
+		var q := Label.new()
+		q.text = falas[i]
+		q.add_theme_font_size_override("font_size", 26)
+		if _fonte() != null:
+			q.add_theme_font_override("font", _fonte())
+		q.add_theme_color_override("font_color", Color(0.92, 1.0, 0.94))
+		q.add_theme_color_override("font_shadow_color", Color(0, 0, 0))
+		q.add_theme_constant_override("shadow_offset_x", 2)
+		q.add_theme_constant_override("shadow_offset_y", 2)
+		q.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		q.position = Vector2(0, 180.0 + float(i) * 300.0)
+		q.size = Vector2(540, 40)
+		q.name = "Q%d" % i
+		q.modulate.a = 0.0
+		transicao_layer.add_child(q)
 	# dissolve + poeira (scripts Poeira/Dissolve)
 	var art2 := transicao_layer.get_node_or_null("Art") as Sprite2D
 	if art2 != null and ResourceLoader.exists("res://assets/transicao_dissolve.gdshader"):
@@ -346,13 +435,81 @@ func _spawn_boss() -> void:
 	boss = Node2D.new()
 	boss.set_script(EnemyScript)
 	add_child(boss)
-	boss.call("setup", "boss", Vector2(270, 148), Vector2(0, 1))
+	boss.call("setup", "boss", Vector2(270, -180), Vector2(0, 1))
+	boss.set("entrando", true)
 	boss.connect("quer_atirar", _on_enemy_atirar)
 	inimigos.append(boss)
+	# descida cinematica com ease-out
+	var tw := create_tween()
+	tw.tween_property(boss, "position:y", 148.0, 2.4).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tw.tween_callback(_chegada_boss)
 	if sfx != null:
 		sfx.call("boss")
 	if musica != null and musica.has_method("trocar_para_boss"):
 		musica.call("trocar_para_boss")
+
+func _chegada_boss() -> void:
+	if boss != null and is_instance_valid(boss):
+		boss.set("entrando", false)
+		_fx_explosao(boss.position + Vector2(0, 60), false, false)
+	add_trauma(0.45)
+	dano_no_chefe = false
+	# soco de zoom na chegada
+	if cam != null and is_instance_valid(cam):
+		var tw := create_tween()
+		tw.tween_property(cam, "zoom", Vector2(1.09, 1.09), 0.22).set_trans(Tween.TRANS_SINE)
+		tw.tween_property(cam, "zoom", Vector2.ONE, 0.45).set_trans(Tween.TRANS_SINE)
+	_intro_chefe()
+
+func _intro_chefe() -> void:
+	# cartaz com letterbox: nome do chefao
+	var layer := CanvasLayer.new()
+	layer.layer = 55
+	add_child(layer)
+	var top := ColorRect.new()
+	top.color = Color(0, 0, 0, 1)
+	top.anchor_right = 1.0
+	top.offset_bottom = 0.0
+	layer.add_child(top)
+	var bot := ColorRect.new()
+	bot.color = Color(0, 0, 0, 1)
+	bot.anchor_left = 0.0
+	bot.anchor_top = 1.0
+	bot.anchor_right = 1.0
+	bot.anchor_bottom = 1.0
+	bot.offset_top = 0.0
+	layer.add_child(bot)
+	var nome := Label.new()
+	nome.text = "DRAGAO DO VAZIO"
+	nome.add_theme_font_size_override("font_size", 58)
+	if _fonte() != null:
+		nome.add_theme_font_override("font", _fonte())
+	nome.add_theme_color_override("font_color", Color(1, 0.15, 0.08))
+	nome.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	nome.position = Vector2(0, 430)
+	nome.size = Vector2(540, 90)
+	nome.modulate.a = 0.0
+	layer.add_child(nome)
+	var tw := create_tween().set_parallel(true)
+	tw.tween_property(top, "offset_bottom", 90.0, 0.4).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tw.tween_property(bot, "offset_top", -90.0, 0.4).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tw.tween_property(nome, "modulate:a", 1.0, 0.5)
+	tw.chain().tween_interval(1.8)
+	tw.tween_property(top, "offset_bottom", 0.0, 0.4)
+	tw.tween_property(bot, "offset_top", 0.0, 0.4)
+	tw.tween_property(nome, "modulate:a", 0.0, 0.4)
+	tw.tween_callback(layer.queue_free)
+
+func add_trauma(qtd: float) -> void:
+	trauma = minf(1.0, trauma + qtd)
+
+func hitstop(dur: float, escala: float = 0.05) -> void:
+	hitstop_id += 1
+	var meu := hitstop_id
+	Engine.time_scale = escala
+	await get_tree().create_timer(dur, true, false, true).timeout
+	if meu == hitstop_id:
+		Engine.time_scale = 1.0
 
 func _spawn_turret() -> void:
 	var n := 0
@@ -510,10 +667,70 @@ func _fx_tiro_inimigo(pos: Vector2) -> void:
 	add_child(e)
 	e.call("setup", pos, Color(1.0, 0.2, 0.1), 12.0)
 
+func _slowmo_morte() -> void:
+	morto_id += 1
+	var meu := morto_id
+	Engine.time_scale = 0.25
+	await get_tree().create_timer(1.0, true, false, true).timeout
+	if meu == morto_id:
+		Engine.time_scale = 1.0
+
+func _killcam_boss(pos: Vector2) -> void:
+	# camera cola no chefao em slow-mo
+	morto_id += 1
+	var meu := morto_id
+	Engine.time_scale = 0.3
+	if cam != null and is_instance_valid(cam):
+		var tw := create_tween().set_parallel(true)
+		tw.tween_property(cam, "zoom", Vector2(1.4, 1.4), 0.5).set_trans(Tween.TRANS_SINE)
+		tw.tween_property(cam, "position", Vector2(270, clampf(pos.y, 200.0, 480.0)), 0.5).set_trans(Tween.TRANS_SINE)
+	await get_tree().create_timer(1.4, true, false, true).timeout
+	if meu != morto_id:
+		return
+	if cam != null and is_instance_valid(cam):
+		cam.zoom = Vector2.ONE
+		cam.position = Vector2(270, 480)
+	Engine.time_scale = 1.0
+
+func _rank_chefe() -> void:
+	# S sem sofrer dano no chefao, A escudo alto, B resto
+	var rank := "S"
+	var extra := 5000
+	if dano_no_chefe and escudo < 50.0:
+		rank = "B"
+		extra = 500
+	elif dano_no_chefe:
+		rank = "A"
+		extra = 2000
+	pontos += extra
+	var cor := Color(1, 0.85, 0.2) if rank == "S" else (Color(0.7, 0.85, 1.0) if rank == "A" else Color(0.8, 0.5, 0.3))
+	var lbl := Label.new()
+	lbl.text = "RANK " + rank
+	lbl.add_theme_font_size_override("font_size", 96)
+	if _fonte() != null:
+		lbl.add_theme_font_override("font", _fonte())
+	lbl.add_theme_color_override("font_color", cor)
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.position = Vector2(0, 400)
+	lbl.size = Vector2(540, 130)
+	lbl.scale = Vector2(2.2, 2.2)
+	lbl.pivot_offset = Vector2(270, 65)
+	lbl.modulate.a = 0.0
+	hud.add_child(lbl)
+	var tw := create_tween().set_parallel(true)
+	tw.tween_property(lbl, "scale", Vector2.ONE, 0.45).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_property(lbl, "modulate:a", 1.0, 0.3)
+	tw.chain().tween_interval(1.6)
+	tw.tween_property(lbl, "modulate:a", 0.0, 0.5)
+	tw.tween_callback(lbl.queue_free)
+	if sfx != null:
+		sfx.call("boss")
+
 func _morte_buraco() -> void:
 	# morte instantanea com buraco negro (2 tiros do chefao sem escudo)
 	if vidas <= 0:
 		return
+	_slowmo_morte()
 	var pp := player.position
 	player.visible = false
 	vidas = 0
@@ -523,19 +740,22 @@ func _morte_buraco() -> void:
 	bh.set_script(BuracoScript)
 	add_child(bh)
 	bh.call("setup", pp, 130.0)
+	add_trauma(0.8)
 	if sfx != null:
 		sfx.call("explosao")
 		sfx.call("boss")
 
-func _fx_explosao(pos: Vector2, grande: bool) -> void:
+func _fx_explosao(pos: Vector2, grande: bool, com_som: bool = true) -> void:
 	var e := Node2D.new()
 	e.set_script(ExplosaoScript)
 	add_child(e)
 	if grande:
 		e.call("setup", pos, Color(1.0, 0.25, 0.1), 110.0)
+		_boom_flipbook(pos, 2.2)
 	else:
 		e.call("setup", pos, Color(1.0, 0.45, 0.15), 42.0)
-	if sfx != null:
+		_boom_flipbook(pos, 1.0)
+	if com_som and sfx != null:
 		sfx.call("explosao")
 
 func _fx_bonus(pos: Vector2) -> void:	# explosao verde em 2 camadas: flash branco + onda verde
@@ -577,6 +797,20 @@ func _process(delta: float) -> void:
 		if flash != null:
 			# clarão que some rapido
 			flash.color.a = maxf(0.0, 1.0 - transicao_anim * 4.0)
+		# quadrinhos entram em sequencia
+		for i in 3:
+			var q := transicao_layer.get_node_or_null("Q%d" % i) as Label if transicao_layer != null else null
+			if q != null:
+				var ini := 0.25 + float(i) * 0.65
+				var fim := ini + 0.9
+				if transicao_anim < ini:
+					q.modulate.a = 0.0
+				elif transicao_anim < ini + 0.25:
+					q.modulate.a = (transicao_anim - ini) / 0.25
+				elif transicao_anim < fim:
+					q.modulate.a = 1.0
+				else:
+					q.modulate.a = maxf(0.0, 1.0 - (transicao_anim - fim) / 0.3)
 		if not transicao_trocou and transicao_anim >= 1.8:
 			transicao_trocou = true
 			_fim_transicao()
@@ -702,14 +936,14 @@ func _process(delta: float) -> void:
 				if fill != null:
 					fill.bg_color = Color(0.3, 1.0, 0.5)
 				charge_bar.modulate.a = 1.0
-			# bipes subindo: 1s, 2s, pronto
+			# energia carregando: sobe o tom a cada segundo
 			var seg := int(player.get("carga"))
 			if seg > last_beep and prog < 1.0 and sfx != null:
 				last_beep = seg
-				sfx.call("hit")
+				sfx.call("carga", seg)
 			if pronta and last_beep < 99 and sfx != null:
 				last_beep = 99
-				sfx.call("boss")
+				sfx.call("pronta")
 		else:
 			charge_bar.visible = false
 			charge_txt.visible = false
@@ -736,7 +970,10 @@ func _process(delta: float) -> void:
 							if str(e.get("tipo")) == "boss":
 								pontos += 2000
 								_registrar_abate()
-								_fx_explosao(ep, true)
+								_fx_explosao(ep, true, false)
+								_rank_chefe()
+								_killcam_boss(ep)
+								add_trauma(0.7)
 								boss = null
 								# renasce boss apos 5s
 								await get_tree().create_timer(5.0).timeout
@@ -749,7 +986,9 @@ func _process(delta: float) -> void:
 							else:
 								pontos += 100
 								_registrar_abate()
-								_fx_explosao(ep, false)
+								_fx_explosao(ep, false, false)
+								hitstop(0.06)
+								add_trauma(0.22)
 						else:
 							if str(e.get("tipo")) == "boss":
 								pontos += 40
@@ -770,6 +1009,15 @@ func _process(delta: float) -> void:
 	_colisoes()
 	_limpar_listas()
 	hud.atualizar(pontos, vidas, escudo)
+	if boss != null and is_instance_valid(boss):
+		hud.call("boss_vida", int(boss.get("hp")), 120)
+	else:
+		hud.call("boss_fora")
+	# camera shake com decaimento
+	if cam != null and is_instance_valid(cam):
+		trauma = maxf(0.0, trauma - delta * 1.6)
+		var sh := trauma * trauma * 22.0
+		cam.offset = Vector2(randf_range(-sh, sh), randf_range(-sh, sh))
 	if player != null and is_instance_valid(player):
 		player.set("escudo_val", escudo)
 	# invencivel do player cai junto
@@ -805,7 +1053,10 @@ func _colisoes() -> void:
 					if e.get("tipo") == "boss":
 						pontos += 2000
 						_registrar_abate()
-						_fx_explosao(e.position, true)
+						_fx_explosao(e.position, true, false)
+						_rank_chefe()
+						_killcam_boss(e.position)
+						add_trauma(0.7)
 						boss = null
 						# renasce boss apos 5s
 						await get_tree().create_timer(5.0).timeout
@@ -820,7 +1071,9 @@ func _colisoes() -> void:
 					else:
 						pontos += 100
 						_registrar_abate()
-						_fx_explosao(e.position, false)
+						_fx_explosao(e.position, false, false)
+						hitstop(0.06)
+						add_trauma(0.22)
 				else:
 					if e.get("tipo") == "boss":
 						pontos += 10 * dano
@@ -842,18 +1095,14 @@ func _colisoes() -> void:
 						chefe_sem_escudo = 0
 						player.set("invencivel", 1.2)
 						player.call("escudo_atingido")
-						_fx_explosao(player.position, false)
-						if sfx != null:
-							sfx.call("explosao")
+						_fx_explosao(player.position, false, false)
 					else:
 						chefe_sem_escudo += 1
 						if chefe_sem_escudo >= 2:
 							_morte_buraco()
 						else:
 							player.set("invencivel", 1.2)
-							_fx_explosao(player.position, false)
-							if sfx != null:
-								sfx.call("hit")
+							_fx_explosao(player.position, false, false)
 					return
 	# tiro inimigo normal x player
 	if player != null and is_instance_valid(player) and player.get("invencivel") <= 0:
@@ -867,7 +1116,7 @@ func _colisoes() -> void:
 				b.set("vivo", false)
 				b.queue_free()
 				_dano_no_player(25.0)
-				_fx_explosao(player.position, false)
+				_fx_explosao(player.position, false, false)
 				break
 		# encostou no inimigo (bonus coleta em vez de dano)
 		if vidas <= 0:
@@ -890,12 +1139,15 @@ func _colisoes() -> void:
 func _dano_no_player(qtd: float) -> void:
 	if player.get("invencivel") > 0:
 		return
+	if boss != null and is_instance_valid(boss):
+		dano_no_chefe = true
 	if escudo > 0:
 		escudo -= qtd
 		player.set("invencivel", 1.2)
 		player.call("escudo_atingido")
+		add_trauma(0.5)
 		if escudo <= 0:
-			escudo = 0.0 # escudo some, volta +10 a cada 3 abates
+			escudo = 0.0 # escudo some, volta +25 a cada 5 abates
 		return
 	# sem escudo: mais 1 tiro perde a vida e recarrega cheio
 	vidas -= 1
@@ -904,6 +1156,7 @@ func _dano_no_player(qtd: float) -> void:
 	if vidas <= 0:
 		game_over_timer = 0.0
 		player.visible = false
+		_slowmo_morte()
 	else:
 		player.visible = true
 	# revive player visivel
@@ -1020,6 +1273,16 @@ func _mostrar_gameover(delta: float) -> void:
 
 func _reiniciar() -> void:
 	get_tree().paused = false
+	Engine.time_scale = 1.0
+	trauma = 0.0
+	hitstop_id += 1
+	morto_id += 1
+	if cam != null and is_instance_valid(cam):
+		cam.offset = Vector2.ZERO
+		cam.zoom = Vector2.ONE
+		cam.position = Vector2(270, 480)
+	dano_no_chefe = false
+	_cartao_fase()
 	if pause_layer != null:
 		pause_layer.visible = false
 	pontos = 0

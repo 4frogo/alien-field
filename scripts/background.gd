@@ -68,7 +68,9 @@ func trocar_dimensao(n: int) -> void:
 
 func _ready() -> void:
 	z_index = -10
-	var paths1: Array = ["res://assets/bg.png", "res://assets/bg.jpg"]
+	var paths1: Array = ["res://assets/pinkpoison_seamless.png"]
+	if not ResourceLoader.exists("res://assets/pinkpoison_seamless.png"):
+		paths1 = ["res://assets/pinkpoison_loop.png", "res://assets/pinkpoison.png", "res://assets/bg.png", "res://assets/bg.jpg"]
 	# arena do boss: loop seamless unico = infinito de verdade
 	var paths2: Array = ["res://assets/cenarioV_seamless.png"]
 	if not ResourceLoader.exists("res://assets/cenarioV_seamless.png"):
@@ -138,8 +140,29 @@ func _process(delta: float) -> void:
 	queue_redraw()
 
 func _atualiza_infinito(delta: float, resp: float) -> void:
-	# objetos removidos: so nebulosa a deriva + respiracao
-	pass
+	# clima sutil: brasas lentas + meteoros finos raros (nada solido)
+	spawn_t -= delta
+	if spawn_t <= 0 and poeira_inf.size() < 42:
+		spawn_t = 0.35
+		poeira_inf.append({
+			"pos": Vector2(rng_inf.randf_range(30, 510), -12.0),
+			"spd": rng_inf.randf_range(22.0, 55.0) * resp,
+			"drift": rng_inf.randf_range(-10, 10),
+			"tam": rng_inf.randf_range(1.0, 2.2),
+			"fase": rng_inf.randf_range(0.0, TAU),
+			"verde": rng_inf.randf() < 0.65,
+		})
+	for d in poeira_inf:
+		d["pos"] = (d["pos"] as Vector2) + Vector2(float(d["drift"]), float(d["spd"])) * delta
+	poeira_inf = poeira_inf.filter(func(x): return (x["pos"] as Vector2).y < 990.0)
+	met_t -= delta
+	if met_t <= 0:
+		met_t = rng_inf.randf_range(6.0, 12.0)
+		var mx := rng_inf.randf_range(80, 460)
+		meteoros.append({"pos": Vector2(mx, -20), "vel": Vector2(rng_inf.randf_range(-120, 120), rng_inf.randf_range(650, 900))})
+	for m in meteoros:
+		m["pos"] = (m["pos"] as Vector2) + (m["vel"] as Vector2) * delta
+	meteoros = meteoros.filter(func(x): return (x["pos"] as Vector2).y < 1020.0)
 
 func _draw() -> void:
 	if use_image:
@@ -172,11 +195,23 @@ func _draw() -> void:
 	_draw_wall(false)
 
 func _draw_infinito() -> void:
-	# so nebulosas a deriva (sem objetos)
+	# nebulosa viva: deriva + respiracao
 	var nx1 := 270.0 + sin(tempo_total * 0.07) * 60.0
 	var nx2 := 270.0 + sin(tempo_total * 0.05 + 2.0) * 80.0
-	draw_circle(Vector2(nx1, 330), 200, Color(0.03, 0.14, 0.07, 0.30))
-	draw_circle(Vector2(nx2, 680), 240, Color(0.02, 0.10, 0.06, 0.28))
+	var br := 0.85 + 0.15 * sin(tempo_total * 0.4)
+	draw_circle(Vector2(nx1, 330), 200, Color(0.03, 0.14, 0.07, 0.30 * br))
+	draw_circle(Vector2(nx2, 680), 240, Color(0.02, 0.10, 0.06, 0.28 * br))
+	# brasas subindo devagar
+	for d in poeira_inf:
+		var tw := 0.35 + 0.65 * (0.5 + 0.5 * sin(tempo_total * 3.0 + float(d["fase"])))
+		var c := Color(0.4, 1.0, 0.55, 0.5 * tw) if bool(d["verde"]) else Color(0.9, 0.95, 0.9, 0.4 * tw)
+		draw_circle(d["pos"], float(d["tam"]), c)
+	# meteoros finos com rastro curto
+	for m in meteoros:
+		var p: Vector2 = m["pos"]
+		var dir: Vector2 = (m["vel"] as Vector2).normalized()
+		draw_line(p - dir * 46.0, p, Color(0.5, 1.0, 0.6, 0.35), 1.5)
+		draw_circle(p, 1.8, Color(1, 1, 1, 0.8))
 
 func _draw_wall(is_left: bool) -> void:
 	var rocks := rocks_left if is_left else rocks_right

@@ -6,6 +6,8 @@ var lbl_fase: Label
 var vidas_icons: Control
 var bar_escudo: ProgressBar
 var vidas_count := 3
+var lbl_boss: Label
+var bar_boss: ProgressBar
 
 var verde := Color(0.25, 1.0, 0.45)
 var verde_escuro := Color(0.1, 0.6, 0.25)
@@ -97,8 +99,53 @@ func _ready() -> void:
 	lbl_arma.add_theme_color_override("font_color", Color(0.8, 0.9, 0.85))
 	add_child(lbl_arma)
 
+	# barra de vida do chefao (topo centro, escondida)
+	lbl_boss = Label.new()
+	lbl_boss.text = "DRAGAO DO VAZIO"
+	lbl_boss.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl_boss.position = Vector2(0, 108)
+	lbl_boss.size = Vector2(540, 28)
+	lbl_boss.add_theme_font_size_override("font_size", 20)
+	if fonte_horror != null:
+		lbl_boss.add_theme_font_override("font", fonte_horror)
+	lbl_boss.add_theme_color_override("font_color", Color(1, 0.25, 0.15))
+	lbl_boss.visible = false
+	lbl_boss.name = "BossNome"
+	add_child(lbl_boss)
+
+	bar_boss = ProgressBar.new()
+	bar_boss.position = Vector2(120, 136)
+	bar_boss.size = Vector2(300, 14)
+	bar_boss.min_value = 0
+	bar_boss.max_value = 120
+	bar_boss.value = 120
+	bar_boss.show_percentage = false
+	bar_boss.visible = false
+	bar_boss.name = "bar_boss"
+	add_child(bar_boss)
+	var bbg := StyleBoxFlat.new()
+	bbg.bg_color = Color(0.08, 0.0, 0.0, 0.85)
+	bbg.border_color = Color(1, 0.25, 0.12)
+	bbg.set_border_width_all(2)
+	bbg.set_corner_radius_all(3)
+	bar_boss.add_theme_stylebox_override("background", bbg)
+	var bfill := StyleBoxFlat.new()
+	bfill.bg_color = Color(0.9, 0.12, 0.08)
+	bfill.set_corner_radius_all(2)
+	bar_boss.add_theme_stylebox_override("fill", bfill)
+
 func atualizar(pontos: int, vidas: int, escudo: float) -> void:
 	lbl_pontos_val.text = "%06d" % pontos
 	vidas_count = vidas
 	vidas_icons.queue_redraw()
 	bar_escudo.value = escudo
+
+func boss_vida(hp: int, hp_max: int) -> void:
+	lbl_boss.visible = true
+	bar_boss.visible = true
+	bar_boss.max_value = hp_max
+	bar_boss.value = maxf(0.0, float(hp))
+
+func boss_fora() -> void:
+	lbl_boss.visible = false
+	bar_boss.visible = false

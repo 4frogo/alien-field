@@ -30,9 +30,11 @@ var pontos_energia: Array = []
 var tempo_escudo := 0.0
 var impulso := 0.0
 var surgindo := false
+var onda := 99.0
 
 func escudo_atingido() -> void:
 	escudo_flash = 1.0
+	onda = 0.0
 	# espalha a nuvem
 	for pt in pontos_energia:
 		pt["ang"] = float(pt["ang"]) + randf_range(-1.2, 1.2)
@@ -157,6 +159,7 @@ func _process(delta: float) -> void:
 	invencivel -= delta
 	tempo_escudo += delta
 	escudo_flash = maxf(0.0, escudo_flash - delta * 2.5)
+	onda = minf(99.0, onda + delta * 1.8)
 	# anel estatico desligado: escudo agora e so nuvem de microparticulas
 	if escudo_sprite != null:
 		escudo_sprite.visible = false
@@ -295,8 +298,36 @@ func _draw() -> void:
 	_draw_escudo_particulas()
 
 func _draw_escudo_fundo() -> void:
-	# desativado: anel usa a imagem escudomodular.png
-	return
+	if escudo_val <= 0.0:
+		return
+	var forca := clampf(escudo_val / 100.0, 0.0, 1.0)
+	var critico := forca < 0.3
+	var base_c := Color(1, 0.45, 0.15) if critico else Color(0.25, 1.0, 0.5)
+	var flick := 0.75 + 0.25 * sin(tempo_escudo * (14.0 if critico else 4.0))
+	# halo
+	draw_circle(Vector2.ZERO, 88, Color(base_c.r, base_c.g, base_c.b, 0.06 * forca))
+	# anel base cobre conforme a forca (anel quebrado = escudo fraco)
+	var comp := TAU * (0.25 + 0.75 * forca)
+	var g1 := tempo_escudo * 1.4
+	draw_arc(Vector2.ZERO, 68.0, g1, g1 + comp, 48, Color(base_c.r, base_c.g, base_c.b, (0.30 + 0.25 * forca) * flick), 2.0)
+	# faixa brilhante contraria
+	var g2 := -tempo_escudo * 0.9 + 2.0
+	draw_arc(Vector2.ZERO, 68.0, g2, g2 + comp * 0.45, 32, Color(0.9, 1.0, 0.92, (0.5 + 0.3 * forca) * flick), 3.0)
+	# ticks runicos orbitando
+	for i in 24:
+		var a := tempo_escudo * 0.6 + TAU * float(i) / 24.0
+		var p1 := Vector2(cos(a), sin(a)) * 74.0
+		var p2 := Vector2(cos(a), sin(a)) * (74.0 + 5.0 + 2.0 * sin(tempo_escudo * 5.0 + float(i)))
+		draw_line(p1, p2, Color(base_c.r, base_c.g, base_c.b, 0.55 * forca * flick), 2.0)
+	# 8 cacos cristalinos orbitando + girando
+	for i in 8:
+		var a := -tempo_escudo * 0.8 + TAU * float(i) / 8.0 + 0.4
+		var pp := Vector2(cos(a), sin(a)) * 60.0
+		_draw_caco(pp, 7.0, tempo_escudo * 2.0 + float(i) * 1.3, forca)
+	# onda de choque do impacto
+	if onda < 1.0:
+		var r := 40.0 + onda * 90.0
+		draw_arc(Vector2.ZERO, r, 0, TAU, 40, Color(0.8, 1.0, 0.85, (1.0 - onda) * 0.7), 3.0)
 
 func _draw_escudo_particulas() -> void:
 	if escudo_val <= 0.0:
@@ -320,6 +351,19 @@ func _draw_escudo_particulas() -> void:
 		var pulse := 0.7 + 0.3 * sin(tempo_escudo * 5.0 + float(i) * 1.7)
 		draw_circle(np, 6.0 * pulse, Color(0.4, 1.0, 0.55, 0.3 * forca))
 		draw_circle(np, 2.6 * pulse, Color(1, 1, 1, 0.55 + 0.4 * forca))
+
+func _draw_caco(pos: Vector2, tam: float, rot: float, forca: float) -> void:
+	var dir := Vector2(cos(rot), sin(rot))
+	var per := Vector2(-dir.y, dir.x)
+	var pts := PackedVector2Array([
+		pos + dir * tam,
+		pos + per * tam * 0.38,
+		pos - dir * tam * 0.7,
+		pos - per * tam * 0.38,
+	])
+	draw_colored_polygon(pts, Color(0.65, 0.7, 0.72, 0.35 + 0.6 * forca))
+	draw_polyline(pts + PackedVector2Array([pts[0]]), Color(0.4, 1.0, 0.55, 0.5 + 0.5 * forca), 1.5)
+	draw_circle(pos + dir * tam * 0.4, 1.4, Color(1, 1, 1, 0.4 + 0.6 * forca))
 
 func _draw_carga() -> void:
 	# desativado: carga agora e shader RGB (charge_fx), sem vetor

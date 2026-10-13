@@ -12,6 +12,10 @@ var s_boss: AudioStream = null
 var s_carga1: AudioStream = null
 var s_carga2: AudioStream = null
 var s_pronta: AudioStream = null
+var s_kill: AudioStream = null
+var s_pickup: AudioStream = null
+var s_stinger: AudioStream = null
+var s_ui: AudioStream = null
 
 func _ready() -> void:
 	for i in 8:
@@ -31,6 +35,11 @@ func _ready() -> void:
 	s_carga1 = _gerar_subida(160.0, 480.0, 0.45, 0.30)
 	s_carga2 = _gerar_subida(280.0, 760.0, 0.45, 0.32)
 	s_pronta = _gerar_subida(220.0, 1250.0, 0.7, 0.36)
+	# impacto: kill seco, pickup subindo, stinger de morte, blip de ui
+	s_kill = _gerar_blip(720.0, 0.09, 0.30)
+	s_pickup = _gerar_pickup()
+	s_stinger = _gerar_subida(420.0, 55.0, 0.9, 0.4)
+	s_ui = _gerar_blip(980.0, 0.05, 0.16)
 
 func _carregar_ou_gerar(path: String, f0: float, f1: float, dur: float, vol: float) -> AudioStream:
 	if ResourceLoader.exists(path):
@@ -118,6 +127,48 @@ func _gerar_noise(dur: float, vol: float) -> AudioStreamWAV:
 	w.data = data
 	return w
 
+func _gerar_blip(freq: float, dur: float, vol: float) -> AudioStreamWAV:
+	# blip curto com ataque suave (kill confirm / ui)
+	var rate := 22050
+	var n := int(rate * dur)
+	var data := PackedByteArray()
+	data.resize(n)
+	for i in n:
+		var t := float(i) / float(rate)
+		var attack := minf(1.0, float(i) / (float(rate) * 0.004))
+		var env := attack * pow(1.0 - float(i) / float(n), 1.4)
+		var v := (sin(TAU * freq * t) * 0.8 + sin(TAU * freq * 2.0 * t) * 0.2) * vol * env
+		data[i] = int(clampf(v * 127.0 + 128.0, 0, 255))
+	var w := AudioStreamWAV.new()
+	w.format = AudioStreamWAV.FORMAT_8_BITS
+	w.mix_rate = rate
+	w.stereo = false
+	w.data = data
+	return w
+
+func _gerar_pickup() -> AudioStreamWAV:
+	# duas notas subindo (power-up!)
+	var rate := 22050
+	var seq := [523.0, 784.0]
+	var nota_dur := 0.09
+	var passo := int(rate * nota_dur)
+	var n := passo * 2 + 200
+	var data := PackedByteArray()
+	data.resize(n)
+	for i in n:
+		var idx := mini(1, i / passo)
+		var f: float = seq[idx]
+		var t := float(i) / float(rate)
+		var attack := minf(1.0, float(i - idx * passo) / (float(rate) * 0.005))
+		var v := sin(TAU * f * t) * 0.32 * attack
+		data[i] = int(clampf(v * 127.0 + 128.0, 0, 255))
+	var w := AudioStreamWAV.new()
+	w.format = AudioStreamWAV.FORMAT_8_BITS
+	w.mix_rate = rate
+	w.stereo = false
+	w.data = data
+	return w
+
 func _tocar(s: AudioStream, pitch: float = 1.0) -> void:
 	if s == null:
 		return
@@ -151,3 +202,16 @@ func carga(nivel: int) -> void:
 
 func pronta() -> void:
 	_tocar(s_pronta, 1.0)
+
+func kill(combo: int = 0) -> void:
+	# confirmacao de abate: sobe o tom com o combo
+	_tocar(s_kill, 1.0 + minf(combo, 8) * 0.06)
+
+func pickup() -> void:
+	_tocar(s_pickup, 1.0)
+
+func stinger() -> void:
+	_tocar(s_stinger, 1.0)
+
+func ui() -> void:
+	_tocar(s_ui, 1.0)

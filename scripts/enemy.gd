@@ -1,7 +1,7 @@
 extends Node2D
 # Inimigos: small | turret | boss
 
-var tipo := "small" # small | turret | boss | bonus
+var tipo := "small" # small | turret | boss | bonus | bonus2
 var hp := 9
 var hp_max := 9
 var tempo := 0.0
@@ -79,6 +79,11 @@ func setup(p_tipo: String, p_pos: Vector2, p_dir: Vector2 = Vector2(0, 1)) -> vo
 		hp_max = 6
 		vel_base = 32.0
 		_criar_sprite_bonus()
+	elif tipo == "bonus2":
+		# caixa vermelha do missil (so depois do chefe) - desenho procedural
+		hp = 6
+		hp_max = 6
+		vel_base = 36.0
 	if sprite != null:
 		escala0 = sprite.scale
 
@@ -138,23 +143,18 @@ func _fazer_brilho() -> ImageTexture:
 	return ImageTexture.create_from_image(img)
 
 func _criar_sprite_bonus() -> void:
-	# icone Upgrade1: recorte central + mascara circular (adeus quadrado)
-	for bp in ["res://assets/Upgrade1.jpg", "res://assets/upgrade1.jpg", "res://assets/Upgrade1.png", "res://assets/upgrade1.png"]:
+	# caixa flutuante vermelha (emblema recortado exato + mascara)
+	for bp in ["res://assets/missil vermelho.png", "res://assets/missil_vermelho.png"]:
 		if ResourceLoader.exists(bp):
 			var tex := load(bp) as Texture2D
 			if tex == null:
 				continue
-			var tw := float(tex.get_width())
-			var th := float(tex.get_height())
-			if tw <= 0 or th <= 0:
-				continue
-			var lado := minf(tw, th) * 0.86
 			var atlas := AtlasTexture.new()
 			atlas.atlas = tex
-			atlas.region = Rect2((tw - lado) / 2.0, (th - lado) / 2.0 - th * 0.03, lado, lado)
+			atlas.region = Rect2(100, 560, 1270, 1510)
 			sprite = Sprite2D.new()
 			sprite.texture = atlas
-			var s := 74.0 / lado
+			var s := 74.0 / 1270.0
 			sprite.scale = Vector2(s, s)
 			if ResourceLoader.exists("res://assets/bonus_ring.gdshader"):
 				var sh := load("res://assets/bonus_ring.gdshader") as Shader
@@ -237,7 +237,7 @@ func _process(delta: float) -> void:
 			if randf() < delta * 2.0:
 				quer_atirar.emit(position + Vector2(randf_range(-70, 70), 80), true)
 	else:
-		# bonus: desce devagar no meio, sem atirar
+		# bonus e caixa vermelha: descem devagar no meio, sem atirar
 		position.y += vel_base * delta
 		position.x = base_x + sin(tempo * 1.2) * 25.0
 		if position.y > 1020:
@@ -276,6 +276,8 @@ func _draw() -> void:
 		_draw_turret()
 	elif tipo == "bonus":
 		_draw_bonus()
+	elif tipo == "bonus2":
+		_draw_bonus2()
 	else:
 		_draw_boss()
 
@@ -284,6 +286,12 @@ func _draw_barra_bonus() -> void:
 	var k := clampf(float(hp) / float(maxi(1, hp_max)), 0.0, 1.0)
 	draw_rect(Rect2(-w / 2 - 1, -52, w + 2, 7), Color(0, 0, 0, 0.7))
 	draw_rect(Rect2(-w / 2, -51, w * k, 5), Color(0.25, 1.0, 0.45))
+
+func _draw_barra_bonus2() -> void:
+	var w := 44.0
+	var k := clampf(float(hp) / float(maxi(1, hp_max)), 0.0, 1.0)
+	draw_rect(Rect2(-w / 2 - 1, -52, w + 2, 7), Color(0, 0, 0, 0.7))
+	draw_rect(Rect2(-w / 2, -51, w * k, 5), Color(1.0, 0.25, 0.1))
 
 func _draw_bonus() -> void:
 	# icone bonus: capsula verde com 3 setas + barrinha de vida em cima
@@ -303,6 +311,23 @@ func _draw_bonus() -> void:
 	var k := clampf(float(hp) / float(maxi(1, hp_max)), 0.0, 1.0)
 	draw_rect(Rect2(-w / 2 - 1, -36, w + 2, 7), Color(0, 0, 0, 0.7))
 	draw_rect(Rect2(-w / 2, -35, w * k, 5), Color(0.25, 1.0, 0.45))
+
+func _draw_bonus2() -> void:
+	# caixa vermelha do missil + barrinha de vida em cima
+	var pulse := 0.7 + 0.3 * sin(tempo * 4.0)
+	draw_circle(Vector2.ZERO, 30 * pulse, Color(1.0, 0.15, 0.1, 0.20))
+	var corpo := PackedVector2Array([Vector2(0, -24), Vector2(16, -10), Vector2(16, 14), Vector2(0, 24), Vector2(-16, 14), Vector2(-16, -10)])
+	draw_colored_polygon(corpo, Color(0.22, 0.06, 0.05))
+	draw_polyline(corpo + PackedVector2Array([corpo[0]]), Color(1.0, 0.3, 0.12), 2.0)
+	# simbolo missil
+	draw_colored_polygon(PackedVector2Array([Vector2(0, -14), Vector2(5, -2), Vector2(0, 10), Vector2(-5, -2)]), Color(0.85, 0.87, 0.9))
+	draw_circle(Vector2(0, -8), 2.5, Color(1, 0.3, 0.1))
+	for sx in [-9.0, 9.0]:
+		draw_line(Vector2(sx, 2), Vector2(sx, 12), Color(1, 0.5, 0.15, 0.9), 2.0)
+	var w := 44.0
+	var k := clampf(float(hp) / float(maxi(1, hp_max)), 0.0, 1.0)
+	draw_rect(Rect2(-w / 2 - 1, -36, w + 2, 7), Color(0, 0, 0, 0.7))
+	draw_rect(Rect2(-w / 2, -35, w * k, 5), Color(1.0, 0.25, 0.1))
 
 func _draw_turret() -> void:
 	# base rochosa + canhao vermelho mirando pra baixo

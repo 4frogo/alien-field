@@ -8,6 +8,7 @@ var bar_escudo: ProgressBar
 var vidas_count := 3
 var lbl_boss: Label
 var bar_boss: ProgressBar
+var retrato_boss: Sprite2D
 
 var verde := Color(0.25, 1.0, 0.45)
 var verde_escuro := Color(0.1, 0.6, 0.25)
@@ -60,15 +61,12 @@ func _ready() -> void:
 	lbl_fase.add_theme_color_override("font_color", Color(0.85, 0.9, 0.88))
 	add_child(lbl_fase)
 
-	# ESCUDO
-	var lbl_esc := Label.new()
-	lbl_esc.text = "ESCUDO"
-	lbl_esc.position = Vector2(18, 896)
-	lbl_esc.add_theme_font_size_override("font_size", 20)
-	if fonte_horror != null:
-		lbl_esc.add_theme_font_override("font", fonte_horror)
-	lbl_esc.add_theme_color_override("font_color", Color(0.8, 0.9, 0.85))
-	add_child(lbl_esc)
+	# ESCUDO: icone + barra (sem texto)
+	var ico_esc = preload("res://scripts/hud_icon.gd").new()
+	ico_esc.set("modo", "escudo")
+	ico_esc.position = Vector2(14, 892)
+	ico_esc.size = Vector2(28, 28)
+	add_child(ico_esc)
 
 	bar_escudo = ProgressBar.new()
 	bar_escudo.position = Vector2(18, 920)
@@ -89,15 +87,12 @@ func _ready() -> void:
 	fill.set_corner_radius_all(2)
 	bar_escudo.add_theme_stylebox_override("fill", fill)
 
-	# ARMA
-	var lbl_arma := Label.new()
-	lbl_arma.text = "ARMA\nLASER"
-	lbl_arma.position = Vector2(430, 898)
-	lbl_arma.add_theme_font_size_override("font_size", 20)
-	if fonte_horror != null:
-		lbl_arma.add_theme_font_override("font", fonte_horror)
-	lbl_arma.add_theme_color_override("font_color", Color(0.8, 0.9, 0.85))
-	add_child(lbl_arma)
+	# ARMA: icone triplo (sem texto)
+	var ico_arma = preload("res://scripts/hud_icon.gd").new()
+	ico_arma.set("modo", "laser")
+	ico_arma.position = Vector2(440, 898)
+	ico_arma.size = Vector2(28, 28)
+	add_child(ico_arma)
 
 	# barra de vida do chefao (topo centro, escondida)
 	lbl_boss = Label.new()
@@ -134,6 +129,25 @@ func _ready() -> void:
 	bfill.set_corner_radius_all(2)
 	bar_boss.add_theme_stylebox_override("fill", bfill)
 
+	# retrato do chefão (recorte do rosto, escondido junto)
+	retrato_boss = Sprite2D.new()
+	for bp in ["res://assets/boss001_clean.png", "res://assets/boss1_clean.png"]:
+		if ResourceLoader.exists(bp):
+			var btex := load(bp) as Texture2D
+			if btex != null:
+				var bw := float(btex.get_width())
+				var bh := float(btex.get_height())
+				var batlas := AtlasTexture.new()
+				batlas.atlas = btex
+				batlas.region = Rect2(bw * 0.30, bh * 0.24, bw * 0.40, bh * 0.22)
+				retrato_boss.texture = batlas
+				var bsc := 64.0 / (bw * 0.40)
+				retrato_boss.scale = Vector2(bsc, bsc)
+				break
+	retrato_boss.position = Vector2(82, 143)
+	retrato_boss.visible = false
+	add_child(retrato_boss)
+
 func atualizar(pontos: int, vidas: int, escudo: float) -> void:
 	lbl_pontos_val.text = "%06d" % pontos
 	vidas_count = vidas
@@ -143,9 +157,11 @@ func atualizar(pontos: int, vidas: int, escudo: float) -> void:
 func boss_vida(hp: int, hp_max: int) -> void:
 	lbl_boss.visible = true
 	bar_boss.visible = true
+	retrato_boss.visible = true
 	bar_boss.max_value = hp_max
 	bar_boss.value = maxf(0.0, float(hp))
 
 func boss_fora() -> void:
 	lbl_boss.visible = false
 	bar_boss.visible = false
+	retrato_boss.visible = false

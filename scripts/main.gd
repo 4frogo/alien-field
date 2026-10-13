@@ -13,6 +13,8 @@ const ArmaScript := preload("res://scripts/arma.gd")
 const BuracoScript := preload("res://scripts/buraco_negro.gd")
 const FeixeScript := preload("res://scripts/feixe.gd")
 const PortalScript := preload("res://scripts/portal.gd")
+const DanoNumScript := preload("res://scripts/dano_num.gd")
+const MissilScript := preload("res://scripts/missil.gd")
 
 var player: Node2D
 var hud: CanvasLayer
@@ -40,6 +42,8 @@ var inimigos: Array = []
 var armas: Array = []
 var feixes: Array = []
 var feixe_tick := 0.0
+var misseis: Array = []
+var bonus2_timer := 20.0
 
 var pontos := 2350
 var vidas := 1
@@ -67,6 +71,22 @@ var pause_layer: CanvasLayer = null
 var last_beep := 0
 var abates := 0
 var chefe_sem_escudo := 0
+var combo := 0
+var combo_timer := 0.0
+
+func _num(pos: Vector2, texto: String, tamanho: int, cor: Color) -> void:
+	var n := Label.new()
+	n.set_script(DanoNumScript)
+	n.call("setup", pos, texto, tamanho, cor)
+	hud.add_child(n)
+
+func _kill_confirm(pos: Vector2, pts: int, cor: Color) -> void:
+	combo += 1
+	combo_timer = 2.5
+	_num(pos, "+%d" % pts, 26, cor)
+	if combo >= 3:
+		_num(pos + Vector2(0, -28), "COMBO x%d" % combo, 20, Color(1, 0.85, 0.3))
+	# som de impacto mutado por enquanto
 var frames_boom: SpriteFrames = null
 var morto_id := 0
 var dano_no_chefe := false
@@ -268,7 +288,9 @@ func _ready() -> void:
 	if _fonte() != null:
 		pl.add_theme_font_override("font", _fonte())
 	pl.add_theme_color_override("font_color", Color(0.45, 1.0, 0.6))
-	pl.position = Vector2(150, 420)
+	pl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	pl.position = Vector2(0, 420)
+	pl.size = Vector2(540, 80)
 	pause_layer.add_child(pl)
 	var ph := Label.new()
 	ph.text = "P continua"
@@ -276,7 +298,9 @@ func _ready() -> void:
 	if _fonte() != null:
 		ph.add_theme_font_override("font", _fonte())
 	ph.add_theme_color_override("font_color", Color(0.8, 0.85, 0.82))
-	ph.position = Vector2(200, 500)
+	ph.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	ph.position = Vector2(0, 500)
+	ph.size = Vector2(540, 32)
 	pause_layer.add_child(ph)
 
 	for i in 3:
@@ -286,6 +310,41 @@ func _ready() -> void:
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_P:
 		_alternar_pause()
+
+func _botao_vivo(b: Button, cor_texto: Color, cor_borda: Color) -> void:
+	b.pivot_offset = b.size / 2.0
+	var normal := StyleBoxFlat.new()
+	normal.bg_color = Color(0.02, 0.06, 0.03, 0.88)
+	normal.border_color = cor_borda
+	normal.set_border_width_all(2)
+	normal.set_corner_radius_all(6)
+	b.add_theme_stylebox_override("normal", normal)
+	var hover := normal.duplicate() as StyleBoxFlat
+	hover.bg_color = Color(0.06, 0.18, 0.08, 0.95)
+	hover.border_color = Color(1, 1, 1)
+	b.add_theme_stylebox_override("hover", hover)
+	b.add_theme_stylebox_override("focus", hover)
+	var pressed := normal.duplicate() as StyleBoxFlat
+	pressed.bg_color = Color(0.1, 0.3, 0.12, 1.0)
+	b.add_theme_stylebox_override("pressed", pressed)
+	b.add_theme_color_override("font_color", cor_texto)
+	b.add_theme_color_override("font_hover_color", Color(1, 1, 1))
+	b.add_theme_color_override("font_pressed_color", Color(1, 1, 1))
+	b.add_theme_color_override("font_focus_color", Color(1, 1, 1))
+	b.mouse_entered.connect(_ui_tick)
+	b.pressed.connect(_soco_botao.bind(b))
+
+func _ui_tick() -> void:
+	if sfx != null:
+		sfx.call("ui")
+
+func _soco_botao(b: Button) -> void:
+	if not is_instance_valid(b):
+		return
+	b.pivot_offset = b.size / 2.0
+	var tw := create_tween()
+	tw.tween_property(b, "scale", Vector2(0.92, 0.92), 0.07)
+	tw.tween_property(b, "scale", Vector2.ONE, 0.12).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 func _alternar_pause() -> void:
 	if em_menu or vidas <= 0:
@@ -566,6 +625,39 @@ func _spawn_bonus() -> void:
 	e.call("setup", "bonus", Vector2(randf_range(140, 400), -40), Vector2(0, 1))
 	inimigos.append(e)
 
+func _spawn_bonus2() -> void:
+	# caixa vermelha: so com o chefao vivo, 1 por vez
+	if boss == null or not is_instance_valid(boss):
+		return
+	for e in inimigos:
+		if is_instance_valid(e) and str(e.get("tipo")) == "bonus2":
+			return
+	var e := Node2D.new()
+	e.set_script(EnemyScript)
+	add_child(e)
+	e.call("setup", "bonus2", Vector2(randf_range(140, 400), -40), Vector2(0, 1))
+	inimigos.append(e)
+
+func _disparar_missil() -> void:
+	# missil teleguiado mira o chefao (ou o capanga mais proximo)
+	var alvo: Node2D = null
+	if boss != null and is_instance_valid(boss):
+		alvo = boss
+	else:
+		var melhor := 1e9
+		for e in inimigos:
+			if is_instance_valid(e) and str(e.get("tipo")) == "small":
+				var d: float = player.position.distance_to((e as Node2D).position)
+				if d < melhor:
+					melhor = d
+					alvo = e
+	var m := Node2D.new()
+	m.set_script(MissilScript)
+	add_child(m)
+	m.call("setup", player.position + Vector2(0, -50), alvo)
+	misseis.append(m)
+	_num(player.position + Vector2(0, -100), "MISSIL!", 26, Color(1, 0.45, 0.15))
+
 func _spawn_arma(pos: Vector2) -> void:
 	# arma plasma sai do icone e voa ate a nave
 	var a := Node2D.new()
@@ -580,11 +672,12 @@ func _equipar_power() -> void:
 		return
 	pontos += 500
 	power_timer = 15.0
+	_num(player.position + Vector2(0, -90), "POWER!", 30, Color(0.45, 1.0, 0.6))
 	if player != null and is_instance_valid(player):
 		_fx_bonus(player.position)
 		player.call("set_equipado", true)
 	if sfx != null:
-		sfx.call("boss")
+		sfx.call("pickup")
 
 func _on_player_atirar(pos: Vector2) -> void:
 	if vidas <= 0:
@@ -730,7 +823,10 @@ func _morte_buraco() -> void:
 	# morte instantanea com buraco negro (2 tiros do chefao sem escudo)
 	if vidas <= 0:
 		return
+	combo = 0
 	_slowmo_morte()
+	if sfx != null:
+		sfx.call("stinger")
 	var pp := player.position
 	player.visible = false
 	vidas = 0
@@ -881,7 +977,7 @@ func _process(delta: float) -> void:
 			if aviso_tex != null:
 				aviso_tex.visible = false
 
-	# escudo 0-100: -10 por tiro sofrido, +10 a cada 3 abates (sem recarga por tempo)
+	# escudo 0-100: -25 por dano, +25 a cada 5 abates
 
 	# torres desativadas por enquanto
 
@@ -890,6 +986,18 @@ func _process(delta: float) -> void:
 	if bonus_timer <= 0:
 		bonus_timer = 30.0
 		_spawn_bonus()
+
+	# caixa vermelha a cada 25s (so com chefao)
+	bonus2_timer -= delta
+	if bonus2_timer <= 0:
+		bonus2_timer = 25.0
+		_spawn_bonus2()
+
+	# combo some sem matar por 2.5s
+	if combo_timer > 0:
+		combo_timer -= delta
+		if combo_timer <= 0:
+			combo = 0
 
 	# power-up 15s
 	if power_timer > 0:
@@ -936,14 +1044,12 @@ func _process(delta: float) -> void:
 				if fill != null:
 					fill.bg_color = Color(0.3, 1.0, 0.5)
 				charge_bar.modulate.a = 1.0
-			# energia carregando: sobe o tom a cada segundo
+			# som de carga mutado por enquanto
 			var seg := int(player.get("carga"))
-			if seg > last_beep and prog < 1.0 and sfx != null:
+			if seg > last_beep and prog < 1.0:
 				last_beep = seg
-				sfx.call("carga", seg)
-			if pronta and last_beep < 99 and sfx != null:
+			if pronta and last_beep < 99:
 				last_beep = 99
-				sfx.call("pronta")
 		else:
 			charge_bar.visible = false
 			charge_txt.visible = false
@@ -970,6 +1076,7 @@ func _process(delta: float) -> void:
 							if str(e.get("tipo")) == "boss":
 								pontos += 2000
 								_registrar_abate()
+								_kill_confirm(ep, 2000, Color(1, 0.85, 0.3))
 								_fx_explosao(ep, true, false)
 								_rank_chefe()
 								_killcam_boss(ep)
@@ -983,15 +1090,21 @@ func _process(delta: float) -> void:
 								pontos += 200
 								_fx_bonus(ep)
 								_spawn_arma(ep)
+							elif str(e.get("tipo")) == "bonus2":
+								pontos += 200
+								_fx_explosao(ep, false, false)
+								_disparar_missil()
 							else:
 								pontos += 100
 								_registrar_abate()
+								_kill_confirm(ep, 100, Color(0.5, 1.0, 0.55))
 								_fx_explosao(ep, false, false)
 								hitstop(0.06)
 								add_trauma(0.22)
 						else:
 							if str(e.get("tipo")) == "boss":
 								pontos += 40
+							_num(ep, "4", 18, Color(1, 1, 1))
 							_fx_tiro(ep)
 
 	# spawn continuo
@@ -1007,6 +1120,7 @@ func _process(delta: float) -> void:
 			_spawn_small()
 
 	_colisoes()
+	_colisoes_misseis()
 	_limpar_listas()
 	hud.atualizar(pontos, vidas, escudo)
 	if boss != null and is_instance_valid(boss):
@@ -1053,6 +1167,7 @@ func _colisoes() -> void:
 					if e.get("tipo") == "boss":
 						pontos += 2000
 						_registrar_abate()
+						_kill_confirm(e.position, 2000, Color(1, 0.85, 0.3))
 						_fx_explosao(e.position, true, false)
 						_rank_chefe()
 						_killcam_boss(e.position)
@@ -1068,15 +1183,21 @@ func _colisoes() -> void:
 						_spawn_arma(e.position)
 						if sfx != null:
 							sfx.call("explosao")
+					elif e.get("tipo") == "bonus2":
+						pontos += 200
+						_fx_explosao(e.position, false, false)
+						_disparar_missil()
 					else:
 						pontos += 100
 						_registrar_abate()
+						_kill_confirm(e.position, 100, Color(0.5, 1.0, 0.55))
 						_fx_explosao(e.position, false, false)
 						hitstop(0.06)
 						add_trauma(0.22)
 				else:
 					if e.get("tipo") == "boss":
 						pontos += 10 * dano
+					_num(e.position, str(dano), 18, Color(1, 1, 1))
 					_fx_tiro(e.position)
 				if perfurante:
 					continue # continua atravessando
@@ -1132,8 +1253,56 @@ func _colisoes() -> void:
 					_fx_bonus(e.position)
 					e.set("vivo", false)
 					e.queue_free()
+				elif te == "bonus2":
+					pontos += 200
+					_fx_explosao(e.position, false, false)
+					_disparar_missil()
+					e.set("vivo", false)
+					e.queue_free()
 				else:
 					_dano_no_player(25.0)
+				break
+
+func _colisoes_misseis() -> void:
+	# missil causa 36 (30% do chefe) e some no impacto
+	for m in misseis:
+		if not is_instance_valid(m) or not m.get("vivo"):
+			continue
+		for e in inimigos:
+			if not is_instance_valid(e) or not e.get("vivo"):
+				continue
+			var te := str(e.get("tipo"))
+			if te == "bonus" or te == "bonus2" or te == "turret":
+				continue
+			var raio_e := 115.0 if te == "boss" else 30.0
+			if (m as Node2D).position.distance_to((e as Node2D).position) < raio_e + 10.0:
+				m.set("vivo", false)
+				m.queue_free()
+				var morreu: bool = e.call("levar_dano", 36)
+				if morreu:
+					if te == "boss":
+						pontos += 2000
+						_registrar_abate()
+						_kill_confirm((e as Node2D).position, 2000, Color(1, 0.85, 0.3))
+						_fx_explosao((e as Node2D).position, true, false)
+						_rank_chefe()
+						_killcam_boss((e as Node2D).position)
+						add_trauma(0.7)
+						boss = null
+						await get_tree().create_timer(5.0).timeout
+						if vidas > 0:
+							_spawn_boss()
+					else:
+						pontos += 100
+						_registrar_abate()
+						_kill_confirm((e as Node2D).position, 100, Color(0.5, 1.0, 0.55))
+						_fx_explosao((e as Node2D).position, false, false)
+						hitstop(0.06)
+						add_trauma(0.22)
+				else:
+					if te == "boss":
+						pontos += 360
+					_fx_tiro((e as Node2D).position)
 				break
 
 func _dano_no_player(qtd: float) -> void:
@@ -1156,7 +1325,10 @@ func _dano_no_player(qtd: float) -> void:
 	if vidas <= 0:
 		game_over_timer = 0.0
 		player.visible = false
+		combo = 0
 		_slowmo_morte()
+		if sfx != null:
+			sfx.call("stinger")
 	else:
 		player.visible = true
 	# revive player visivel
@@ -1169,6 +1341,7 @@ func _limpar_listas() -> void:
 	inimigos = inimigos.filter(func(x): return is_instance_valid(x))
 	armas = armas.filter(func(x): return is_instance_valid(x))
 	feixes = feixes.filter(func(x): return is_instance_valid(x))
+	misseis = misseis.filter(func(x): return is_instance_valid(x))
 
 func _mostrar_gameover(delta: float) -> void:
 	gameover_anim += delta
@@ -1212,22 +1385,11 @@ func _mostrar_gameover(delta: float) -> void:
 		b1.add_theme_font_size_override("font_size", 24)
 		if f != null:
 			b1.add_theme_font_override("font", f)
-		b1.add_theme_color_override("font_color", Color(1, 0.35, 0.25))
-		b1.add_theme_color_override("font_hover_color", Color(1, 0.6, 0.5))
-		var sb1 := StyleBoxFlat.new()
-		sb1.bg_color = Color(0.05, 0.0, 0.0, 0.85)
-		sb1.border_color = Color(1, 0.2, 0.12)
-		sb1.set_border_width_all(2)
-		sb1.set_corner_radius_all(4)
-		b1.add_theme_stylebox_override("normal", sb1)
-		var sb1h := sb1.duplicate() as StyleBoxFlat
-		sb1h.bg_color = Color(0.15, 0.02, 0.02, 0.95)
-		b1.add_theme_stylebox_override("hover", sb1h)
-		b1.add_theme_stylebox_override("pressed", sb1h)
 		b1.position = Vector2(120, center.y + 180)
 		b1.size = Vector2(300, 52)
 		b1.name = "Retry"
 		b1.modulate.a = 0.0
+		_botao_vivo(b1, Color(1, 0.35, 0.25), Color(1, 0.2, 0.12))
 		b1.pressed.connect(_reiniciar)
 		gameover_layer.add_child(b1)
 		# botao sair para o menu (cinza igual imagem)
@@ -1236,24 +1398,14 @@ func _mostrar_gameover(delta: float) -> void:
 		b2.add_theme_font_size_override("font_size", 22)
 		if f != null:
 			b2.add_theme_font_override("font", f)
-		b2.add_theme_color_override("font_color", Color(0.7, 0.7, 0.72))
-		b2.add_theme_color_override("font_hover_color", Color(1, 1, 1))
-		var sb2 := StyleBoxFlat.new()
-		sb2.bg_color = Color(0.02, 0.02, 0.03, 0.85)
-		sb2.border_color = Color(0.45, 0.45, 0.48)
-		sb2.set_border_width_all(1)
-		sb2.set_corner_radius_all(4)
-		b2.add_theme_stylebox_override("normal", sb2)
-		var sb2h := sb2.duplicate() as StyleBoxFlat
-		sb2h.bg_color = Color(0.1, 0.1, 0.12, 0.95)
-		b2.add_theme_stylebox_override("hover", sb2h)
-		b2.add_theme_stylebox_override("pressed", sb2h)
 		b2.position = Vector2(120, center.y + 244)
 		b2.size = Vector2(300, 48)
 		b2.name = "MenuBtn"
 		b2.modulate.a = 0.0
+		_botao_vivo(b2, Color(0.7, 0.7, 0.72), Color(0.45, 0.45, 0.48))
 		b2.pressed.connect(_ir_para_menu)
 		gameover_layer.add_child(b2)
+		b1.grab_focus()
 		if sfx != null:
 			sfx.call("boss")
 	# animacao epica: zoom da arte + fade dos botoes
@@ -1290,6 +1442,8 @@ func _reiniciar() -> void:
 	escudo = 100.0
 	abates = 0
 	chefe_sem_escudo = 0
+	combo = 0
+	combo_timer = 0.0
 	dimensao = 1
 	tempo_fase = 0.0
 	em_transicao = false
@@ -1328,6 +1482,11 @@ func _reiniciar() -> void:
 			fx2.queue_free()
 	feixes.clear()
 	feixe_tick = 0.0
+	for mm in misseis:
+		if is_instance_valid(mm):
+			mm.queue_free()
+	misseis.clear()
+	bonus2_timer = 25.0
 	if menu_layer != null:
 		menu_layer.queue_free()
 		menu_layer = null
@@ -1386,6 +1545,10 @@ func _ir_para_menu() -> void:
 		if is_instance_valid(fx2):
 			fx2.queue_free()
 	feixes.clear()
+	for mm in misseis:
+		if is_instance_valid(mm):
+			mm.queue_free()
+	misseis.clear()
 	if gameover_layer != null:
 		gameover_layer.queue_free()
 		gameover_layer = null
@@ -1399,9 +1562,23 @@ func _ir_para_menu() -> void:
 	add_child(menu_layer)
 	var center := Vector2(270, 480) # fixo do projeto
 	var f := _fonte()
+	# arte cheia de fundo (bg da fase 1) + véu escuro pra leitura
+	for mp in ["res://assets/bg.png", "res://assets/bg.jpg", "res://assets/VENOM.png"]:
+		if ResourceLoader.exists(mp):
+			var mtex := load(mp) as Texture2D
+			if mtex != null:
+				var msp := Sprite2D.new()
+				msp.texture = mtex
+				var msc := maxf(540.0 / float(mtex.get_width()), 960.0 / float(mtex.get_height()))
+				msp.scale = Vector2(msc, msc)
+				msp.position = center
+				msp.modulate = Color(0.55, 0.6, 0.58)
+				menu_layer.add_child(msp)
+				break
 	var bg := ColorRect.new()
-	bg.color = Color(0.005, 0.015, 0.01, 1)
+	bg.color = Color(0.0, 0.0, 0.0, 0.55)
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	menu_layer.add_child(bg)
 	var t := Label.new()
 	t.text = "ALIEN FIELD"
@@ -1428,20 +1605,17 @@ func _ir_para_menu() -> void:
 	bj.add_theme_font_size_override("font_size", 30)
 	if f != null:
 		bj.add_theme_font_override("font", f)
-	bj.add_theme_color_override("font_color", Color(0.4, 1.0, 0.55))
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.02, 0.1, 0.05, 0.95)
-	sb.border_color = Color(0.3, 1.0, 0.5)
-	sb.set_border_width_all(2)
-	sb.set_corner_radius_all(4)
-	bj.add_theme_stylebox_override("normal", sb)
 	bj.position = Vector2(140, center.y + 40)
 	bj.size = Vector2(260, 60)
+	_botao_vivo(bj, Color(0.4, 1.0, 0.55), Color(0.3, 1.0, 0.5))
 	bj.pressed.connect(_reiniciar)
 	menu_layer.add_child(bj)
+	bj.grab_focus()
 	var h := Label.new()
 	h.text = "WASD move  -  L atira / segura 3s super"
 	h.add_theme_font_size_override("font_size", 16)
+	if f != null:
+		h.add_theme_font_override("font", f)
 	h.add_theme_color_override("font_color", Color(0.6, 0.65, 0.62))
 	h.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	h.position = Vector2(0, center.y + 130)

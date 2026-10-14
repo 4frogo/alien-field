@@ -16,6 +16,10 @@ var tem_sprite := false
 var carregando := false
 var carga := 0.0
 var carga_max := 3.0
+var trail: Node2D = null
+var dash_t := 0.0
+var dash_cd := 0.0
+var dash_dir := Vector2.ZERO
 var charge_fx: Sprite2D = null
 var charge_mat: ShaderMaterial = null
 var danger_fx: Sprite2D = null
@@ -114,8 +118,15 @@ func _ready() -> void:
 		danger_mat.set_shader_parameter("speed", 7.0)
 		danger_fx.material = danger_mat
 	add_child(danger_fx)
+	# rastro da nave (top_level: nao herda rotacao/escala da nave)
+	var tr := Node2D.new()
+	tr.set_script(preload("res://scripts/trail.gd"))
+	tr.set("alvo", self)
+	add_child(tr)
+	tr.top_level = true
+	trail = tr
 	# canhao plasma equipado (aparece nos 15s de triplo)
-	for ap in ["res://assets/arma plasma.png", "res://assets/arma_plasma.png"]:
+	for ap in ["res://assets/arma_plasma.png"]:
 		if ResourceLoader.exists(ap):
 			var atx := load(ap) as Texture2D
 			if atx != null:
@@ -176,12 +187,28 @@ func _process(delta: float) -> void:
 	if Input.is_key_pressed(KEY_S) or Input.is_key_pressed(KEY_DOWN):
 		dir.y += 1
 	dir += analog
-	position += dir.normalized() * speed * delta if dir.length() > 0.05 else Vector2.ZERO
+
+	# ---- dash (SHIFT ou ESPACO): impulso curto na direcao atual
+	dash_cd = maxf(0.0, dash_cd - delta)
+	if dash_t > 0.0:
+		dash_t -= delta
+		position += dash_dir * 900.0 * delta
+		if dash_t <= 0.0:
+			dash_cd = 1.1
+	else:
+		var quer_dash := Input.is_key_pressed(KEY_SHIFT) or Input.is_key_pressed(KEY_SPACE)
+		if quer_dash and dash_cd <= 0.0 and dir.length() > 0.05:
+			dash_t = 0.16
+			dash_dir = dir.normalized()
+		position += dir.normalized() * speed * delta if dir.length() > 0.05 else Vector2.ZERO
 
 	position.x = clamp(position.x, 95.0, 445.0)
 	position.y = clamp(position.y, 400.0, 900.0)
 	# impulso pros propulsores (0 parado, 1 movendo)
-	impulso = lerpf(impulso, clampf(dir.length(), 0.0, 1.0), minf(1.0, 6.0 * delta))
+	var forca_imp: float = 1.0 if dash_t > 0.0 else clampf(dir.length(), 0.0, 1.0)
+	impulso = lerpf(impulso, forca_imp, minf(1.0, (12.0 if dash_t > 0.0 else 6.0) * delta))
+	if trail != null:
+		trail.set("intensidade", impulso)
 
 	# efeito 3D: inclina (bank) pros lados, arfagem vertical leve
 	var alvo_rot := dir.x * 0.32
@@ -289,9 +316,9 @@ func _draw() -> void:
 		draw_circle(Vector2(sx, 26), 5, Color(0.15, 0.6, 0.25))
 		draw_circle(Vector2(sx, 26), 2.5, Color(0.5, 1.0, 0.6))
 	# nucleo central verde (igual imagem)
-	draw_ellipse(Vector2(0, 8), 11, 17, Color(0.02, 0.15, 0.06))
-	draw_ellipse(Vector2(0, 8), 8, 13, Color(0.1, 0.7, 0.28))
-	draw_ellipse(Vector2(0, 8), 4, 9, Color(0.6, 1.0, 0.7))
+	_ellipse_poly(Vector2(0, 8), 11, 17, Color(0.02, 0.15, 0.06))
+	_ellipse_poly(Vector2(0, 8), 8, 13, Color(0.1, 0.7, 0.28))
+	_ellipse_poly(Vector2(0, 8), 4, 9, Color(0.6, 1.0, 0.7))
 	# antena topo
 	draw_line(Vector2(0, -52), Vector2(0, -62), Color(0.4, 1.0, 0.6), 2.0)
 	draw_circle(Vector2(0, -64), 3, Color(0.5, 1.0, 0.65))
@@ -389,7 +416,7 @@ func _chama_motor(bico: Vector2) -> void:
 	draw_circle(bico, 4.5, Color(0.15, 0.6, 0.25))
 	draw_circle(bico, 2.5, Color(0.6, 1.0, 0.7))
 
-func draw_ellipse(center: Vector2, rx: float, ry: float, col: Color) -> void:
+func _ellipse_poly(center: Vector2, rx: float, ry: float, col: Color) -> void:
 	var pts := PackedVector2Array()
 	for i in 16:
 		var a := TAU * float(i) / 16.0

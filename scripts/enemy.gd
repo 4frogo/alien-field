@@ -144,7 +144,7 @@ func _fazer_brilho() -> ImageTexture:
 
 func _criar_sprite_bonus() -> void:
 	# caixa flutuante vermelha (emblema recortado exato + mascara)
-	for bp in ["res://assets/missil vermelho.png", "res://assets/missil_vermelho.png"]:
+	for bp in ["res://assets/missil_vermelho.png"]:
 		if ResourceLoader.exists(bp):
 			var tex := load(bp) as Texture2D
 			if tex == null:

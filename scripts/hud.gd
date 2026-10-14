@@ -4,10 +4,10 @@ extends CanvasLayer
 var lbl_pontos_val: Label
 var lbl_fase: Label
 var vidas_icons: Control
-var bar_escudo: ProgressBar
+var bar_escudo: Control
 var vidas_count := 3
 var lbl_boss: Label
-var bar_boss: ProgressBar
+var bar_boss: Control
 var retrato_boss: Sprite2D
 
 var verde := Color(0.25, 1.0, 0.45)
@@ -68,24 +68,14 @@ func _ready() -> void:
 	ico_esc.size = Vector2(28, 28)
 	add_child(ico_esc)
 
-	bar_escudo = ProgressBar.new()
+	bar_escudo = preload("res://scripts/hud_bar.gd").new()
+	bar_escudo.set("cor", verde)
+	bar_escudo.set("cor_fundo", Color(0.04, 0.14, 0.07))
 	bar_escudo.position = Vector2(18, 920)
 	bar_escudo.size = Vector2(180, 18)
-	bar_escudo.min_value = 0
-	bar_escudo.max_value = 100
-	bar_escudo.value = 100
-	bar_escudo.show_percentage = false
+	bar_escudo.set("valor", 1.0)
+	bar_escudo.set("alvo", 1.0)
 	add_child(bar_escudo)
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.05, 0.25, 0.1)
-	sb.border_color = verde
-	sb.set_border_width_all(2)
-	sb.set_corner_radius_all(3)
-	bar_escudo.add_theme_stylebox_override("background", sb)
-	var fill := StyleBoxFlat.new()
-	fill.bg_color = verde
-	fill.set_corner_radius_all(2)
-	bar_escudo.add_theme_stylebox_override("fill", fill)
 
 	# ARMA: icone triplo (sem texto)
 	var ico_arma = preload("res://scripts/hud_icon.gd").new()
@@ -108,26 +98,18 @@ func _ready() -> void:
 	lbl_boss.name = "BossNome"
 	add_child(lbl_boss)
 
-	bar_boss = ProgressBar.new()
+	bar_boss = preload("res://scripts/hud_bar.gd").new()
+	bar_boss.set("cor", Color(0.95, 0.16, 0.10))
+	bar_boss.set("cor_fundo", Color(0.14, 0.02, 0.02))
+	bar_boss.set("mostrar_segmentos", true)
+	bar_boss.set("segmentos", 12)
 	bar_boss.position = Vector2(120, 136)
 	bar_boss.size = Vector2(300, 14)
-	bar_boss.min_value = 0
-	bar_boss.max_value = 120
-	bar_boss.value = 120
-	bar_boss.show_percentage = false
+	bar_boss.set("valor", 1.0)
+	bar_boss.set("alvo", 1.0)
 	bar_boss.visible = false
 	bar_boss.name = "bar_boss"
 	add_child(bar_boss)
-	var bbg := StyleBoxFlat.new()
-	bbg.bg_color = Color(0.08, 0.0, 0.0, 0.85)
-	bbg.border_color = Color(1, 0.25, 0.12)
-	bbg.set_border_width_all(2)
-	bbg.set_corner_radius_all(3)
-	bar_boss.add_theme_stylebox_override("background", bbg)
-	var bfill := StyleBoxFlat.new()
-	bfill.bg_color = Color(0.9, 0.12, 0.08)
-	bfill.set_corner_radius_all(2)
-	bar_boss.add_theme_stylebox_override("fill", bfill)
 
 	# retrato do chefão (recorte do rosto, escondido junto)
 	retrato_boss = Sprite2D.new()
@@ -152,14 +134,13 @@ func atualizar(pontos: int, vidas: int, escudo: float) -> void:
 	lbl_pontos_val.text = "%06d" % pontos
 	vidas_count = vidas
 	vidas_icons.queue_redraw()
-	bar_escudo.value = escudo
+	bar_escudo.call("definir", escudo, 100.0)
 
 func boss_vida(hp: int, hp_max: int) -> void:
 	lbl_boss.visible = true
 	bar_boss.visible = true
 	retrato_boss.visible = true
-	bar_boss.max_value = hp_max
-	bar_boss.value = maxf(0.0, float(hp))
+	bar_boss.call("definir", maxf(0.0, float(hp)), float(hp_max))
 
 func boss_fora() -> void:
 	lbl_boss.visible = false

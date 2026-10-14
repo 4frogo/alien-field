@@ -14,6 +14,11 @@ var e_disparo := false
 var perfurante := false
 var vida_perfurante := 99
 var fx: Sprite2D = null
+# camadas extras do super laser (plasma vivo)
+var _sway_laser := 0.0
+var _halo_largo: Sprite2D = null
+var _halo_med: Sprite2D = null
+var _vortice_boca: Sprite2D = null
 var fx_base := Vector2.ONE
 var fx_fase := 0.0
 var plasma: Sprite2D = null
@@ -145,13 +150,61 @@ func setup_laser(p: Vector2, v: Vector2, p_dano: int = 25) -> void:
 	e_laser = true
 	perfurante = true
 	vida_perfurante = 99
-	raio = 90.0
-	fx = Sprite2D.new()
-	fx.texture = _fazer_textura_feixe()
-	fx.scale = Vector2(1.0, 2.8)
-	fx.position = Vector2(0, -330) # feixe estende pra cima a partir do bico
+	raio = 110.0
+
+	# ---- 3 camadas do feixe, de fora pra dentro.
+	# As duas de halo sao ADITIVAS: sem elas o feixe fica opaco e fraco.
+	var mat_add := CanvasItemMaterial.new()
+	mat_add.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
+	var tex_f := _fazer_textura_feixe()
+	var sh: Shader = null
 	if ResourceLoader.exists("res://assets/laser_rgb.gdshader"):
-		var sh := load("res://assets/laser_rgb.gdshader") as Shader
+		sh = load("res://assets/laser_rgb.gdshader") as Shader
+
+	# halo largo (roxo/rosa difuso)
+	var halo := Sprite2D.new()
+	halo.texture = tex_f
+	halo.scale = Vector2(5.2, 2.8)
+	halo.position = Vector2(0, -330)
+	halo.material = mat_add
+	halo.modulate = Color(0.45, 0.10, 1.0, 0.20)
+	halo.z_index = -2
+	if sh != null:
+		var mh := ShaderMaterial.new()
+		mh.shader = sh
+		mh.set_shader_parameter("speed", 6.0)
+		halo.material = mh
+		# tinta roxa forte: sem isso o aditivo satura e fica branco/leitoso
+		halo.modulate = Color(0.50, 0.14, 1.0, 0.22)
+	add_child(halo)
+	_halo_largo = halo
+
+	# halo medio (rosa quente)
+	var halo2 := Sprite2D.new()
+	halo2.texture = tex_f
+	halo2.scale = Vector2(2.9, 2.8)
+	halo2.position = Vector2(0, -330)
+	halo2.material = mat_add
+	halo2.modulate = Color(1.0, 0.22, 0.65, 0.26)
+	halo2.z_index = -1
+	add_child(halo2)
+	_halo_med = halo2
+
+	# boca do canhao: nucleo de plasma que pulsa (desenhado por codigo)
+	var vb := Sprite2D.new()
+	vb.texture = _fazer_textura_radial()
+	vb.scale = Vector2(1.0, 1.0)
+	vb.position = Vector2(0, 20)
+	vb.z_index = 1
+	add_child(vb)
+	_vortice_boca = vb
+
+	# nucleo (o feixe propriamente dito, bem mais largo que antes)
+	fx = Sprite2D.new()
+	fx.texture = tex_f
+	fx.scale = Vector2(1.55, 2.8)
+	fx.position = Vector2(0, -330)
+	if sh != null:
 		var mat := ShaderMaterial.new()
 		mat.shader = sh
 		mat.set_shader_parameter("speed", 6.0)
@@ -165,6 +218,20 @@ func _process(delta: float) -> void:
 		if position.y < -800:
 			vivo = false
 			queue_free()
+		# plasma vivo: o feixe inteiro BALANCA no sentido da propulsao, e
+		# o nucleo pulsa largura. O shader ja distorce as bordas; aqui o
+		# movimento da base da o que faltava pra nao parecer tubo rigido.
+		_sway_laser += delta * 3.1
+		var bal: float = 1.0 + 0.10 * sin(_sway_laser) + 0.06 * sin(_sway_laser * 1.9 + 1.0)
+		if fx != null:
+			fx.scale = Vector2(1.55 * bal, 2.8)
+		if _halo_med != null:
+			_halo_med.scale = Vector2(2.9 * (1.0 + 0.08 * sin(_sway_laser * 1.4)), 2.8)
+		if _halo_largo != null:
+			_halo_largo.scale = Vector2(5.2 * (1.0 + 0.12 * sin(_sway_laser * 0.8 + 2.0)), 2.8)
+		# boca do canhao acompanha
+		if _vortice_boca != null:
+			_vortice_boca.scale = Vector2.ONE * (1.0 + 0.10 * sin(_sway_laser * 2.2))
 		queue_redraw()
 		return
 	if e_triplo and fx != null:
@@ -186,6 +253,34 @@ func _process(delta: float) -> void:
 		vivo = false
 		queue_free()
 	queue_redraw()
+
+## Tracer: fita fina atras do projetil. Como as balas voam em linha reta,
+## da pra desenhar so do sentido da velocidade — sem historico de posicoes,
+## e sem no extra: morre junto com o projetil.
+func _rastro(dir: Vector2, comp: float, larg: float, cor: Color) -> void:
+	if dir.length() < 0.01:
+		return
+	var d := dir.normalized()
+	var ponta := d * comp
+	var per := Vector2(-d.y, d.x)
+	# halo largo e translucido
+	draw_colored_polygon(PackedVector2Array([
+		per * larg * 2.4, ponta + per * larg * 0.5,
+		ponta - per * larg * 0.5, -per * larg * 2.4,
+	]), Color(cor.r, cor.g, cor.b, 0.16))
+	# corpo
+	draw_colored_polygon(PackedVector2Array([
+		per * larg, ponta + per * larg * 0.12,
+		ponta - per * larg * 0.12, -per * larg,
+	]), Color(cor.r, cor.g, cor.b, 0.45))
+	# nucleo claro
+	draw_line(Vector2.ZERO, ponta, Color(1, 1, 1, 0.5), maxf(0.8, larg * 0.35), true)
+	# pulsos de energia rolando pelo rastro
+	for i in 3:
+		var f: float = fmod(tempo * 2.4 + float(i) / 3.0, 1.0)
+		var w: float = larg * (1.0 - f) * 0.85
+		if w > 0.4:
+			draw_circle(d * comp * f, w, Color(1, 1, 1, 0.30 * (1.0 - f)))
 
 func _raio_plasma(base: Vector2, ang: float, comp: float, fase: float) -> void:
 	# raio de plasma em 3 camadas com tremor eletrico
@@ -211,9 +306,10 @@ func _draw() -> void:
 		# raio de energia desenhado a mao, tremeluzindo
 		var t := tempo * 25.0 + fx_fase
 		var pul := 1.0 + 0.12 * sin(t)
-		# rastro
+		# rastro: glow na base + tracer atras
 		draw_circle(Vector2(0, 12), 5.0, Color(0.15, 0.9, 0.35, 0.25))
 		draw_circle(Vector2(0, 8), 3.0, Color(0.4, 1.0, 0.5, 0.4))
+		_rastro(Vector2.DOWN, 34.0, 3.6, Color(0.3, 1.0, 0.5))
 		# corpo: losango alongado em 3 camadas
 		var w := 6.5 * pul
 		var tip := -24.0 * pul
@@ -249,62 +345,119 @@ func _draw() -> void:
 		return
 	if fx != null:
 		# 100% shader (super verde, plasma vermelho, gigante), zero vetor
+		# + tracer atras pra deixar o tiro legivel
+		var tras := -vel.normalized()
+		if e_super:
+			_rastro(tras, 70.0, 9.0, Color(0.35, 1.0, 0.55))
+		elif e_laser:
+			pass
+		elif raio > 25.0:
+			# bola gigante do chefao
+			_rastro(tras, 64.0, 11.0, Color(1.0, 0.30, 0.16))
+		else:
+			_rastro(tras, 42.0, 4.5, Color(1.0, 0.45, 0.20))
 		return
 	if amigo:
-		# rastro
-		var dir := -vel.normalized()
-		for i in 3:
-			var tp := dir * float(i + 1) * 10.0
-			var a := 0.35 - float(i) * 0.1
-			draw_circle(tp, 4.0 - float(i), Color(0.1, 1.0, 0.4, a))
-		# laser verde triplo igual imagem
+		# tracer + laser verde triplo
+		_rastro(-vel.normalized(), 40.0, 3.2, Color(0.25, 1.0, 0.45))
 		draw_circle(Vector2.ZERO, 11, Color(0.1, 1.0, 0.4, 0.3))
 		draw_circle(Vector2.ZERO, 6, Color(0.15, 0.9, 0.35))
 		draw_circle(Vector2.ZERO, 3.0, Color(0.9, 1.0, 0.92))
 		draw_rect(Rect2(-1.5, -18, 3, 14), Color(0.7, 1.0, 0.75))
 	else:
 		# fallback sem shader (nunca deve aparecer)
+		_rastro(-vel.normalized(), 40.0, 5.0, Color(1.0, 0.35, 0.15))
 		var pulse := 1.0 + 0.18 * sin(tempo * 14.0)
 		draw_circle(Vector2.ZERO, 12 * pulse, Color(1.0, 0.15, 0.1, 0.35))
 		draw_circle(Vector2.ZERO, 7.5 * pulse, Color(0.95, 0.2, 0.08))
 		draw_circle(Vector2.ZERO, 4.0, Color(1.0, 0.6, 0.2))
 
 func _draw_vortice() -> void:
-	# boca do canhao: aneis girando laranja/ciano/roxo + flash (igual ref)
+	# boca do canhao: halo, flash e aneis girando (grande e quente)
 	var base := Vector2(0, 20)
 	var flash := 0.7 + 0.3 * sin(tempo * 31.0)
+	draw_circle(base, 92.0, Color(0.7, 0.25, 1.0, 0.16))
+	draw_circle(base, 58.0, Color(1.0, 0.4, 0.8, 0.20))
+	draw_circle(base, 30.0 * flash + 6.0, Color(1, 0.85, 0.4, 0.5))
 	draw_circle(base, 16.0 * flash + 4.0, Color(1, 1, 1, 0.85))
-	draw_circle(base, 24.0 * flash + 6.0, Color(1, 0.85, 0.4, 0.5))
 	var r1 := tempo * 3.2
 	var r2 := -tempo * 2.3 + 1.0
 	var r3 := tempo * 4.1 + 2.0
-	draw_arc(base, 26.0, r1, r1 + 4.4, 24, Color(1, 0.6, 0.12, 0.9), 3.5)
-	draw_arc(base, 36.0, r2, r2 + 3.8, 24, Color(0.25, 0.95, 1.0, 0.85), 2.5)
-	draw_arc(base, 47.0, r3, r3 + 4.9, 28, Color(0.7, 0.3, 1.0, 0.7), 2.0)
-	draw_arc(base, 47.0, -r3, -r3 + 2.2, 20, Color(1, 0.3, 0.8, 0.5), 1.5)
+	draw_arc(base, 30.0, r1, r1 + 4.4, 24, Color(1, 0.6, 0.12, 0.9), 5.0)
+	draw_arc(base, 44.0, r2, r2 + 3.8, 24, Color(0.25, 0.95, 1.0, 0.85), 3.5)
+	draw_arc(base, 58.0, r3, r3 + 4.9, 28, Color(0.7, 0.3, 1.0, 0.7), 3.0)
+	draw_arc(base, 70.0, -r3, -r3 + 2.2, 20, Color(1, 0.3, 0.8, 0.5), 2.0)
+	# faiscas saltando da boca
+	for i in 8:
+		var a := tempo * 6.0 + TAU * float(i) / 8.0
+		var d := 34.0 + 10.0 * sin(tempo * 9.0 + float(i))
+		draw_circle(base + Vector2(cos(a), sin(a)) * d, 2.6,
+			Color(1.0, 0.85, 0.6, 0.8))
 
 func _draw_raios() -> void:
-	# relampagos ciano/magenta subindo pelas bordas do feixe + faiscas
+	# ---- tentaculos de plasma: filamentos ondulantes que saem do nucleo,
+	# com fase e frequencia proprias (parecem Separate coisas vivas)
+	var rng_t := RandomNumberGenerator.new()
+	var passo_t := int(tempo * 5.0)
+	for i in 6:
+		rng_t.seed = i * 7919
+		var lado := 1.0 if i % 2 == 0 else -1.0
+		var freq := rng_t.randf_range(0.018, 0.045)
+		var amp := rng_t.randf_range(6.0, 22.0) * (1.0 + 0.4 * sin(tempo * 1.3 + float(i)))
+		var vel := rng_t.randf_range(1.2, 3.4)
+		var fase := rng_t.randf_range(0.0, TAU)
+		var pts := PackedVector2Array()
+		var y := 10.0
+		var guarda := 0
+		while y > -660.0 and guarda < 200:
+			var f := -y / 660.0
+			var x := lado * (10.0 + f * 14.0
+				+ sin(-y * freq + tempo * vel + fase) * amp * (0.4 + f)
+				+ sin(-y * freq * 2.7 - tempo * vel * 1.6) * amp * 0.35)
+			pts.append(Vector2(x, y))
+			y -= 26.0
+			guarda += 1
+		if pts.size() < 2:
+			continue
+		var quent := fmod(tempo * 0.5 + float(i) * 0.17, 1.0)
+		var cor := Color(1.0, 0.45, 0.35).lerp(Color(1.0, 0.85, 0.6), quent)
+		draw_polyline(pts, Color(cor.r, cor.g, cor.b, 0.18), 7.0)
+		draw_polyline(pts, Color(cor.r, cor.g, cor.b, 0.55), 2.5)
+
+	# ---- nodos de plasma subindo (bolhas brilhantes no miolo)
+	for i in 4:
+		var f2: float = fmod(tempo * 0.42 + float(i) / 4.0, 1.0)
+		var y2: float = lerpf(10.0, -660.0, f2)
+		var bal := sin(f2 * PI)
+		var x2 := sin(y2 * 0.02 + tempo * 1.7 + float(i) * 2.1) * 10.0
+		draw_circle(Vector2(x2, y2), 5.0 + 4.0 * bal, Color(1.0, 0.7, 0.4, 0.22 * bal))
+		draw_circle(Vector2(x2, y2), 2.2 + 1.8 * bal, Color(1, 1, 0.95, 0.65 * bal))
+
+	# ---- aneis de energia subindo pelo feixe
+	for i in 5:
+		var f3: float = fmod(tempo * 0.55 + float(i) / 5.0, 1.0)
+		var y3: float = 10.0 - f3 * 660.0
+		var larg: float = 58.0 - 16.0 * f3
+		var a3: float = sin(f3 * PI) * 0.5
+		draw_arc(Vector2(0, y3), larg, 0.0, TAU, 26,
+			Color(1.0, 0.6, 0.35, a3 * 0.30), 5.0, true)
+		draw_arc(Vector2(0, y3), larg * 0.55, 0.0, TAU, 22,
+			Color(1, 0.95, 0.85, a3 * 0.45), 2.5, true)
+
+	# ---- bloom na ponta (onde o plasma acerta)
+	var tp := 0.6 + 0.4 * sin(tempo * 23.0)
+	draw_circle(Vector2(0, -660), 68.0 * tp, Color(1.0, 0.4, 0.25, 0.16))
+	draw_circle(Vector2(0, -660), 32.0 * tp, Color(1.0, 0.7, 0.4, 0.26))
+	draw_circle(Vector2(0, -660), 14.0, Color(1, 1, 0.95, 0.55))
+
+	# ---- faiscas subindo pelo feixe
 	var passo := int(tempo / 0.07)
 	var rng := RandomNumberGenerator.new()
-	for lado in [-1, 1]:
-		for linha in 2:
-			rng.seed = passo * 131 + lado * 17 + linha * 101
-			var pts := PackedVector2Array()
-			var x := float(lado) * (16.0 + float(linha) * 8.0)
-			var y := 20.0
-			pts.append(Vector2(x, y))
-			while y > -660.0:
-				y -= rng.randf_range(28.0, 52.0)
-				x = float(lado) * rng.randf_range(10.0, 34.0)
-				pts.append(Vector2(x, y))
-			var cor := Color(0.3, 1.0, 1.0, 0.9) if (linha + (1 if lado > 0 else 0)) % 2 == 0 else Color(1.0, 0.3, 1.0, 0.9)
-			draw_polyline(pts, cor, 2.0)
-	# faiscas subindo pelo feixe
 	rng.seed = passo * 57 + 7
-	for i in 12:
-		var fx_ := rng.randf_range(-26.0, 26.0)
+	for i in 20:
+		var fx_ := rng.randf_range(-40.0, 40.0)
 		var fy := rng.randf_range(-650.0, 10.0)
-		var tam := rng.randf_range(1.5, 3.5)
-		var cc := Color(1, 0.9, 0.4, 0.9) if i % 3 == 0 else (Color(0.4, 1, 1, 0.9) if i % 3 == 1 else Color(1, 0.4, 1, 0.9))
+		var tam := rng.randf_range(1.8, 4.5)
+		var cc := Color(1, 0.85, 0.45, 0.9) if i % 2 == 0 else Color(1.0, 0.45, 0.3, 0.9)
+		draw_circle(Vector2(fx_, fy), tam * 2.2, Color(cc.r, cc.g, cc.b, 0.20))
 		draw_circle(Vector2(fx_, fy), tam, cc)

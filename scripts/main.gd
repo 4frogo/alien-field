@@ -8,6 +8,11 @@ const BgScript := preload("res://scripts/background.gd")
 const HudScript := preload("res://scripts/hud.gd")
 const SfxScript := preload("res://scripts/sfx.gd")
 const ExplosaoScript := preload("res://scripts/explosao.gd")
+const ExplodeNaveScript := preload("res://scripts/explode_nave.gd")
+const ExplodeSeqScript := preload("res://scripts/explode_seq.gd")
+const TELA_CENTRO := Vector2(270, 480)
+var tex_explode_nave: Texture2D = null
+var tex_explode_seq: Array = []
 const MusicScript := preload("res://scripts/music.gd")
 const ArmaScript := preload("res://scripts/arma.gd")
 const BuracoScript := preload("res://scripts/buraco_negro.gd")
@@ -65,8 +70,12 @@ var gameover_anim := 0.0
 var menu_layer: CanvasLayer = null
 var em_menu := false
 var fonte_horror: Font = null
-var charge_bar: ProgressBar = null
+var charge_bar: Control = null
 var charge_txt: Label = null
+var flash_layer: CanvasLayer = null
+var flash_rect: ColorRect = null
+var flash_t := 0.0
+var flash_forca := 0.0
 var pause_layer: CanvasLayer = null
 var last_beep := 0
 var abates := 0
@@ -143,6 +152,15 @@ func _boom_flipbook(pos: Vector2, escala: float) -> void:
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	frames_boom = _gerar_flipbook_boom()
+	if ResourceLoader.exists("res://assets/explode_nave.png"):
+		tex_explode_nave = load("res://assets/explode_nave.png") as Texture2D
+	# sequencia de 4 frames (preferida)
+	for i in 4:
+		var caminho := "res://assets/explode_seq_%d.png" % i
+		if ResourceLoader.exists(caminho):
+			var t := load(caminho) as Texture2D
+			if t != null:
+				tex_explode_seq.append(t)
 	sfx = Node.new()
 	sfx.set_script(SfxScript)
 	add_child(sfx)
@@ -228,31 +246,17 @@ func _ready() -> void:
 		portal_label.add_theme_font_override("font", _fonte())
 	portal_label.add_theme_color_override("font_color", Color(1, 0.3, 0.12))
 	portal_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	portal_label.position = Vector2(0, 560)
+	portal_label.position = Vector2(0, 630)
 	portal_label.size = Vector2(540, 36)
 	portal_label.visible = false
 	hud.add_child(portal_label)
 
-	# barrinha de carga do super tiro (segue a nave)
-	charge_bar = ProgressBar.new()
-	charge_bar.min_value = 0
-	charge_bar.max_value = 100
-	charge_bar.value = 0
-	charge_bar.show_percentage = false
-	charge_bar.custom_minimum_size = Vector2(110, 12)
-	charge_bar.size = Vector2(110, 12)
+	# barrinha de carga do super tiro (segue a nave) — desenho animado custom
+	charge_bar = preload("res://scripts/super_bar.gd").new()
+	charge_bar.custom_minimum_size = Vector2(120, 16)
+	charge_bar.size = Vector2(120, 16)
 	charge_bar.visible = false
 	hud.add_child(charge_bar)
-	var cbg := StyleBoxFlat.new()
-	cbg.bg_color = Color(0, 0, 0, 0.7)
-	cbg.border_color = Color(0.4, 1.0, 0.55)
-	cbg.set_border_width_all(1)
-	cbg.set_corner_radius_all(3)
-	charge_bar.add_theme_stylebox_override("background", cbg)
-	var cfill := StyleBoxFlat.new()
-	cfill.bg_color = Color(0.3, 1.0, 0.5)
-	cfill.set_corner_radius_all(2)
-	charge_bar.add_theme_stylebox_override("fill", cfill)
 
 	charge_txt = Label.new()
 	charge_txt.text = "SUPER"
@@ -262,6 +266,17 @@ func _ready() -> void:
 	charge_txt.add_theme_color_override("font_color", Color(0.5, 1.0, 0.6))
 	charge_txt.visible = false
 	hud.add_child(charge_txt)
+
+	# flash de tela (impactos/explosoes)
+	flash_layer = CanvasLayer.new()
+	flash_layer.layer = 40
+	add_child(flash_layer)
+	flash_rect = ColorRect.new()
+	flash_rect.name = "FlashTela"
+	flash_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
+	flash_rect.color = Color(1, 1, 1, 0)
+	flash_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	flash_layer.add_child(flash_rect)
 
 	# controles touch (celular): analogico + circulo de tiro (sem botoes)
 	if DisplayServer.is_touchscreen_available():
@@ -381,11 +396,13 @@ func _spawn_portal() -> void:
 	portal = Node2D.new()
 	portal.set_script(PortalScript)
 	add_child(portal)
-	portal.position = Vector2(270, 400)
+	# Portal grande, posicionado na metade de cima da tela sem encostar no topo.
+	# Centro em y=310 e raio 265 => o vortice vai de y=45 a y=575.
+	portal.position = Vector2(270, 310)
+	portal.set("raio", 265.0)
 	if portal_label != null:
 		portal_label.visible = true
-	if sfx != null:
-		sfx.call("boss")
+	# sem som ao abrir o portal (a transicao visual e o suficiente)
 
 func _entrar_dimensao2() -> void:
 	if dimensao == 2 or em_transicao:
@@ -415,15 +432,23 @@ func _mostrar_transicao() -> void:
 	transicao_layer.layer = 45
 	add_child(transicao_layer)
 	var center := Vector2(270, 480) # fixo: nunca corta nem sai do centro
-	for p in ["res://assets/transicao.jpg", "res://assets/transicao.png"]:
+	# cutscene primeiro (nave voando pro vortice), com a ancora do vortice
+	# em coordenadas normalizadas da imagem; depois cai pra imagem antiga
+	for p in ["res://assets/cutscene.jpg", "res://assets/transicao.jpg", "res://assets/transicao.png"]:
 		if ResourceLoader.exists(p):
 			var tex := load(p) as Texture2D
 			if tex != null:
 				var sp := Sprite2D.new()
 				sp.texture = tex
-				var sc := minf(540.0 / float(tex.get_width()), 960.0 / float(tex.get_height()))
-				sp.scale = Vector2(sc, sc) * 0.9
+				# escala de "cobrir": a maior das duas, pra nunca aparecer barra
+				var sc := maxf(540.0 / float(tex.get_width()), 960.0 / float(tex.get_height()))
+				sp.scale = Vector2(sc, sc)
 				sp.set_meta("fit", sc)
+				# ponto de interesse: onde esta o vortice na imagem
+				var ancora := Vector2(0.5, 0.5)
+				if p.contains("cutscene"):
+					ancora = Vector2(0.72, 0.34)
+				sp.set_meta("ancora", ancora)
 				sp.position = center
 				sp.name = "Art"
 				sp.modulate.a = 0.0
@@ -452,18 +477,14 @@ func _mostrar_transicao() -> void:
 		q.name = "Q%d" % i
 		q.modulate.a = 0.0
 		transicao_layer.add_child(q)
-	# dissolve + poeira (scripts Poeira/Dissolve)
-	var art2 := transicao_layer.get_node_or_null("Art") as Sprite2D
-	if art2 != null and ResourceLoader.exists("res://assets/transicao_dissolve.gdshader"):
-		var dsh := load("res://assets/transicao_dissolve.gdshader") as Shader
-		var dmat := ShaderMaterial.new()
-		dmat.shader = dsh
-		dmat.set_shader_parameter("progresso", 0.0)
-		art2.material = dmat
+	# poeira subindo (mantem: da profundidade sem competir com o zoom)
 	var poe := Node2D.new()
 	poe.set_script(preload("res://scripts/poeira.gd"))
 	poe.name = "Poeira"
 	transicao_layer.add_child(poe)
+	# SEM dissolve e SEM glitch: a transicao agora e so o dolly de zoom na
+	# imagem da nave. O shader de dissolve e o overlay de glitch foram
+	# desativados de proposito.
 
 func _fim_transicao() -> void:
 	# mundo novo perigoso (imagem ainda se desfazendo por cima)
@@ -479,14 +500,25 @@ func _fim_transicao() -> void:
 	portal_chegada = Node2D.new()
 	portal_chegada.set_script(PortalScript)
 	add_child(portal_chegada)
-	portal_chegada.position = Vector2(270, 800)
-	portal_chegada.scale = Vector2(0.7, 0.7)
+	portal_chegada.position = Vector2(270, 780)
+	portal_chegada.set("raio", 265.0)
+	portal_chegada.scale = Vector2(0.62, 0.62)
 	if player != null and is_instance_valid(player):
 		player.position = Vector2(270, 800)
 		player.set("scale", Vector2(0.15, 0.15))
 		player.set("surgindo", true)
 	for i in 2:
 		_spawn_small()
+
+# Reinvoca o chefe depois de 'atraso' segundos SEM travar quem chamou.
+# Usar 'await' dentro de _colisoes/_colisoes_misseis suspendia o loop no meio
+# da varredura: ao voltar, as referencias (tiros/inimigos) ja tinham sido
+# liberadas -> "Attempt to call function 'get' in base 'previously freed'".
+func _respawn_boss_apos(atraso: float) -> void:
+	var t := get_tree().create_timer(atraso, true, false, true)
+	await t.timeout
+	if is_inside_tree() and vidas > 0 and boss == null:
+		_spawn_boss()
 
 func _spawn_boss() -> void:
 	if boss != null and is_instance_valid(boss):
@@ -841,16 +873,45 @@ func _morte_buraco() -> void:
 		sfx.call("explosao")
 		sfx.call("boss")
 
+func flash_tela(forca: float, cor: Color = Color(1, 1, 1)) -> void:
+	flash_t = 1.0
+	flash_forca = maxf(flash_forca * 0.4, clampf(forca, 0.0, 1.0))
+	if flash_rect != null:
+		flash_rect.color = Color(cor.r, cor.g, cor.b, flash_forca)
+
+func _atualizar_flash(delta: float) -> void:
+	if flash_rect == null:
+		return
+	if flash_t > 0.0:
+		flash_t = maxf(0.0, flash_t - delta * 4.5)
+		flash_rect.color.a = flash_forca * flash_t * flash_t
+		if flash_t <= 0.0:
+			flash_forca = 0.0
+
 func _fx_explosao(pos: Vector2, grande: bool, com_som: bool = true) -> void:
-	var e := Node2D.new()
-	e.set_script(ExplosaoScript)
-	add_child(e)
-	if grande:
-		e.call("setup", pos, Color(1.0, 0.25, 0.1), 110.0)
-		_boom_flipbook(pos, 2.2)
+	if tex_explode_seq.size() == 4:
+		# sequencia de 4 frames
+		var es := Node2D.new()
+		es.set_script(ExplodeSeqScript)
+		add_child(es)
+		es.call("setup", pos, tex_explode_seq, 300.0 if grande else 155.0, grande)
+	elif tex_explode_nave != null:
+		var en := Node2D.new()
+		en.set_script(ExplodeNaveScript)
+		add_child(en)
+		en.call("setup", pos, tex_explode_nave,
+			300.0 if grande else 150.0, grande, randf_range(-1.1, 1.1))
 	else:
-		e.call("setup", pos, Color(1.0, 0.45, 0.15), 42.0)
-		_boom_flipbook(pos, 1.0)
+		var e := Node2D.new()
+		e.set_script(ExplosaoScript)
+		add_child(e)
+		e.call("setup", pos, Color(1.0, 0.25, 0.1) if grande else Color(1.0, 0.55, 0.18),
+			110.0 if grande else 46.0, grande)
+	if grande:
+		_boom_flipbook(pos, 2.2)
+		flash_tela(0.42, Color(1.0, 0.88, 0.75))
+	else:
+		flash_tela(0.12, Color(1.0, 0.95, 0.85))
 	if com_som and sfx != null:
 		sfx.call("explosao")
 
@@ -867,6 +928,7 @@ func _fx_bonus(pos: Vector2) -> void:	# explosao verde em 2 camadas: flash branc
 		sfx.call("explosao")
 
 func _process(delta: float) -> void:
+	_atualizar_flash(delta)
 	if get_tree().paused:
 		return
 	if em_menu:
@@ -879,20 +941,41 @@ func _process(delta: float) -> void:
 		# dissolve 0.4 -> 2.2 com poeira subindo
 		var prog := clampf((transicao_anim - 0.4) / 1.8, 0.0, 1.0)
 		if art != null:
-			# zoom dramatico 0.9 -> 1.0 do fit (sem cortar) + fade in
-			var k := minf(1.0, transicao_anim * 1.6)
-			var e := 1.0 - pow(1.0 - k, 3.0)
+			# ---- dolly: a camera acelera CONTRA o vortice da imagem
+			# a ancora fica parada no centro da tela enquanto o zoom cresce,
+			# dando a sensacao de estar sendo sugado pelo portal
+			var zk: float = clampf((transicao_anim - 0.05) / 1.75, 0.0, 1.0)
+			# easeIn: comeca devagar e acelera (como uma queda)
+			var ze: float = zk * zk
 			var fit: float = float(art.get_meta("fit", 1.0))
-			var s: float = fit * (0.9 + 0.1 * e)
+			var anc: Vector2 = art.get_meta("ancora", Vector2(0.5, 0.5))
+			var tw := 1.0
+			var th := 1.0
+			if art.texture != null:
+				tw = float(art.texture.get_width())
+				th = float(art.texture.get_height())
+			# offset da ancora em relacao ao centro da imagem
+			var off := Vector2((anc.x - 0.5) * tw, (anc.y - 0.5) * th)
+			var zoom: float = lerpf(1.0, 2.15, ze)
+			var s: float = fit * zoom
 			art.scale = Vector2(s, s)
+			# Comeca centralizado e SÓ deriva durante o zoom. Se a imagem
+			# ja nascesse deslocada pra manter a ancora no centro, sobraria
+			# faixa preta na borda oposta (a escala de "cobrir" nao cobre o
+			# deslocamento). Com o lerp, no fim a ancora chega ao centro.
+			var p_fim := TELA_CENTRO - off * fit * zoom
+			var p_alvo := TELA_CENTRO.lerp(p_fim, ze)
+			# tremor crescente da camera
+			var tremor: float = ze * 9.0
+			var tx := sin(transicao_anim * 61.0) * tremor + sin(transicao_anim * 37.0) * tremor * 0.6
+			var ty := cos(transicao_anim * 53.0) * tremor + cos(transicao_anim * 29.0) * tremor * 0.5
+			art.position = p_alvo + Vector2(tx, ty)
 			art.modulate.a = minf(1.0, transicao_anim * 3.0)
-			if art.material != null and art.material is ShaderMaterial:
-				(art.material as ShaderMaterial).set_shader_parameter("progresso", prog)
 		if poe != null and poe.has_method("set"):
 			poe.set("intensidade", prog)
 		if flash != null:
-			# clarão que some rapido
-			flash.color.a = maxf(0.0, 1.0 - transicao_anim * 4.0)
+			# clarão curto, só pra cobrir o corte da entrada
+			flash.color.a = maxf(0.0, 0.85 - transicao_anim * 3.4)
 		# quadrinhos entram em sequencia
 		for i in 3:
 			var q := transicao_layer.get_node_or_null("Q%d" % i) as Label if transicao_layer != null else null
@@ -914,14 +997,14 @@ func _process(delta: float) -> void:
 		if transicao_anim >= 2.0 and player != null and is_instance_valid(player) and not player.visible:
 			player.visible = true
 			player.set("invencivel", 3.0)
-			if sfx != null:
-				sfx.call("boss")
+			# som da entrada removido de proposito: a transicao agora e
+			# so o dolly de zoom, sem barulho por cima
 		if player != null and is_instance_valid(player) and bool(player.get("surgindo")):
 			var ks := clampf((transicao_anim - 2.0) / 0.8, 0.15, 1.0)
 			player.set("scale", Vector2(ks, ks))
 		if portal_chegada != null and is_instance_valid(portal_chegada):
 			var kp := clampf(1.0 - (transicao_anim - 2.0) / 0.8, 0.0, 1.0)
-			portal_chegada.scale = Vector2(0.7 * kp, 0.7 * kp)
+			portal_chegada.scale = Vector2(0.62 * kp, 0.62 * kp)
 		if transicao_anim >= 3.0:
 			em_transicao = false
 			if player != null and is_instance_valid(player):
@@ -949,7 +1032,10 @@ func _process(delta: float) -> void:
 		if portal == null and tempo_batalha >= 18.0:
 			_spawn_portal()
 		if portal != null and is_instance_valid(portal) and player != null and is_instance_valid(player):
-			if player.position.distance_to(portal.position) < 80.0:
+			# dispara quando a nave ENTRA no vortice (distancia do centro menor
+		# que o raio do portal), e nao quando chega a 80px do centro exato:
+		# com o portal grande e la em cima, 80px seria impossivel de alcancar
+			if player.position.distance_to(portal.position) < float(portal.get("raio")):
 				_entrar_dimensao2()
 		if tempo_batalha >= 100.0:
 			_entrar_dimensao2() # fallback: nunca trava
@@ -1020,30 +1106,24 @@ func _process(delta: float) -> void:
 		if prog > 0.0:
 			charge_bar.visible = true
 			charge_txt.visible = true
-			charge_bar.value = prog * 100.0
-			# segue a nave (mundo = tela, sem camera)
+			charge_bar.set("prog", prog)
+			charge_bar.set("pronta", pronta)
+			# segue a nave (mundo = tela, sem camera). Fica ABAIXO da nave, e nao
+			# na frente: a barra e o texto nunca saem da tela (a nave pode
+			# encostar embaixo, em y=900).
 			var pp: Vector2 = player.position
-			charge_bar.position = Vector2(pp.x - 55, pp.y - 130)
-			charge_txt.position = Vector2(pp.x - 28, pp.y - 150)
-			var fill := charge_bar.get_theme_stylebox("fill") as StyleBoxFlat
+			var y_bar: float = minf(pp.y + 76.0, 852.0)
+			charge_bar.position = Vector2(pp.x - 60, y_bar)
+			charge_txt.position = Vector2(pp.x - 28, y_bar + 22)
 			if pronta:
 				charge_txt.text = "SOLTE!"
 				charge_txt.add_theme_color_override("font_color", Color(1, 0.25, 0.15))
-				if fill != null:
-					fill.bg_color = Color(1, 0.2, 0.1)
-				charge_bar.modulate.a = 0.7 + 0.3 * sin(Time.get_ticks_msec() / 90.0)
 			elif prog > 0.6:
 				charge_txt.text = "PERIGO"
 				charge_txt.add_theme_color_override("font_color", Color(1, 0.45, 0.15))
-				if fill != null:
-					fill.bg_color = Color(1, 0.55, 0.15)
-				charge_bar.modulate.a = 1.0
 			else:
 				charge_txt.text = "SUPER"
 				charge_txt.add_theme_color_override("font_color", Color(0.5, 1.0, 0.6))
-				if fill != null:
-					fill.bg_color = Color(0.3, 1.0, 0.5)
-				charge_bar.modulate.a = 1.0
 			# som de carga mutado por enquanto
 			var seg := int(player.get("carga"))
 			if seg > last_beep and prog < 1.0:
@@ -1146,6 +1226,9 @@ func _colisoes() -> void:
 		for e in inimigos:
 			if not is_instance_valid(e) or not e.get("vivo"):
 				continue
+			# o tiro pode ter sido liberado dentro da iteracao interna
+			if not is_instance_valid(b) or not b.get("vivo"):
+				break
 			var raio_b: float = float(b.get("raio"))
 			var tipo_e := str(e.get("tipo"))
 			var raio_e := 115.0 if tipo_e == "boss" else (22.0 if tipo_e == "turret" else (26.0 if tipo_e == "bonus" else 30.0))
@@ -1173,10 +1256,8 @@ func _colisoes() -> void:
 						_killcam_boss(e.position)
 						add_trauma(0.7)
 						boss = null
-						# renasce boss apos 5s
-						await get_tree().create_timer(5.0).timeout
-						if vidas > 0:
-							_spawn_boss()
+						# renasce boss apos 5s (nao usar await aqui)
+						_respawn_boss_apos(5.0)
 					elif e.get("tipo") == "bonus":
 						pontos += 200
 						_fx_bonus(e.position)
@@ -1271,6 +1352,8 @@ func _colisoes_misseis() -> void:
 		for e in inimigos:
 			if not is_instance_valid(e) or not e.get("vivo"):
 				continue
+			if not is_instance_valid(m) or not m.get("vivo"):
+				break
 			var te := str(e.get("tipo"))
 			if te == "bonus" or te == "bonus2" or te == "turret":
 				continue
@@ -1289,9 +1372,7 @@ func _colisoes_misseis() -> void:
 						_killcam_boss((e as Node2D).position)
 						add_trauma(0.7)
 						boss = null
-						await get_tree().create_timer(5.0).timeout
-						if vidas > 0:
-							_spawn_boss()
+						_respawn_boss_apos(5.0)
 					else:
 						pontos += 100
 						_registrar_abate()

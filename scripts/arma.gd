@@ -14,7 +14,7 @@ func setup(p: Vector2, p_alvo: Node2D) -> void:
 	alvo = p_alvo
 
 func _ready() -> void:
-	for bp in ["res://assets/arma plasma.png", "res://assets/arma_plasma.png"]:
+	for bp in ["res://assets/arma_plasma.png"]:
 		if ResourceLoader.exists(bp):
 			var tex := load(bp) as Texture2D
 			if tex != null:

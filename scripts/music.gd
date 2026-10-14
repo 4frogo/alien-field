@@ -22,7 +22,7 @@ func _ready() -> void:
 func trocar_para_transicao() -> void:
 	if player == null:
 		return
-	for p in ["res://assets/Starship Interceptorv1.mp3", "res://assets/Starship Interceptorv1.ogg", "res://assets/Starship Interceptorv1.wav"]:
+	for p in ["res://assets/starship_interceptor.mp3", "res://assets/starship_interceptor.ogg", "res://assets/starship_interceptor.wav"]:
 		if ResourceLoader.exists(p):
 			var s := load(p) as AudioStream
 			if s != null:

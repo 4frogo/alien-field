@@ -42,8 +42,11 @@ void fragment() {
 
 	if (charge >= 0.985) {
 		float flash = 0.5 + 0.5 * sin(TIME * 18.0);
-		col += vec3(0.35, 0.4, 0.45) * flash;
-		alpha = clamp(alpha + flash * 0.15, 0.0, 1.0);
+		// o flash precisa respeitar a queda radial, senao pinta o quad
+		// inteiro e aparece um retangulo cinza em volta da bola
+		float queda = smoothstep(1.05, 0.20, d);
+		col += vec3(0.35, 0.4, 0.45) * flash * queda;
+		alpha = clamp(alpha + flash * 0.15 * queda, 0.0, 1.0);
 	}
 
 	COLOR = vec4(col * 1.5, alpha);

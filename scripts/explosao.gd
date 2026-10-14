@@ -7,6 +7,7 @@ var cor := Color(1, 0.4, 0.15)
 var tamanho := 40.0
 var faiscas: Array = []
 var fumaca: Array = []
+var detritos: Array = []
 var rng := RandomNumberGenerator.new()
 
 func setup(p: Vector2, p_cor: Color, p_tam: float) -> void:
@@ -46,6 +47,19 @@ func setup(p: Vector2, p_cor: Color, p_tam: float) -> void:
 			"life": rng.randf_range(0.5, 0.9),
 		})
 
+# 8 detritos girando (estilhacos solidos)
+	for i in 8:
+		var ad := rng.randf_range(0.0, TAU)
+		detritos.append({
+			"p": Vector2.ZERO,
+			"v": Vector2(cos(ad), sin(ad)) * rng.randf_range(50.0, 190.0) * (0.7 + p_tam / 90.0),
+			"rot": rng.randf_range(0.0, TAU),
+			"spin": rng.randf_range(-9.0, 9.0),
+			"s": rng.randf_range(2.5, 6.0),
+			"age": 0.0,
+			"life": rng.randf_range(0.5, 0.95),
+		})
+
 func _process(delta: float) -> void:
 	tempo += delta
 	if tempo > dur + 0.5:
@@ -61,6 +75,12 @@ func _process(delta: float) -> void:
 		s["age"] = float(s["age"]) + delta
 		s["p"] = (s["p"] as Vector2) + (s["v"] as Vector2) * delta
 		s["r"] = float(s["r"]) + 22.0 * delta
+	for d in detritos:
+		d["age"] = float(d["age"]) + delta
+		d["v"] = (d["v"] as Vector2) * (1.0 - 3.4 * delta)
+		d["v"] = (d["v"] as Vector2) + Vector2(0, 90.0) * delta
+		d["p"] = (d["p"] as Vector2) + (d["v"] as Vector2) * delta
+		d["rot"] = float(d["rot"]) + float(d["spin"]) * delta
 	queue_redraw()
 
 func _draw() -> void:
@@ -69,15 +89,40 @@ func _draw() -> void:
 	if tempo < 0.12:
 		var fa := 1.0 - tempo / 0.12
 		draw_circle(Vector2.ZERO, tamanho * 0.55, Color(1, 1, 1, fa))
-	# bola de fogo encolhendo
-	var fr := tamanho * (1.0 - k * 0.75)
+	# bola de fogo com pop elastico (estoura antes de colapsar)
+	var pop := sin(minf(1.0, k / 0.28) * PI) * 0.55
+	var fr := tamanho * ((1.0 - k * 0.75) + pop)
 	var fa2 := 1.0 - k
+	draw_circle(Vector2.ZERO, fr * 1.35, Color(cor.r, cor.g, cor.b, fa2 * 0.22))
 	draw_circle(Vector2.ZERO, fr, Color(cor.r, cor.g, cor.b, fa2 * 0.75))
 	draw_circle(Vector2.ZERO, fr * 0.62, Color(minf(1.0, cor.r + 0.35), cor.g + 0.2, cor.b, fa2))
 	draw_circle(Vector2.ZERO, fr * 0.32, Color(1, 0.95, 0.85, fa2))
 	# onda de choque expandindo
 	var orr := tamanho * (0.3 + 1.9 * k)
 	draw_arc(Vector2.ZERO, orr, 0, TAU, 32, Color(cor.r, cor.g, cor.b, (1.0 - k) * 0.7), 3.0 * (1.0 - k) + 1.0)
+	# segunda onda, atrasada
+	var k2 := clampf((tempo - dur * 0.22) / dur, 0.0, 1.0)
+	if k2 > 0.0:
+		var orr2 := tamanho * (0.2 + 2.6 * k2)
+		draw_arc(Vector2.ZERO, orr2, 0, TAU, 32,
+			Color(1, 1, 1, (1.0 - k2) * 0.30), 2.0 * (1.0 - k2) + 0.5)
+	# detritos girando
+	for d in detritos:
+		var dk := clampf(float(d["age"]) / float(d["life"]), 0.0, 1.0)
+		if dk >= 1.0:
+			continue
+		var dp: Vector2 = d["p"]
+		var dr: float = d["rot"]
+		var ds: float = float(d["s"]) * (1.0 - dk * 0.6)
+		var ca: float = cos(dr)
+		var sa: float = sin(dr)
+		var q := PackedVector2Array([
+			dp + Vector2(ds * ca, ds * sa),
+			dp + Vector2(-ds * sa, ds * ca),
+			dp + Vector2(-ds * ca * 0.8, -ds * sa * 0.8),
+			dp + Vector2(ds * sa, -ds * ca * 0.8),
+		])
+		draw_colored_polygon(q, Color(1.0, 0.72, 0.35, (1.0 - dk) * 0.85))
 	# fumaca por baixo
 	for s in fumaca:
 		var sk := clampf(float(s["age"]) / float(s["life"]), 0.0, 1.0)

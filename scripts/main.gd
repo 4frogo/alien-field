@@ -745,11 +745,24 @@ func _on_super_tiro(pos: Vector2) -> void:
 	if vidas <= 0:
 		return
 	if power_timer > 0:
-		# com triplo: feixe sustentado 2s grudado na nave ate o topo
+		# com triplo: 3 raios verdes serpenteantes por 2s, mirando no inimigo
 		var f := Node2D.new()
 		f.set_script(FeixeScript)
 		add_child(f)
 		f.call("setup", player)
+		# alvo: inimigo vivo mais proximo da nave (o chefe tem prioridade)
+		var melhor: Node2D = null
+		var melhor_d := 1.0e20
+		for e in inimigos:
+			if e == null or not is_instance_valid(e) or not bool(e.get("vivo")):
+				continue
+			var d: float = e.position.distance_to(player.position)
+			if d < melhor_d:
+				melhor_d = d
+				melhor = e
+		if melhor != null:
+			f.set("alvo", melhor.position)
+			f.set("tem_alvo", true)
 		feixes.append(f)
 	else:
 		var b := Node2D.new()

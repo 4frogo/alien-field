@@ -1,19 +1,24 @@
 extends Node2D
-# Super laser VERDE SUSTENTADO: sai da nave ate o topo por 2s, seguindo o
-# bico. Usa a arte dos 3 feixes (GREENLIGHT) + shader verde animado.
+# SUPER LASER VERDE — TRIPLO SERPENTE
+#
+# Tres raios verdes independentes saem dos 3 motores da nave e sobem em
+# direcao ao inimigo mais proximo, ondulando como cobras de energia que
+# convergem no alvo. Tudo desenhado por codigo (a arte estatica nao daria
+# para serpentear), em camadas: halo -> corpo -> nucleo.
+#
 # Nao ha mais nenhum vestigio do feixe branco/roxo antigo.
 
 var player: Node2D = null
 var life := 2.0
 var age := 0.0
-var fx: Sprite2D = null
-var fx_mat: ShaderMaterial = null
-var halo: Sprite2D = null
+var alvo := Vector2(0, -600)     # ponto de convergencia (inimigo)
+var tem_alvo := false
+var glow: Sprite2D = null
 
-# Proporcao do feixe: fino e alto (a arte e larga, esprememos no X)
-const SX := 0.26
-const SY := 0.36
-const REF := 800.0
+# bocas dos 3 raios (px de tela, relativo a posicao da nave)
+const BOCAS := [-38.0, 0.0, 38.0]
+const SEG := 34                  # segmentos por raio
+const PASSO := 30.0              # px entre segmentos
 
 
 func setup(p: Node2D) -> void:
@@ -21,61 +26,58 @@ func setup(p: Node2D) -> void:
 
 
 func _ready() -> void:
-	var tex: Texture2D = _textura_feixe()
-	var sh: Shader = null
-	if ResourceLoader.exists("res://assets/laser_verde.gdshader"):
-		sh = load("res://assets/laser_verde.gdshader") as Shader
-
-	# halo aditivo largo e tênue (esverdeia o fundo em volta do feixe)
-	halo = Sprite2D.new()
-	halo.texture = tex
-	halo.position = Vector2(0, -REF * 0.5)
-	halo.scale = Vector2(SX * 1.5, SY)
-	halo.modulate = Color(0.08, 0.90, 0.26, 0.10)
+	# halo aditivo na boca do canhao
+	glow = Sprite2D.new()
+	glow.texture = _textura_radial()
+	glow.modulate = Color(0.10, 0.95, 0.28, 0.30)
 	var mat_add := CanvasItemMaterial.new()
 	mat_add.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
-	halo.material = mat_add
-	if sh != null:
-		var mh := ShaderMaterial.new()
-		mh.shader = sh
-		mh.set_shader_parameter("speed", 5.0)
-		mh.set_shader_parameter("intensidade", 0.30)
-		halo.material = mh
-	add_child(halo)
-
-	# feixe principal (blend normal)
-	fx = Sprite2D.new()
-	fx.texture = tex
-	fx.position = Vector2(0, -REF * 0.5)
-	fx.scale = Vector2(SX, SY)
-	if sh != null:
-		fx_mat = ShaderMaterial.new()
-		fx_mat.shader = sh
-		fx_mat.set_shader_parameter("speed", 6.5)
-		fx_mat.set_shader_parameter("intensidade", 0.72)
-		fx.material = fx_mat
-	add_child(fx)
+	glow.material = mat_add
+	add_child(glow)
 
 
-func _textura_feixe() -> Texture2D:
-	if ResourceLoader.exists("res://assets/laser_verde.png"):
-		return load("res://assets/laser_verde.png")
-	# fallback: coluna verde simples (nunca deve aparecer)
-	var w := 64
-	var h := 256
-	var img := Image.create(w, h, false, Image.FORMAT_RGBA8)
-	for y in h:
-		for x in w:
-			var dx := absf((float(x) + 0.5) / float(w) * 2.0 - 1.0)
-			img.set_pixel(x, y, Color(0.15, 1.0, 0.35, clampf(1.0 - dx, 0.0, 1.0)))
+func _textura_radial(tam: int = 128) -> ImageTexture:
+	var img := Image.create(tam, tam, false, Image.FORMAT_RGBA8)
+	var c := float(tam) * 0.5
+	for y in tam:
+		for x in tam:
+			var d: float = Vector2(float(x) - c, float(y) - c).length() / c
+			var a: float = clampf(1.0 - d, 0.0, 1.0)
+			a = a * a
+			img.set_pixel(x, y, Color(0.20, 1.0, 0.40, a))
 	return ImageTexture.create_from_image(img)
 
 
-func base_y() -> float:
-	if player != null and is_instance_valid(player):
-		return player.position.y - 60.0
-	return 800.0
+# ------------------------------------------------------------------ caminho
 
+# Ponto do raio na altura y (y<0 = acima da boca).
+# A amplitude cresce no inicio e MORRE no fim: as 3 cobras convergem no alvo.
+func _ponto(i: int, f: float) -> Vector2:
+	var boca: float = BOCAS[i]
+	# posicao alvo no espaco local (relativo a boca do canhao)
+	var ax: float = alvo.x - position.x
+	var ay: float = alvo.y - position.y
+	var total: float = maxf(120.0, -ay)
+	# x destino: interpola da boca ate o alvo conforme f
+	var x_dest := lerpf(boca, ax - boca, f)
+	# amplitude: 0 na boca, maxima no meio, 0 no alvo
+	var amp: float = 46.0 * sin(f * PI) * (0.75 + 0.25 * impulso_local())
+	# a serpente corre pelo caminho
+	var corr := age * (5.2 + 0.9 * float(i)) + float(i) * 2.3
+	var ondul: float = sin(f * 9.0 - corr) * amp
+	# segunda harmonica: da o jeito de cobra, nao de seno
+	ondul += sin(f * 17.0 - corr * 1.7 + 1.1) * amp * 0.34
+	# y avanca linearmente (o comprimento do feixe)
+	var y := -total * f
+	return Vector2(x_dest + ondul, y)
+
+
+# Quanto mais recente o disparo, mais aberto o leque (0..1)
+func impulso_local() -> float:
+	return clampf(age / 0.25, 0.0, 1.0)
+
+
+# ------------------------------------------------------------------ desenho
 
 func _process(delta: float) -> void:
 	age += delta
@@ -83,90 +85,106 @@ func _process(delta: float) -> void:
 	if life <= 0.0 or player == null or not is_instance_valid(player) or not player.visible:
 		queue_free()
 		return
-	position = Vector2(player.position.x, base_y())
-	var comp := maxf(100.0, position.y)
-	# escala proporcional: o feixe sempre cobre da boca ate o topo
-	var k := comp / REF
-	var bal := 1.0 + 0.06 * sin(age * 5.5) + 0.04 * sin(age * 9.3 + 1.0)
-	fx.scale = Vector2(SX * k * bal, SY * k)
-	fx.position = Vector2(0, -comp * 0.5)
-	if halo != null:
-		halo.scale = Vector2(SX * 1.5 * k * (1.0 + 0.10 * sin(age * 2.2)),
-			SY * k)
-		halo.position = Vector2(0, -comp * 0.5)
+	position = Vector2(player.position.x, player.position.y - 40.0)
+
+	if glow != null:
+		var gs := 52.0 + 10.0 * sin(age * 22.0)
+		glow.scale = Vector2(gs / 64.0, gs / 64.0)
+		glow.position = Vector2(0, 12)
+
 	# fade in/out
 	var a := 1.0
-	if age < 0.15:
-		a = age / 0.15
-	elif life < 0.4:
-		a = maxf(0.0, life / 0.4)
+	if age < 0.12:
+		a = age / 0.12
+	elif life < 0.35:
+		a = maxf(0.0, life / 0.35)
 	modulate.a = a
 	queue_redraw()
 
 
 func _draw() -> void:
-	var comp := maxf(100.0, position.y if position.y > 0.0 else 800.0)
+	if not tem_alvo:
+		alvo = Vector2(0, -620)
 
-	# ---- boca do canhao: tudo verde
-	var base := Vector2.ZERO
-	var flash := 0.7 + 0.3 * sin(age * 31.0)
-	draw_circle(base, 54.0, Color(0.08, 0.80, 0.24, 0.16))
-	draw_circle(base, 34.0, Color(0.18, 1.0, 0.34, 0.20))
-	draw_circle(base, 16.0 * flash + 4.0, Color(0.60, 1.0, 0.60, 0.50))
-	draw_circle(base, 8.0 * flash + 3.0, Color(0.90, 1.0, 0.88, 0.70))
-	draw_arc(base, 26.0, age * 3.2, age * 3.2 + 4.4, 24, Color(0.60, 1.0, 0.55, 0.85), 3.5)
-	draw_arc(base, 36.0, -age * 2.3 + 1.0, -age * 2.3 + 4.8, 24, Color(0.18, 0.95, 0.34, 0.80), 2.5)
-	draw_arc(base, 47.0, age * 4.1 + 2.0, age * 4.1 + 6.9, 28, Color(0.10, 0.80, 0.25, 0.65), 2.0)
-
-	# ---- relampagos verdes serpenteando pelos 3 feixes
-	var rng := RandomNumberGenerator.new()
-	var passo := int(age / 0.06)
-	for i in 9:
-		rng.seed = passo * 131 + i * 613
-		var faixa := float(i % 3) - 1.0      # -1, 0, 1 = os 3 feixes
+	# ---- monta os 3 caminhos uma vez e reaproveita pra todas as camadas
+	var caminhos: Array = []
+	for i in 3:
 		var pts := PackedVector2Array()
-		var y := 0.0
-		pts.append(Vector2(faixa * 62.0, y))
-		var guarda := 0
-		while y > -comp and guarda < 300:
-			y -= rng.randf_range(28.0, 62.0)
-			pts.append(Vector2(faixa * 62.0 + rng.randf_range(-16.0, 16.0), y))
-			guarda += 1
-		if pts.size() < 2:
-			continue
-		var cor := Color(0.20, 1.0, 0.36, 0.85) if i % 2 == 0 else Color(0.70, 1.0, 0.70, 0.80)
-		draw_polyline(pts, Color(cor.r, cor.g, cor.b, 0.16), 6.0)
-		draw_polyline(pts, cor, 2.0)
+		for s in range(SEG + 1):
+			pts.append(_ponto(i, float(s) / float(SEG)))
+		caminhos.append(pts)
 
-	# ---- bolhas subindo no miolo
-	for i in 9:
-		var faixa2 := float(i % 3) - 1.0
-		rng.seed = passo * 77 + i * 149
-		var f := fmod(age * 0.55 + float(i) * 0.11, 1.0)
-		var by := -f * comp
-		var bal := sin(f * PI)
-		draw_circle(Vector2(faixa2 * 62.0 + rng.randf_range(-10.0, 10.0), by),
-			3.4 + 3.0 * bal, Color(0.22, 1.0, 0.36, 0.22 * bal))
-		draw_circle(Vector2(faixa2 * 62.0, by), 1.6 + 1.4 * bal,
-			Color(0.85, 1.0, 0.88, 0.55 * bal))
+	for i in 3:
+		var pts: PackedVector2Array = caminhos[i]
+		var fase := float(i) * 1.9
+		var pulsa: float = 0.85 + 0.15 * sin(age * 13.0 + fase)
 
-	# ---- aneis de energia subindo
-	for i in 5:
-		var f2: float = fmod(age * 0.6 + float(i) / 5.0, 1.0)
-		var y2 := -f2 * comp
-		var larg: float = 96.0 - 26.0 * f2
-		var a2: float = sin(f2 * PI) * 0.5
-		draw_arc(Vector2(0, y2), larg, 0.0, TAU, 30,
-			Color(0.22, 1.0, 0.36, a2 * 0.15), 6.0, true)
-		draw_arc(Vector2(0, y2), larg * 0.55, 0.0, TAU, 24,
-			Color(0.72, 1.0, 0.78, a2 * 0.22), 2.5, true)
+		# --- 5 camadas: da mais larga/fraca pra mais fina/quente
+		draw_polyline(pts, Color(0.05, 0.60, 0.18, 0.12 * pulsa), 42.0, true)
+		draw_polyline(pts, Color(0.08, 0.90, 0.26, 0.24 * pulsa), 26.0, true)
+		draw_polyline(pts, Color(0.18, 1.00, 0.34, 0.55 * pulsa), 15.0, true)
+		draw_polyline(pts, Color(0.45, 1.00, 0.52, 0.85 * pulsa), 7.0, true)
+		draw_polyline(pts, Color(0.88, 1.00, 0.80, 0.95 * pulsa), 2.6, true)
 
-	# ---- faiscas verdes pela coluna
-	rng.seed = passo * 57 + 7
-	for i in 18:
-		var fx2 := rng.randf_range(-92.0, 92.0)
-		var fy := -rng.randf_range(0.0, comp)
-		var cc := Color(0.72, 1.0, 0.78, 0.85) if i % 2 == 0 else Color(0.20, 1.0, 0.36, 0.85)
-		var tam := rng.randf_range(1.5, 3.6)
-		draw_circle(Vector2(fx2, fy), tam * 2.2, Color(cc.r, cc.g, cc.b, 0.15))
-		draw_circle(Vector2(fx2, fy), tam, cc)
+		# --- helicitos electricos saltando em volta do raio
+		var rng := RandomNumberGenerator.new()
+		var passo := int(age / 0.05) + i * 37
+		rng.seed = passo * 977
+		for k in 5:
+			var f: float = fmod(age * 0.85 + float(k) * 0.2 + float(i) * 0.33, 1.0)
+			var idx: int = clampi(int(f * float(SEG)), 0, SEG)
+			var p: Vector2 = pts[idx]
+			var pulso2: float = sin(f * PI)
+			var r: float = 6.0 + 10.0 * rng.randf()
+			var nv := PackedVector2Array()
+			for e in 5:
+				var ang := rng.randf_range(0.0, TAU)
+				var rr := r * (0.4 + 0.6 * float(e) / 4.0)
+				nv.append(p + Vector2(cos(ang), sin(ang)) * rr)
+			draw_polyline(nv, Color(0.55, 1.0, 0.62, 0.55 * pulso2), 1.8, true)
+
+		# --- nos de energia correndo pelo raio ate o alvo
+		for n in 3:
+			var f2: float = fmod(age * 1.15 + float(n) * 0.33 + float(i) * 0.15, 1.0)
+			var idx2: int = clampi(int(f2 * float(SEG)), 0, SEG)
+			var p2: Vector2 = pts[idx2]
+			var bal := sin(f2 * PI)
+			draw_circle(p2, 7.0 * bal + 2.0, Color(0.20, 1.0, 0.34, 0.22 * bal))
+			draw_circle(p2, 3.0 * bal + 1.0, Color(0.85, 1.0, 0.85, 0.70 * bal))
+
+		# --- faiscas orbitando o raio
+		rng.seed = passo * 613 + 11
+		for s in 6:
+			var f3: float = rng.randf()
+			var idx3: int = clampi(int(f3 * float(SEG)), 0, SEG)
+			var p3: Vector2 = pts[idx3]
+			var ang2 := age * 6.0 + float(s) * 1.1 + float(i)
+			var off := Vector2(cos(ang2), sin(ang2)) * (10.0 + 6.0 * sin(age * 9.0 + float(s)))
+			var cc := Color(0.70, 1.0, 0.72, 0.75) if s % 2 == 0 else Color(0.20, 1.0, 0.36, 0.75)
+			var tam := 1.4 + 1.4 * sin(age * 12.0 + float(s))
+			draw_circle(p3 + off, tam * 2.4, Color(cc.r, cc.g, cc.b, 0.14))
+			draw_circle(p3 + off, tam, cc)
+
+		# --- impacto no alvo
+		var ponta: Vector2 = pts[SEG]
+		var it := 0.7 + 0.3 * sin(age * 26.0 + fase)
+		draw_circle(ponta, 26.0 * it, Color(0.12, 0.90, 0.26, 0.16))
+		draw_circle(ponta, 12.0 * it, Color(0.45, 1.0, 0.52, 0.26))
+		draw_circle(ponta, 5.0, Color(0.90, 1.0, 0.90, 0.45))
+		# raios curtos saindo do impacto
+		for r2 in 6:
+			var a3 := age * 2.4 + float(r2) * 1.05 + float(i)
+			var d3 := 18.0 + 12.0 * sin(age * 11.0 + float(r2))
+			draw_line(ponta, ponta + Vector2(cos(a3), sin(a3)) * d3,
+				Color(0.60, 1.0, 0.62, 0.45), 2.0, true)
+
+	# ---- boca do canhao: onde os 3 raios nascem
+	for i in 3:
+		var b: Vector2 = Vector2(BOCAS[i], 0)
+		var fl: float = 0.7 + 0.3 * sin(age * 29.0 + float(i) * 1.7)
+		draw_circle(b, 22.0 * fl, Color(0.08, 0.80, 0.24, 0.20))
+		draw_circle(b, 11.0 * fl, Color(0.25, 1.0, 0.38, 0.32))
+		draw_circle(b, 5.0 * fl, Color(0.88, 1.0, 0.85, 0.75))
+		# anel girando
+		var rr2 := age * 4.0 + float(i) * 2.1
+		draw_arc(b, 15.0, rr2, rr2 + 2.6, 16, Color(0.55, 1.0, 0.58, 0.55), 2.0, true)

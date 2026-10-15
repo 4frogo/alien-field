@@ -254,10 +254,11 @@ func _ready() -> void:
 	# barrinha de carga do super tiro — FIXA no rodape, logo abaixo da barra de
 	# escudo. Antes ela seguia a nave e cobria o casco.
 	charge_bar = preload("res://scripts/super_bar.gd").new()
-	charge_bar.custom_minimum_size = Vector2(248, 22)
-	charge_bar.size = Vector2(248, 22)
-	charge_bar.position = Vector2(46, 910)
-	charge_bar.visible = false
+	charge_bar.custom_minimum_size = Vector2(160, 16)
+	charge_bar.size = Vector2(160, 16)
+	charge_bar.position = Vector2(42, 908)
+	# sempre visivel: vazia quando o tiro nao esta carregando
+	charge_bar.visible = true
 	hud.add_child(charge_bar)
 
 	charge_txt = Label.new()
@@ -1106,13 +1107,12 @@ func _process(delta: float) -> void:
 		var prog: float = player.call("carga_progress")
 		var pronta: bool = player.call("carga_pronta")
 		if prog > 0.0:
-			charge_bar.visible = true
 			charge_txt.visible = true
 			charge_bar.set("prog", prog)
 			charge_bar.set("pronta", pronta)
 			# posicao fixa no rodape (definida no _ready). O texto fica na
 			# ponta direita da barra, sem cobrir a nave.
-			charge_txt.position = Vector2(302, 914)
+			charge_txt.position = Vector2(208, 911)
 			if pronta:
 				charge_txt.text = "SOLTE!"
 				charge_txt.add_theme_color_override("font_color", Color(1, 0.25, 0.15))
@@ -1129,7 +1129,9 @@ func _process(delta: float) -> void:
 			if pronta and last_beep < 99:
 				last_beep = 99
 		else:
-			charge_bar.visible = false
+			# a barra continua na tela, vazia, esperando carregar
+			charge_bar.set("prog", 0.0)
+			charge_bar.set("pronta", false)
 			charge_txt.visible = false
 			last_beep = 0
 

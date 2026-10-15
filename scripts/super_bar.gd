@@ -30,7 +30,7 @@ func _ready() -> void:
 	# nao sobrescreve o tamanho: quem instancia (main.gd) define, para a barra
 	# caber no rodape junto da barra de escudo
 	if custom_minimum_size.x < 1.0:
-		custom_minimum_size = Vector2(248, 22)
+		custom_minimum_size = Vector2(160, 16)
 		size = custom_minimum_size
 
 
@@ -48,18 +48,19 @@ func _process(delta: float) -> void:
 func set_carga(p: float, ready_state: bool) -> void:
 	prog = clampf(p, 0.0, 1.0)
 	pronta = ready_state
-	visible = prog > 0.001
+	# nao esconde: a barra vazia fica na tela como moldura de espera
+	queue_redraw()
 
 
 # ---------------------------------------------------------------- cores
 
 func _cor() -> Color:
-	# rampa de 4 paradas: ciano -> verde -> ambar -> vermelho
+	# rampa de 4 paradas: amarelo -> laranja -> laranja-escuro -> vermelho
 	var stops := [
-		[0.0, Color(0.10, 0.90, 1.00)],
-		[0.45, Color(0.30, 1.00, 0.55)],
-		[0.80, Color(1.00, 0.80, 0.18)],
-		[1.0, Color(1.00, 0.25, 0.18)],
+		[0.0, Color(1.00, 0.92, 0.35)],
+		[0.40, Color(1.00, 0.68, 0.12)],
+		[0.75, Color(1.00, 0.40, 0.06)],
+		[1.0, Color(1.00, 0.12, 0.10)],
 	]
 	for i in range(stops.size() - 1):
 		var a: float = stops[i][0]
@@ -71,11 +72,11 @@ func _cor() -> Color:
 
 
 func _profundo() -> Color:
-	return _cor().lerp(Color(0.02, 0.05, 0.09), 0.68)
+	return _cor().lerp(Color(0.10, 0.02, 0.01), 0.72)
 
 
 func _clara() -> Color:
-	return _cor().lerp(Color(1, 1, 1), 0.62)
+	return _cor().lerp(Color(1, 1, 1), 0.55)
 
 
 # ------------------------------------------------------------ geometria
@@ -122,8 +123,10 @@ func _draw() -> void:
 		_quad(-5, -5, w + 5, h + 5, Color(c.r, c.g, c.b, ga * 0.45))
 		_quad(-9, -9, w + 9, h + 9, Color(c.r, c.g, c.b, ga * 0.22))
 
-	# ---- sombra interna
-	_quad(0, 0, w, h, Color(0.02, 0.03, 0.05, 0.85))
+	# ---- camera vazia: fundo escuro no tom do plasma, pra parecer uma
+	# camara esperando encher em vez de um buraco preto
+	_quad(0, 0, w, h, Color(fundo.r, fundo.g, fundo.b, 0.55))
+	_quad(0, 0, w, h * 0.45, Color(0, 0, 0, 0.30))
 
 	var pad := 1.5
 	var y0: float = pad + 1.0

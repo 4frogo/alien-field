@@ -872,9 +872,11 @@ func _morte_buraco() -> void:
 	add_child(bh)
 	bh.call("setup", pp, 130.0)
 	add_trauma(0.8)
-	if sfx != null:
-		sfx.call("explosao")
-		sfx.call("boss")
+	# som desligado: o estrondo de explosao ao surgir o buraco negro era
+	# alto demais. Fica so o 'stinger' musical, mais acima.
+	# Para reativar, descomente as linhas abaixo.
+	# if sfx != null:
+	# 	sfx.call("explosao")
 
 func flash_tela(forca: float, cor: Color = Color(1, 1, 1)) -> void:
 	flash_t = 1.0

@@ -11,6 +11,10 @@ var usa_analogico := false
 signal atirar(pos: Vector2)
 signal super_tiro(pos: Vector2)
 
+# Topo da faixa reservada ao HUD (barras de escudo + super tiro).
+# A nave e mantida acima desse valor.
+const TOPO_HUD := 888.0
+
 var sprite: Sprite2D = null
 var tem_sprite := false
 var usa_propulsor_png := false
@@ -213,8 +217,13 @@ func _process(delta: float) -> void:
 			dash_dir = dir.normalized()
 		position += dir.normalized() * speed * delta if dir.length() > 0.05 else Vector2.ZERO
 
-	position.x = clamp(position.x, 95.0, 445.0)
-	position.y = clamp(position.y, 400.0, 900.0)
+	# ---- limites de tela: a nave nao pode invadir a faixa do HUD.
+	# O clamp usa a posicao do no (centro), mas a sprite e grande, entao
+	# compensamos pela metade da altura/largura real ja escalada.
+	var meia_h := _meia_altura_px()
+	var meia_w := _meia_largura_px()
+	position.x = clamp(position.x, meia_w + 8.0, 540.0 - meia_w - 8.0)
+	position.y = clamp(position.y, 400.0, minf(900.0, TOPO_HUD - meia_h - 6.0))
 	# impulso pros propulsores (0 parado, 1 movendo)
 	var forca_imp: float = 1.0 if dash_t > 0.0 else clampf(dir.length(), 0.0, 1.0)
 	impulso = lerpf(impulso, forca_imp, minf(1.0, (12.0 if dash_t > 0.0 else 6.0) * delta))
@@ -262,10 +271,12 @@ func _process(delta: float) -> void:
 			if charge_mat != null:
 				charge_mat.set_shader_parameter("charge", k)
 				charge_mat.set_shader_parameter("speed", 3.5 + 4.0 * k)
-			# tremor cresce com a carga (perigo)
+			# tremor cresce com a carga (perigo), respeitando a faixa do HUD
 			var tremor := k * k * 7.0
-			position.x = clamp(position.x + randf_range(-tremor, tremor), 95.0, 445.0)
-			position.y = clamp(position.y + randf_range(-tremor, tremor) * 0.6, 400.0, 900.0)
+			position.x = clamp(position.x + randf_range(-tremor, tremor),
+				meia_w + 8.0, 540.0 - meia_w - 8.0)
+			position.y = clamp(position.y + randf_range(-tremor, tremor) * 0.6,
+				400.0, minf(900.0, TOPO_HUD - meia_h - 6.0))
 			# aura vermelha nos 40% finais
 			if danger_fx != null:
 				if k > 0.6:
@@ -283,6 +294,22 @@ func _process(delta: float) -> void:
 				danger_fx.visible = false
 
 	queue_redraw()
+
+# Metade da altura da nave em pixels de tela (sprite ja escalada + scale do no).
+func _meia_altura_px() -> float:
+	var h := 70.0 # fallback do desenho a mao
+	if sprite != null and sprite.texture != null:
+		h = float(sprite.texture.get_height()) * absf(sprite.scale.y)
+	return absf(h * scale.y) * 0.5
+
+
+# Mesma coisa para a largura (usado no limite lateral).
+func _meia_largura_px() -> float:
+	var w := 64.0
+	if sprite != null and sprite.texture != null:
+		w = float(sprite.texture.get_width()) * absf(sprite.scale.x)
+	return absf(w * scale.x) * 0.5
+
 
 func _input(event: InputEvent) -> void:
 	# PC: somente WASD (sem mouse). Celular: TouchControls assume.
@@ -424,6 +451,14 @@ func _bicos_motor() -> Array:
 		Vector2(0.0, 90.0),
 	]
 
+# Visibilidade das chamas perto do HUD: 1.0 longe da faixa reservada,
+# 0.0 quando a base da nave encosta nela. Evita que a labareda invada
+# as barras sem precisar empurrar a nave pra cima.
+func _fade_hud() -> float:
+	var folga: float = TOPO_HUD - (position.y + _meia_altura_px())
+	return clampf(folga / 64.0, 0.0, 1.0)
+
+
 func _draw_propulsores() -> void:
 	# Plasma verde vivo e REATIVO:
 	#  - o motor do lado pra onde a nave inclina queima mais forte
@@ -434,6 +469,9 @@ func _draw_propulsores() -> void:
 	var base := 0.42 + impulso * 1.15
 	var dx := clampf(dir_suave.x, -1.0, 1.0)   # -1 = esquerda, +1 = direita
 	var dy := clampf(dir_suave.y, -1.0, 1.0)   # -1 = subindo,  +1 = descendo
+	var vis := _fade_hud()                     # some perto das barras do HUD
+	if vis <= 0.01:
+		return
 	var bicos := _bicos_motor()
 	for i in bicos.size():
 		var bico: Vector2 = bicos[i]
@@ -454,10 +492,13 @@ func _draw_propulsores() -> void:
 		var vib := Vector2(sin(t * 37.0 + fase) * 1.6, 0)
 		# jato e um pouco jogado pro lado oposto a curvatura
 		var jato := Vector2(-dx * 6.5, 0)
+		# perto do HUD a labareda encolhe e apaga
+		comp *= vis
+		larg *= vis
 
 		# --- halo suave (aditivo) ---
-		draw_circle(bico + jato * 0.5 + Vector2(0, comp * 0.18), larg * 2.4, Color(0.10, 0.95, 0.45, 0.13 * cintila * ganho))
-		draw_circle(bico + jato * 0.3 + Vector2(0, comp * 0.10), larg * 1.5, Color(0.25, 1.0, 0.55, 0.18 * cintila * ganho))
+		draw_circle(bico + jato * 0.5 + Vector2(0, comp * 0.18), larg * 2.4, Color(0.10, 0.95, 0.45, 0.13 * cintila * ganho * vis))
+		draw_circle(bico + jato * 0.3 + Vector2(0, comp * 0.10), larg * 1.5, Color(0.25, 1.0, 0.55, 0.18 * cintila * ganho * vis))
 
 		# --- camadas da labareda, da mais larga pra mais brilhante ---
 		var perfil := [
@@ -470,6 +511,7 @@ func _draw_propulsores() -> void:
 			var cx: float = float(perfil[c][0])
 			var cy: float = float(perfil[c][1])
 			var cor: Color = perfil[c][2]
+			cor.a *= vis
 			var ponta := bico + jato * cy + vib * (1.0 - cx * 0.5) + Vector2(0, comp * cy)
 			draw_colored_polygon(PackedVector2Array([
 				bico + Vector2(-larg * cx, -2.0),
@@ -486,20 +528,20 @@ func _draw_propulsores() -> void:
 			draw_colored_polygon(PackedVector2Array([
 				dc + Vector2(-dw, 0), dc + Vector2(0, -dw * 0.42),
 				dc + Vector2(dw, 0), dc + Vector2(0, dw * 0.42),
-			]), Color(0.75, 1.0, 0.85, 0.30 * pulso))
+			]), Color(0.75, 1.0, 0.85, 0.30 * pulso * vis))
 
 		# --- faiscas subindo e se apagando ---
 		for s in 4:
 			var ciclo := fmod(t * 1.7 + float(s) * 0.25 + fase * 0.15, 1.0)
 			var sy := bico.y + jato.y + ciclo * comp * 1.35
-			var sa := (1.0 - ciclo) * 0.85
+			var sa := (1.0 - ciclo) * 0.85 * vis
 			var sx := bico.x + jato.x * ciclo + sin(float(s) * 2.1 + fase) * larg * 0.9 + ciclo * ciclo * 5.0 * sin(fase + t)
 			draw_circle(Vector2(sx, sy), 1.9 * (1.0 - ciclo * 0.5), Color(0.55, 1.0, 0.70, sa))
 
 		# --- boca do motor acesa (mais quente quanto mais ganho) ---
-		draw_circle(bico, 4.4, Color(0.10, 0.55, 0.22, 0.9))
-		draw_circle(bico, 2.7, Color(0.45, 1.0, 0.60, 0.95))
-		draw_circle(bico, 1.4 * ganho, Color(0.92, 1.0, 0.95, clampf(cintila * ganho, 0.0, 1.0)))
+		draw_circle(bico, 4.4 * vis, Color(0.10, 0.55, 0.22, 0.9 * vis))
+		draw_circle(bico, 2.7 * vis, Color(0.45, 1.0, 0.60, 0.95 * vis))
+		draw_circle(bico, 1.4 * ganho * vis, Color(0.92, 1.0, 0.95, clampf(cintila * ganho * vis, 0.0, 1.0)))
 
 func _chama_motor(bico: Vector2) -> void:
 	# labareda do propulsor pra tras (+y) com tremor

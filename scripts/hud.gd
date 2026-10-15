@@ -65,14 +65,14 @@ func _ready() -> void:
 	# deixar espaco logo abaixo pro liquido do super tiro.
 	var ico_esc = preload("res://scripts/hud_icon.gd").new()
 	ico_esc.set("modo", "escudo")
-	ico_esc.position = Vector2(14, 884)
+	ico_esc.position = Vector2(14, 896)
 	ico_esc.size = Vector2(24, 24)
 	add_child(ico_esc)
 
 	bar_escudo = preload("res://scripts/hud_bar.gd").new()
 	bar_escudo.set("cor", verde)
 	bar_escudo.set("cor_fundo", Color(0.04, 0.14, 0.07))
-	bar_escudo.position = Vector2(42, 888)
+	bar_escudo.position = Vector2(42, 900)
 	bar_escudo.size = Vector2(160, 16)
 	bar_escudo.set("liquido", true)
 	bar_escudo.set("valor", 1.0)
@@ -82,7 +82,7 @@ func _ready() -> void:
 	# ARMA: icone triplo (sem texto)
 	var ico_arma = preload("res://scripts/hud_icon.gd").new()
 	ico_arma.set("modo", "laser")
-	ico_arma.position = Vector2(440, 884)
+	ico_arma.position = Vector2(440, 896)
 	ico_arma.size = Vector2(28, 28)
 	add_child(ico_arma)
 

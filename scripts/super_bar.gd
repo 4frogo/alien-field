@@ -27,8 +27,11 @@ var _t := 0.0
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	custom_minimum_size = Vector2(120, 16)
-	size = custom_minimum_size
+	# nao sobrescreve o tamanho: quem instancia (main.gd) define, para a barra
+	# caber no rodape junto da barra de escudo
+	if custom_minimum_size.x < 1.0:
+		custom_minimum_size = Vector2(248, 22)
+		size = custom_minimum_size
 
 
 func _process(delta: float) -> void:

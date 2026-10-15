@@ -251,16 +251,18 @@ func _ready() -> void:
 	portal_label.visible = false
 	hud.add_child(portal_label)
 
-	# barrinha de carga do super tiro (segue a nave) — desenho animado custom
+	# barrinha de carga do super tiro — FIXA no rodape, logo abaixo da barra de
+	# escudo. Antes ela seguia a nave e cobria o casco.
 	charge_bar = preload("res://scripts/super_bar.gd").new()
-	charge_bar.custom_minimum_size = Vector2(120, 16)
-	charge_bar.size = Vector2(120, 16)
+	charge_bar.custom_minimum_size = Vector2(248, 22)
+	charge_bar.size = Vector2(248, 22)
+	charge_bar.position = Vector2(46, 910)
 	charge_bar.visible = false
 	hud.add_child(charge_bar)
 
 	charge_txt = Label.new()
 	charge_txt.text = "SUPER"
-	charge_txt.add_theme_font_size_override("font_size", 14)
+	charge_txt.add_theme_font_size_override("font_size", 13)
 	if _fonte() != null:
 		charge_txt.add_theme_font_override("font", _fonte())
 	charge_txt.add_theme_color_override("font_color", Color(0.5, 1.0, 0.6))
@@ -1108,13 +1110,9 @@ func _process(delta: float) -> void:
 			charge_txt.visible = true
 			charge_bar.set("prog", prog)
 			charge_bar.set("pronta", pronta)
-			# segue a nave (mundo = tela, sem camera). Fica ABAIXO da nave, e nao
-			# na frente: a barra e o texto nunca saem da tela (a nave pode
-			# encostar embaixo, em y=900).
-			var pp: Vector2 = player.position
-			var y_bar: float = minf(pp.y + 76.0, 852.0)
-			charge_bar.position = Vector2(pp.x - 60, y_bar)
-			charge_txt.position = Vector2(pp.x - 28, y_bar + 22)
+			# posicao fixa no rodape (definida no _ready). O texto fica na
+			# ponta direita da barra, sem cobrir a nave.
+			charge_txt.position = Vector2(302, 914)
 			if pronta:
 				charge_txt.text = "SOLTE!"
 				charge_txt.add_theme_color_override("font_color", Color(1, 0.25, 0.15))

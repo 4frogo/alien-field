@@ -61,18 +61,20 @@ func _ready() -> void:
 	lbl_fase.add_theme_color_override("font_color", Color(0.85, 0.9, 0.88))
 	add_child(lbl_fase)
 
-	# ESCUDO: icone + barra (sem texto)
+	# ESCUDO: icone + barra (sem texto). Fica na faixa de cima da rodape, pra
+	# deixar espaco logo abaixo pro liquido do super tiro.
 	var ico_esc = preload("res://scripts/hud_icon.gd").new()
 	ico_esc.set("modo", "escudo")
-	ico_esc.position = Vector2(14, 892)
+	ico_esc.position = Vector2(14, 876)
 	ico_esc.size = Vector2(28, 28)
 	add_child(ico_esc)
 
 	bar_escudo = preload("res://scripts/hud_bar.gd").new()
 	bar_escudo.set("cor", verde)
 	bar_escudo.set("cor_fundo", Color(0.04, 0.14, 0.07))
-	bar_escudo.position = Vector2(18, 920)
-	bar_escudo.size = Vector2(180, 18)
+	bar_escudo.position = Vector2(46, 880)
+	bar_escudo.size = Vector2(248, 22)
+	bar_escudo.set("liquido", true)
 	bar_escudo.set("valor", 1.0)
 	bar_escudo.set("alvo", 1.0)
 	add_child(bar_escudo)
@@ -80,7 +82,7 @@ func _ready() -> void:
 	# ARMA: icone triplo (sem texto)
 	var ico_arma = preload("res://scripts/hud_icon.gd").new()
 	ico_arma.set("modo", "laser")
-	ico_arma.position = Vector2(440, 898)
+	ico_arma.position = Vector2(440, 876)
 	ico_arma.size = Vector2(28, 28)
 	add_child(ico_arma)
 

@@ -35,6 +35,7 @@ var cacos: Array = []
 var pontos_energia: Array = []
 var tempo_escudo := 0.0
 var impulso := 0.0
+var dir_suave := Vector2.ZERO # direcao suavizada (reage o propulsor)
 var surgindo := false
 var onda := 99.0
 
@@ -217,6 +218,8 @@ func _process(delta: float) -> void:
 	# impulso pros propulsores (0 parado, 1 movendo)
 	var forca_imp: float = 1.0 if dash_t > 0.0 else clampf(dir.length(), 0.0, 1.0)
 	impulso = lerpf(impulso, forca_imp, minf(1.0, (12.0 if dash_t > 0.0 else 6.0) * delta))
+	# direcao suavizada: o propulsor reage a ela com atraso, dando peso
+	dir_suave = dir_suave.lerp(dir.limit_length(1.0), minf(1.0, 9.0 * delta))
 	if trail != null:
 		trail.set("intensidade", impulso)
 
@@ -422,21 +425,39 @@ func _bicos_motor() -> Array:
 	]
 
 func _draw_propulsores() -> void:
-	# Plasma verde vivo: chama em camadas + diamantes de choque + faiscas.
-	# A intensidade sobe com o impulso (dash) e o movimento.
+	# Plasma verde vivo e REATIVO:
+	#  - o motor do lado pra onde a nave inclina queima mais forte
+	#  - subindo a chama se espalha, descendo ela se alonga
+	#  - a labareda e empurrada pro lado contrario a curvatura
 	var t := float(Time.get_ticks_msec()) / 1000.0
-	var forca := 1.0 + impulso * 0.9
-	for i in _bicos_motor().size():
-		var bico: Vector2 = _bicos_motor()[i]
+	# forca base: parado quase nao queima, acelerando ate o dash
+	var base := 0.42 + impulso * 1.15
+	var dx := clampf(dir_suave.x, -1.0, 1.0)   # -1 = esquerda, +1 = direita
+	var dy := clampf(dir_suave.y, -1.0, 1.0)   # -1 = subindo,  +1 = descendo
+	var bicos := _bicos_motor()
+	for i in bicos.size():
+		var bico: Vector2 = bicos[i]
 		var fase := float(i) * 1.7
+
+		# --- quanto este motor trabalha: lado que a nave vira carrega mais ---
+		var lado := signf(bico.x) if absf(bico.x) > 0.01 else 0.0
+		var ganho := 1.0
+		if lado != 0.0:
+			ganho += dx * lado * 0.85          # motor do lado da curva grava
+		ganho -= dy * 0.30                     # descendo forca, subindo alivia
+		ganho = clampf(ganho, 0.30, 2.10)
+
 		var cintila := 0.78 + 0.22 * sin(t * 27.0 + fase) + 0.12 * sin(t * 51.0 + fase * 2.3)
-		var comp := (38.0 + 20.0 * forca) * cintila
-		var larg := 8.5 + impulso * 2.5
+		# descendo -> chama longa e estreita; subindo -> curta e aberta
+		var comp := (30.0 + 34.0 * base) * cintila * ganho * (1.0 + dy * 0.34)
+		var larg := (7.5 + 5.0 * impulso) * ganho * (1.0 - dy * 0.26)
 		var vib := Vector2(sin(t * 37.0 + fase) * 1.6, 0)
+		# jato e um pouco jogado pro lado oposto a curvatura
+		var jato := Vector2(-dx * 6.5, 0)
 
 		# --- halo suave (aditivo) ---
-		draw_circle(bico + Vector2(0, comp * 0.18), larg * 2.4, Color(0.10, 0.95, 0.45, 0.13 * cintila))
-		draw_circle(bico + Vector2(0, comp * 0.10), larg * 1.5, Color(0.25, 1.0, 0.55, 0.18 * cintila))
+		draw_circle(bico + jato * 0.5 + Vector2(0, comp * 0.18), larg * 2.4, Color(0.10, 0.95, 0.45, 0.13 * cintila * ganho))
+		draw_circle(bico + jato * 0.3 + Vector2(0, comp * 0.10), larg * 1.5, Color(0.25, 1.0, 0.55, 0.18 * cintila * ganho))
 
 		# --- camadas da labareda, da mais larga pra mais brilhante ---
 		var perfil := [
@@ -449,7 +470,7 @@ func _draw_propulsores() -> void:
 			var cx: float = float(perfil[c][0])
 			var cy: float = float(perfil[c][1])
 			var cor: Color = perfil[c][2]
-			var ponta := bico + vib * (1.0 - cx * 0.5) + Vector2(0, comp * cy)
+			var ponta := bico + jato * cy + vib * (1.0 - cx * 0.5) + Vector2(0, comp * cy)
 			draw_colored_polygon(PackedVector2Array([
 				bico + Vector2(-larg * cx, -2.0),
 				bico + Vector2(larg * cx, -2.0),
@@ -458,10 +479,10 @@ func _draw_propulsores() -> void:
 
 		# --- diamantes de choque flutuando na labareda ---
 		for d in 3:
-			var dy := comp * (0.30 + 0.28 * float(d))
-			var pulso := 0.55 + 0.45 * sin(t * 16.0 - dy * 0.22 + fase)
+			var dyq := comp * (0.30 + 0.28 * float(d))
+			var pulso := 0.55 + 0.45 * sin(t * 16.0 - dyq * 0.22 + fase)
 			var dw := larg * (0.60 - 0.13 * float(d)) * (0.8 + 0.2 * pulso)
-			var dc := bico + vib * 0.5 + Vector2(0, dy)
+			var dc := bico + jato * (dyq / maxf(comp, 1.0)) + vib * 0.5 + Vector2(0, dyq)
 			draw_colored_polygon(PackedVector2Array([
 				dc + Vector2(-dw, 0), dc + Vector2(0, -dw * 0.42),
 				dc + Vector2(dw, 0), dc + Vector2(0, dw * 0.42),
@@ -470,15 +491,15 @@ func _draw_propulsores() -> void:
 		# --- faiscas subindo e se apagando ---
 		for s in 4:
 			var ciclo := fmod(t * 1.7 + float(s) * 0.25 + fase * 0.15, 1.0)
-			var sy := bico.y + ciclo * comp * 1.35
+			var sy := bico.y + jato.y + ciclo * comp * 1.35
 			var sa := (1.0 - ciclo) * 0.85
-			var sx := bico.x + sin(float(s) * 2.1 + fase) * larg * 0.9 + ciclo * ciclo * 5.0 * sin(fase + t)
+			var sx := bico.x + jato.x * ciclo + sin(float(s) * 2.1 + fase) * larg * 0.9 + ciclo * ciclo * 5.0 * sin(fase + t)
 			draw_circle(Vector2(sx, sy), 1.9 * (1.0 - ciclo * 0.5), Color(0.55, 1.0, 0.70, sa))
 
-		# --- boca do motor acesa ---
+		# --- boca do motor acesa (mais quente quanto mais ganho) ---
 		draw_circle(bico, 4.4, Color(0.10, 0.55, 0.22, 0.9))
 		draw_circle(bico, 2.7, Color(0.45, 1.0, 0.60, 0.95))
-		draw_circle(bico, 1.4, Color(0.92, 1.0, 0.95, cintila))
+		draw_circle(bico, 1.4 * ganho, Color(0.92, 1.0, 0.95, clampf(cintila * ganho, 0.0, 1.0)))
 
 func _chama_motor(bico: Vector2) -> void:
 	# labareda do propulsor pra tras (+y) com tremor

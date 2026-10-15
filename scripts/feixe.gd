@@ -51,25 +51,34 @@ func _textura_radial(tam: int = 128) -> ImageTexture:
 # ------------------------------------------------------------------ caminho
 
 # Ponto do raio na altura y (y<0 = acima da boca).
-# A amplitude cresce no inicio e MORRE no fim: as 3 cobras convergem no alvo.
+# O raio vai em LINHA RETA (sobe reto) mas serpenteia: a amplitude e
+# constante do inicio ao fim, entao ele nunca "converge" — atravessa a tela
+# inteira. As 3 fases sao defasadas, entao eles se CRUZAM o caminho todo
+# (efeito de tranca entrelacada).
 func _ponto(i: int, f: float) -> Vector2:
 	var boca: float = BOCAS[i]
-	# posicao alvo no espaco local (relativo a boca do canhao)
-	var ax: float = alvo.x - position.x
-	var ay: float = alvo.y - position.y
-	var total: float = maxf(120.0, -ay)
-	# x destino: interpola da boca ate o alvo conforme f
-	var x_dest := lerpf(boca, ax - boca, f)
-	# amplitude: 0 na boca, maxima no meio, 0 no alvo
-	var amp: float = 46.0 * sin(f * PI) * (0.75 + 0.25 * impulso_local())
-	# a serpente corre pelo caminho
-	var corr := age * (5.2 + 0.9 * float(i)) + float(i) * 2.3
-	var ondul: float = sin(f * 9.0 - corr) * amp
+	var total: float = comprimento()
+	# direcao base: se ha alvo, inclina levemente na direcao dele
+	var base_x := boca
+	if tem_alvo:
+		base_x = lerpf(boca, clampf(alvo.x - position.x - boca, -70.0, 70.0), 0.35)
+
+	# amplitude constante, com leve abertura no comeco do disparo
+	var amp: float = (34.0 + 16.0 * impulso_local()) * (0.85 + 0.15 * float(i))
+
+	# a serpente corre pelo caminho; fases separadas => os 3 se cruzam
+	var corr := age * (5.0 + 0.8 * float(i)) + float(i) * 2.1
+	var ondul: float = sin(f * 11.0 - corr) * amp
 	# segunda harmonica: da o jeito de cobra, nao de seno
-	ondul += sin(f * 17.0 - corr * 1.7 + 1.1) * amp * 0.34
-	# y avanca linearmente (o comprimento do feixe)
-	var y := -total * f
-	return Vector2(x_dest + ondul, y)
+	ondul += sin(f * 21.0 - corr * 1.7 + 1.1) * amp * 0.32
+
+	return Vector2(base_x + ondul, -total * f)
+
+
+# Comprimento do raio: da boca ate ACIMA do topo da tela (y = -60).
+# Assim ele sempre atravessa a tela inteira, tenha alvo ou nao.
+func comprimento() -> float:
+	return maxf(160.0, position.y + 100.0)
 
 
 # Quanto mais recente o disparo, mais aberto o leque (0..1)
@@ -86,10 +95,6 @@ func _process(delta: float) -> void:
 		queue_free()
 		return
 	position = Vector2(player.position.x, player.position.y - 40.0)
-	# sem alvo, o raio ainda sobe ate o topo da tela (da para eletrocutar
-	# o chefe que fica la em cima)
-	if not tem_alvo:
-		alvo = Vector2(position.x, -60.0)
 
 	if glow != null:
 		var gs := 52.0 + 10.0 * sin(age * 22.0)
@@ -169,18 +174,20 @@ func _draw() -> void:
 			draw_circle(p3 + off, tam * 2.4, Color(cc.r, cc.g, cc.b, 0.14))
 			draw_circle(p3 + off, tam, cc)
 
-		# --- impacto no alvo
+		# --- a ponta sai do topo da tela: some em vez de "bater" em algo
 		var ponta: Vector2 = pts[SEG]
-		var it := 0.7 + 0.3 * sin(age * 26.0 + fase)
-		draw_circle(ponta, 26.0 * it, Color(0.12, 0.90, 0.26, 0.16))
-		draw_circle(ponta, 12.0 * it, Color(0.45, 1.0, 0.52, 0.26))
-		draw_circle(ponta, 5.0, Color(0.90, 1.0, 0.90, 0.45))
-		# raios curtos saindo do impacto
+		for e2 in 4:
+			var t: float = 0.35 + 0.22 * float(e2)
+			var idx: int = clampi(int((1.0 - t) * float(SEG)), 0, SEG)
+			var pp: Vector2 = pts[idx]
+			var ap: float = (1.0 - t) * 0.35 * pulsa
+			draw_circle(pp, (5.0 + 3.0 * t) * pulsa, Color(0.35, 1.0, 0.45, ap))
+		# faiscas se abrindo na saida
 		for r2 in 6:
 			var a3 := age * 2.4 + float(r2) * 1.05 + float(i)
-			var d3 := 18.0 + 12.0 * sin(age * 11.0 + float(r2))
+			var d3 := 14.0 + 10.0 * sin(age * 11.0 + float(r2))
 			draw_line(ponta, ponta + Vector2(cos(a3), sin(a3)) * d3,
-				Color(0.60, 1.0, 0.62, 0.45), 2.0, true)
+				Color(0.60, 1.0, 0.62, 0.28 * pulsa), 2.0, true)
 
 	# ---- boca do canhao: onde os 3 raios nascem
 	for i in 3:

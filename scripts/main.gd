@@ -1196,12 +1196,12 @@ func _process(delta: float) -> void:
 					# raio triplo: elektrocuta quem for atingido. O chefe
 					# treme e fica 2s sem atirar.
 					if absf(ep.x - fx) < 58.0 and ep.y < fy + 20.0 and ep.y > -60.0:
+						var tipo_e := str(e.get("tipo"))
 						# eletrocuta o chefe: ele treme e fica 2s sem atirar
-						if str(e.get("tipo")) == "boss":
+						if tipo_e == "boss":
 							e.call("atordoar", 2.0)
-						var morreu: bool = e.call("levar_dano", 4)
-						if morreu:
-							if str(e.get("tipo")) == "boss":
+							var morreu_b: bool = e.call("levar_dano", 4)
+							if morreu_b:
 								pontos += 2000
 								_registrar_abate()
 								_kill_confirm(ep, 2000, Color(1, 0.85, 0.3))
@@ -1210,30 +1210,42 @@ func _process(delta: float) -> void:
 								_killcam_boss(ep)
 								add_trauma(0.7)
 								boss = null
-								# renasce boss apos 5s
 								await get_tree().create_timer(5.0).timeout
 								if vidas > 0:
 									_spawn_boss()
-							elif str(e.get("tipo")) == "bonus":
-								pontos += 200
-								_fx_bonus(ep)
-								_spawn_arma(ep)
-							elif str(e.get("tipo")) == "bonus2":
-								pontos += 200
-								_fx_explosao(ep, false, false)
-								_disparar_missil()
-							else:
+							elif tipo_e == "small":
+								# nave pequena eletrocucada: EXPLODE NA HORA
 								pontos += 100
 								_registrar_abate()
+								e.call("levar_dano", 99999)
 								_kill_confirm(ep, 100, Color(0.5, 1.0, 0.55))
-								_fx_explosao(ep, false, false)
-								hitstop(0.06)
-								add_trauma(0.22)
-						else:
-							if str(e.get("tipo")) == "boss":
-								pontos += 40
-							_num(ep, "4", 18, Color(1, 1, 1))
-							_fx_tiro(ep)
+								_fx_explosao(ep, false, true)
+								hitstop(0.04)
+								add_trauma(0.18)
+								continue
+							else:
+								var morreu: bool = e.call("levar_dano", 4)
+								if morreu:
+									if tipo_e == "bonus":
+										pontos += 200
+										_fx_bonus(ep)
+										_spawn_arma(ep)
+									elif tipo_e == "bonus2":
+										pontos += 200
+										_fx_explosao(ep, false, false)
+										_disparar_missil()
+									elif tipo_e != "boss":
+										pontos += 100
+										_registrar_abate()
+										_kill_confirm(ep, 100, Color(0.5, 1.0, 0.55))
+										_fx_explosao(ep, false, false)
+										hitstop(0.06)
+										add_trauma(0.22)
+								else:
+									if tipo_e == "boss":
+										pontos += 40
+									_num(ep, "4", 18, Color(1, 1, 1))
+									_fx_tiro(ep)
 
 	# spawn continuo
 	spawn_timer -= delta

@@ -741,6 +741,88 @@ func _on_player_atirar(pos: Vector2) -> void:
 	_fx_tiro(pos)
 	# som do tiro do player mutado por enquanto
 
+
+# Dano do raio triplo. Fica numa funcao SEPARADA de proposito:
+# dentro do _process existia um `await` (renascimento do chefe) que
+# transformava o _process inteiro em corrotina — e o resto do bloco de
+# dano ficava sem executar. Nenhum await aqui dentro.
+func _dano_do_raio(delta: float) -> void:
+	feixes = feixes.filter(func(x): return is_instance_valid(x))
+	if feixes.is_empty():
+		return
+	feixe_tick += delta
+	if feixe_tick < 0.05:
+		return
+	feixe_tick = 0.0
+
+	for f in feixes:
+		if not is_instance_valid(f):
+			continue
+		for e in inimigos:
+			if not is_instance_valid(e) or not e.get("vivo"):
+				continue
+			var ep: Vector2 = (e as Node2D).position
+			# o raio serpenteia: a colisao segue as 3 mechas de verdade.
+			# tol generoso de proposito, sem ele sobram buracos ENTRE as
+			# mechas e o inimigo passa ileso.
+			if not f.call("atingido", ep, 60.0):
+				continue
+			var tipo_e := str(e.get("tipo"))
+			if tipo_e == "small":
+				# nave pequena eletrocucada: EXPLODE NA HORA
+				pontos += 100
+				_registrar_abate()
+				e.call("levar_dano", 99999)
+				_kill_confirm(ep, 100, Color(0.5, 1.0, 0.55))
+				_fx_explosao(ep, false, true)
+				hitstop(0.04)
+				add_trauma(0.18)
+			elif tipo_e == "boss":
+				# eletrocuta o chefe: treme e fica 2s sem atirar
+				e.call("atordoar", 2.0)
+				var mb: bool = e.call("levar_dano", 4)
+				if mb:
+					pontos += 2000
+					_registrar_abate()
+					_kill_confirm(ep, 2000, Color(1, 0.85, 0.3))
+					_fx_explosao(ep, true, false)
+					_rank_chefe()
+					_killcam_boss(ep)
+					add_trauma(0.7)
+					boss = null
+					_renascer_chefe_depois()
+			else:
+				var morreu: bool = e.call("levar_dano", 4)
+				if not morreu:
+					if tipo_e == "boss":
+						pontos += 40
+					_num(ep, "4", 18, Color(1, 1, 1))
+					_fx_tiro(ep)
+				elif tipo_e == "bonus":
+					pontos += 200
+					_fx_bonus(ep)
+					_spawn_arma(ep)
+				elif tipo_e == "bonus2":
+					pontos += 200
+					_fx_explosao(ep, false, false)
+					_disparar_missil()
+				else:
+					pontos += 100
+					_registrar_abate()
+					_kill_confirm(ep, 100, Color(0.5, 1.0, 0.55))
+					_fx_explosao(ep, false, false)
+					hitstop(0.06)
+					add_trauma(0.22)
+
+
+# Renascimento do chefe depois de 5s. Separate porque nao pode usar
+# await dentro do laco de dano do raio.
+func _renascer_chefe_depois() -> void:
+	await get_tree().create_timer(5.0).timeout
+	if vidas > 0:
+		_spawn_boss()
+
+
 func _on_super_tiro(pos: Vector2) -> void:
 	if vidas <= 0:
 		return
@@ -1178,75 +1260,9 @@ func _process(delta: float) -> void:
 			charge_txt.visible = false
 			last_beep = 0
 
-	# feixe 2s: tick de dano a cada 0.05s (era 0.15s, e inimigo rapido
-	# cruzava o raio entre um tick e outro)
-	feixes = feixes.filter(func(x): return is_instance_valid(x))
-	if feixes.size() > 0:
-		feixe_tick += delta
-		if feixe_tick >= 0.05:
-			feixe_tick = 0.0
-			for f in feixes:
-				if not is_instance_valid(f):
-					continue
-				for e in inimigos:
-					if not is_instance_valid(e) or not e.get("vivo"):
-						continue
-					var ep: Vector2 = (e as Node2D).position
-					# o raio serpenteia, entao a colisao segue as 3
-					# mechas de verdade (nao um retangulo na nave).
-					# tol generoso de proposito: sem ele sobram buracos
-					# ENTRE as mechas e o inimigo passa ileso.
-					if f.call("atingido", ep, 60.0):
-						var tipo_e := str(e.get("tipo"))
-						# eletrocuta o chefe: ele treme e fica 2s sem atirar
-						if tipo_e == "boss":
-							e.call("atordoar", 2.0)
-							var morreu_b: bool = e.call("levar_dano", 4)
-							if morreu_b:
-								pontos += 2000
-								_registrar_abate()
-								_kill_confirm(ep, 2000, Color(1, 0.85, 0.3))
-								_fx_explosao(ep, true, false)
-								_rank_chefe()
-								_killcam_boss(ep)
-								add_trauma(0.7)
-								boss = null
-								await get_tree().create_timer(5.0).timeout
-								if vidas > 0:
-									_spawn_boss()
-							elif tipo_e == "small":
-								# nave pequena eletrocucada: EXPLODE NA HORA
-								pontos += 100
-								_registrar_abate()
-								e.call("levar_dano", 99999)
-								_kill_confirm(ep, 100, Color(0.5, 1.0, 0.55))
-								_fx_explosao(ep, false, true)
-								hitstop(0.04)
-								add_trauma(0.18)
-								continue
-							else:
-								var morreu: bool = e.call("levar_dano", 4)
-								if morreu:
-									if tipo_e == "bonus":
-										pontos += 200
-										_fx_bonus(ep)
-										_spawn_arma(ep)
-									elif tipo_e == "bonus2":
-										pontos += 200
-										_fx_explosao(ep, false, false)
-										_disparar_missil()
-									elif tipo_e != "boss":
-										pontos += 100
-										_registrar_abate()
-										_kill_confirm(ep, 100, Color(0.5, 1.0, 0.55))
-										_fx_explosao(ep, false, false)
-										hitstop(0.06)
-										add_trauma(0.22)
-								else:
-									if tipo_e == "boss":
-										pontos += 40
-									_num(ep, "4", 18, Color(1, 1, 1))
-									_fx_tiro(ep)
+	# feixe triplo: dano a cada 0.05s (ver _dano_do_raio)
+	_dano_do_raio(delta)
+
 
 	# spawn continuo
 	spawn_timer -= delta

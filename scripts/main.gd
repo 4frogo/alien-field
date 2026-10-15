@@ -1187,15 +1187,13 @@ func _process(delta: float) -> void:
 			for f in feixes:
 				if not is_instance_valid(f):
 					continue
-				var fx: float = (f as Node2D).position.x
-				var fy: float = (f as Node2D).position.y
 				for e in inimigos:
 					if not is_instance_valid(e) or not e.get("vivo"):
 						continue
 					var ep: Vector2 = (e as Node2D).position
-					# raio triplo: elektrocuta quem for atingido. O chefe
-					# treme e fica 2s sem atirar.
-					if absf(ep.x - fx) < 58.0 and ep.y < fy + 20.0 and ep.y > -60.0:
+					# o raio serpenteia, entao a colisao segue as 3
+					# mechas de verdade (nao um retangulo na nave)
+					if f.call("atingido", ep, 30.0):
 						var tipo_e := str(e.get("tipo"))
 						# eletrocuta o chefe: ele treme e fica 2s sem atirar
 						if tipo_e == "boss":

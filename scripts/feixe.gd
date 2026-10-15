@@ -86,6 +86,22 @@ func impulso_local() -> float:
 	return clampf(age / 0.25, 0.0, 1.0)
 
 
+# Testa se um ponto do mundo esta sobre alguma das 3 mechas.
+# Precisa disso porque o raio serpenteia e se espalha: a caixa de colisao
+# antiga era um retangulo em volta da nave e errava o visual.
+func atingido(p: Vector2, tol: float = 26.0) -> bool:
+	var total := comprimento()
+	var lp := p - position
+	# so vale na faixa vertical do raio (da boca ate passar do topo)
+	if lp.y > 30.0 or lp.y < -total - 40.0:
+		return false
+	var f: float = clampf(-lp.y / maxf(total, 1.0), 0.0, 1.0)
+	for i in 3:
+		if lp.distance_to(_ponto(i, f)) <= tol:
+			return true
+	return false
+
+
 # ------------------------------------------------------------------ desenho
 
 func _process(delta: float) -> void:

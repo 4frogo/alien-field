@@ -15,10 +15,10 @@ var alvo := Vector2(0, -600)     # ponto de convergencia (inimigo)
 var tem_alvo := false
 var glow: Sprite2D = null
 
-# bocas dos 3 raios (px de tela, relativo a posicao da nave)
-const BOCAS := [-38.0, 0.0, 38.0]
-const SEG := 34                  # segmentos por raio
-const PASSO := 30.0              # px entre segmentos
+# Os 3 raios saem do MESMO ponto (centro/nucleo da nave) e abrem em leque
+# conforme sobem. Depois eles serpenteiam e se cruzam (entrelacados).
+const ABERTURA := 52.0   # quanto o leque abre ate a largura final
+const SEG := 34          # segmentos por raio
 
 
 func setup(p: Node2D) -> void:
@@ -56,15 +56,19 @@ func _textura_radial(tam: int = 128) -> ImageTexture:
 # inteira. As 3 fases sao defasadas, entao eles se CRUZAM o caminho todo
 # (efeito de tranca entrelacada).
 func _ponto(i: int, f: float) -> Vector2:
-	var boca: float = BOCAS[i]
 	var total: float = comprimento()
-	# direcao base: se ha alvo, inclina levemente na direcao dele
-	var base_x := boca
-	if tem_alvo:
-		base_x = lerpf(boca, clampf(alvo.x - position.x - boca, -70.0, 70.0), 0.35)
 
-	# amplitude constante, com leve abertura no comeco do disparo
-	var amp: float = (34.0 + 16.0 * impulso_local()) * (0.85 + 0.15 * float(i))
+	# leque: nasce tudo em x=0 (nucleo da nave) e abre nos 22% primeiros
+	var abre: float = smoothstep(0.0, 0.22, f)
+	var leque: float = (float(i) - 1.0)      # -1, 0, +1
+	var base_x := leque * ABERTURA * abre
+
+	# direcao base: se ha alvo, inclina levemente na direcao dele
+	if tem_alvo:
+		base_x += lerpf(0.0, clampf(alvo.x - position.x, -70.0, 70.0), 0.35) * abre
+
+	# amplitude: zero na boca (nasce juntinho) e cheia depois
+	var amp: float = (34.0 + 16.0 * impulso_local()) * (0.85 + 0.15 * float(i)) * abre
 
 	# a serpente corre pelo caminho; fases separadas => os 3 se cruzam
 	var corr := age * (5.0 + 0.8 * float(i)) + float(i) * 2.1
@@ -205,13 +209,21 @@ func _draw() -> void:
 			draw_line(ponta, ponta + Vector2(cos(a3), sin(a3)) * d3,
 				Color(0.60, 1.0, 0.62, 0.28 * pulsa), 2.0, true)
 
-	# ---- boca do canhao: onde os 3 raios nascem
-	for i in 3:
-		var b: Vector2 = Vector2(BOCAS[i], 0)
-		var fl: float = 0.7 + 0.3 * sin(age * 29.0 + float(i) * 1.7)
-		draw_circle(b, 22.0 * fl, Color(0.08, 0.80, 0.24, 0.20))
-		draw_circle(b, 11.0 * fl, Color(0.25, 1.0, 0.38, 0.32))
-		draw_circle(b, 5.0 * fl, Color(0.88, 1.0, 0.85, 0.75))
-		# anel girando
-		var rr2 := age * 4.0 + float(i) * 2.1
-		draw_arc(b, 15.0, rr2, rr2 + 2.6, 16, Color(0.55, 1.0, 0.58, 0.55), 2.0, true)
+	# ---- boca do canhao: UM so ponto no nucleo da nave, de onde saem os 3
+	var b := Vector2(0, 0)
+	var fl: float = 0.7 + 0.3 * sin(age * 29.0)
+	draw_circle(b, 46.0 * fl, Color(0.06, 0.70, 0.20, 0.13))
+	draw_circle(b, 28.0 * fl, Color(0.12, 0.92, 0.28, 0.20))
+	draw_circle(b, 14.0 * fl, Color(0.35, 1.0, 0.42, 0.34))
+	draw_circle(b, 6.0 * fl, Color(0.90, 1.0, 0.88, 0.75))
+	# dois aneis girando em sentidos opostos
+	var r1 := age * 4.0
+	var r2 := -age * 3.1 + 1.4
+	draw_arc(b, 17.0, r1, r1 + 2.6, 18, Color(0.60, 1.0, 0.58, 0.60), 2.0, true)
+	draw_arc(b, 27.0, r2, r2 + 1.9, 16, Color(0.25, 1.0, 0.40, 0.45), 1.6, true)
+	# faiscas girando na boca
+	for k in 6:
+		var a := age * 5.0 + float(k) * 1.05
+		var d := 20.0 + 7.0 * sin(age * 8.0 + float(k))
+		draw_circle(b + Vector2(cos(a), sin(a)) * d, 2.0,
+			Color(0.70, 1.0, 0.72, 0.65))

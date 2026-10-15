@@ -97,6 +97,15 @@ func _ready() -> void:
 					var mat := ShaderMaterial.new()
 					mat.shader = sh
 					sprite.material = mat
+				# contorno escuro: silhueta para a nave nao se perder no fundo
+				if ResourceLoader.exists("res://assets/contorno.gdshader"):
+					var cm := ShaderMaterial.new()
+					cm.shader = load("res://assets/contorno.gdshader") as Shader
+					cm.set_shader_parameter("cor", Color(0.01, 0.02, 0.03, 1.0))
+					cm.set_shader_parameter("espessura", 0.006)
+					cm.set_shader_parameter("brilho_borda", 0.55)
+					cm.set_shader_parameter("cor_brilho", Color(0.25, 1.0, 0.45, 1.0))
+					sprite.material = cm
 				add_child(sprite)
 				tem_sprite = true
 				# Hulk2 nao tem chama assada na arte (motores escuros), entao

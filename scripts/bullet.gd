@@ -253,16 +253,22 @@ func _draw() -> void:
 			_rastro(tras, 42.0, 4.5, Color(1.0, 0.45, 0.20))
 		return
 	if amigo:
-		# tracer + laser verde triplo
-		_rastro(-vel.normalized(), 40.0, 3.2, Color(0.25, 1.0, 0.45))
-		draw_circle(Vector2.ZERO, 11, Color(0.1, 1.0, 0.4, 0.3))
-		draw_circle(Vector2.ZERO, 6, Color(0.15, 0.9, 0.35))
-		draw_circle(Vector2.ZERO, 3.0, Color(0.9, 1.0, 0.92))
-		draw_rect(Rect2(-1.5, -18, 3, 14), Color(0.7, 1.0, 0.75))
+		# Tiro do player: rastro longo, 3 camadas e nucleo branco.
+		# Antes sumia contra a nebulosa roxa — agr tem halo, corpo e nucleo.
+		_rastro(-vel.normalized(), 62.0, 4.6, Color(0.25, 1.0, 0.45))
+		var pl := 1.0 + 0.10 * sin(tempo * 18.0)
+		draw_circle(Vector2.ZERO, 14.0 * pl, Color(0.08, 1.0, 0.38, 0.26))
+		draw_circle(Vector2.ZERO, 8.5 * pl, Color(0.18, 1.0, 0.45, 0.60))
+		draw_circle(Vector2.ZERO, 4.2 * pl, Color(0.80, 1.0, 0.88, 0.95))
+		draw_circle(Vector2.ZERO, 2.0, Color(1, 1, 1))
+		# bico brilhante na frente
+		draw_rect(Rect2(-2.0, -24, 4, 17), Color(0.75, 1.0, 0.80, 0.85))
+		draw_rect(Rect2(-0.8, -26, 1.6, 20), Color(1, 1, 0.95, 0.9))
 	else:
 		# fallback sem shader (nunca deve aparecer)
-		_rastro(-vel.normalized(), 40.0, 5.0, Color(1.0, 0.35, 0.15))
+		_rastro(-vel.normalized(), 52.0, 6.0, Color(1.0, 0.35, 0.15))
 		var pulse := 1.0 + 0.18 * sin(tempo * 14.0)
-		draw_circle(Vector2.ZERO, 12 * pulse, Color(1.0, 0.15, 0.1, 0.35))
-		draw_circle(Vector2.ZERO, 7.5 * pulse, Color(0.95, 0.2, 0.08))
-		draw_circle(Vector2.ZERO, 4.0, Color(1.0, 0.6, 0.2))
+		draw_circle(Vector2.ZERO, 14 * pulse, Color(1.0, 0.15, 0.1, 0.32))
+		draw_circle(Vector2.ZERO, 8.5 * pulse, Color(0.95, 0.2, 0.08))
+		draw_circle(Vector2.ZERO, 5.0, Color(1.0, 0.55, 0.18))
+		draw_circle(Vector2.ZERO, 2.2, Color(1, 1, 0.95))

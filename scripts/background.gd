@@ -23,6 +23,40 @@ var meteoros: Array = []
 var met_t := 4.0
 var tempo_total := 0.0
 var rng_inf := RandomNumberGenerator.new()
+# véu: escurece as bordas e dessatura o fundo, pra nave/inimigos/TIROS
+# saltarem contra a arte. Aplicado SO nos sprites do fundo.
+var veu_mat: ShaderMaterial = null
+# parallax: camadas de destroços em velocidades diferentes
+var parallax: Array = []
+
+
+func _criar_veu() -> ShaderMaterial:
+	if ResourceLoader.exists("res://assets/veu_fundo.gdshader"):
+		var m := ShaderMaterial.new()
+		m.shader = load("res://assets/veu_fundo.gdshader") as Shader
+		m.set_shader_parameter("vinheta", 0.85)
+		m.set_shader_parameter("dessat", 0.45)
+		m.set_shader_parameter("escurecer", 0.30)
+		m.set_shader_parameter("raio", 0.72)
+		return m
+	return null
+
+
+func _criar_parallax() -> void:
+	# 3 profundidades: o fundo lento e grande, o medio, o frontal rapido e pequeno
+	var rng2 := RandomNumberGenerator.new()
+	rng2.seed = 90210
+	for i in 26:
+		var prof := float(i % 3)          # 0 lento, 1 medio, 2 rapido
+		parallax.append({
+			"pos": Vector2(rng2.randf_range(20, 520), rng2.randf_range(-200, 1000)),
+			"r": [16.0, 10.0, 6.0][int(prof)] * rng2.randf_range(0.75, 1.3),
+			"spd": [16.0, 38.0, 82.0][int(prof)] * rng2.randf_range(0.85, 1.15),
+			"prof": prof,
+			"rot": rng2.randf_range(0.0, TAU),
+			"rv": rng2.randf_range(-0.4, 0.4),
+			"pontos": rng2.randi_range(5, 7),
+		})
 
 func _montar_coluna(lista: Array) -> void:
 	for sp in bg_sprites:
@@ -35,6 +69,8 @@ func _montar_coluna(lista: Array) -> void:
 		use_image = false
 		return
 	use_image = true
+	if veu_mat == null:
+		veu_mat = _criar_veu()
 	var y_cursor := 1400.0
 	var idx := 0
 	while y_cursor > -1400.0 and idx < 12:
@@ -51,6 +87,8 @@ func _montar_coluna(lista: Array) -> void:
 		sp.scale = Vector2(s, s)
 		sp.position = Vector2(270, y_cursor - h / 2.0)
 		sp.z_index = -10
+		if veu_mat != null:
+			sp.material = veu_mat
 		add_child(sp)
 		bg_sprites.append(sp)
 		bg_h_list.append(h)
@@ -68,6 +106,8 @@ func trocar_dimensao(n: int) -> void:
 
 func _ready() -> void:
 	z_index = -10
+	veu_mat = _criar_veu()
+	_criar_parallax()
 	var paths1: Array = ["res://assets/pinkpoison_seamless.png"]
 	if not ResourceLoader.exists("res://assets/pinkpoison_seamless.png"):
 		paths1 = ["res://assets/pinkpoison_loop.png", "res://assets/pinkpoison.png", "res://assets/bg.png", "res://assets/bg.jpg"]
@@ -119,6 +159,7 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	tempo_total += delta
 	var resp := 1.0 + 0.15 * sin(tempo_total * 0.13) # respiracao: voo vivo, nao mecanico
+	_atualiza_parallax(delta)
 	if use_image:
 		for i in bg_sprites.size():
 			var sp: Sprite2D = bg_sprites[i]
@@ -138,6 +179,38 @@ func _process(delta: float) -> void:
 			a["pos"].y = -20
 			a["pos"].x = randf_range(90, 450)
 	queue_redraw()
+
+func _atualiza_parallax(delta: float) -> void:
+	for p in parallax:
+		var pos: Vector2 = p["pos"]
+		pos.y += float(p["spd"]) * delta
+		p["rot"] = float(p["rot"]) + float(p["rv"]) * delta
+		if pos.y > 1010.0:
+			pos.y = -60.0
+			pos.x = rng_inf.randf_range(20, 520)
+		p["pos"] = pos
+
+
+func _draw_parallax() -> void:
+	# destrocos em 3 profundidades: quanto mais frontal, mais rapido, maior
+	# e mais claro (da sensacao de passar rapido pela camera)
+	for p in parallax:
+		var pos: Vector2 = p["pos"]
+		var prof: int = int(p["prof"])
+		var r: float = float(p["r"])
+		var val: float = [0.07, 0.13, 0.22][prof]
+		var pts := PackedVector2Array()
+		var n: int = int(p["pontos"])
+		var rot: float = float(p["rot"])
+		for i in n:
+			var a := TAU * float(i) / float(n) + rot
+			var rr := r * (0.78 + 0.22 * sin(float(i) * 2.1 + prof))
+			pts.append(pos + Vector2(cos(a), sin(a)) * rr)
+		draw_colored_polygon(pts, Color(val * 0.9, val * 0.95, val * 1.15))
+		# luz de cima, pra dar volume
+		draw_circle(pos - Vector2(r * 0.28, r * 0.30), r * 0.24,
+			Color(val * 1.9, val * 2.0, val * 2.3))
+
 
 func _atualiza_infinito(delta: float, resp: float) -> void:
 	# clima sutil: brasas lentas + meteoros finos raros (nada solido)
@@ -165,6 +238,7 @@ func _atualiza_infinito(delta: float, resp: float) -> void:
 	meteoros = meteoros.filter(func(x): return (x["pos"] as Vector2).y < 1020.0)
 
 func _draw() -> void:
+	_draw_parallax()
 	if use_image:
 		_draw_infinito()
 		return

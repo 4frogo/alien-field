@@ -40,6 +40,16 @@ func _criar_sprite(path: String, largura_alvo: float, shader_path: String = "res
 				var mat := ShaderMaterial.new()
 				mat.shader = sh
 				sprite.material = mat
+			# contorno: o inimigo precisa se destacar dos asteroides, que tem
+			# valor parecido. Aro escuro + um fio quente na borda.
+			if ResourceLoader.exists("res://assets/contorno.gdshader"):
+				var cm := ShaderMaterial.new()
+				cm.shader = load("res://assets/contorno.gdshader") as Shader
+				cm.set_shader_parameter("cor", Color(0.03, 0.01, 0.01, 1.0))
+				cm.set_shader_parameter("espessura", 0.007)
+				cm.set_shader_parameter("brilho_borda", 0.70)
+				cm.set_shader_parameter("cor_brilho", Color(1.0, 0.42, 0.12, 1.0))
+				sprite.material = cm
 			add_child(sprite)
 			tem_sprite = true
 

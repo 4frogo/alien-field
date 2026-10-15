@@ -140,7 +140,7 @@ func setup_gigante(p: Vector2, v: Vector2) -> void:
 	add_child(fx)
 
 func setup_laser(p: Vector2, v: Vector2, p_dano: int = 25) -> void:
-	# super laser RGB branco/rosa/roxo de longo alcance
+	# super laser VERDE TRIPLO de longo alcance
 	position = p
 	vel = v
 	amigo = true
@@ -153,39 +153,49 @@ func setup_laser(p: Vector2, v: Vector2, p_dano: int = 25) -> void:
 	raio = 110.0
 
 	# ---- 3 camadas do feixe, de fora pra dentro.
-	# As duas de halo sao ADITIVAS: sem elas o feixe fica opaco e fraco.
+	# A arte dos 3 feixes verdes (GREENLIGHT) e a base; o shader da vida.
 	var mat_add := CanvasItemMaterial.new()
 	mat_add.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
-	var tex_f := _fazer_textura_feixe()
+	var tex_f: Texture2D = _fazer_textura_feixe()
+	if ResourceLoader.exists("res://assets/laser_verde.png"):
+		tex_f = load("res://assets/laser_verde.png")
 	var sh: Shader = null
-	if ResourceLoader.exists("res://assets/laser_rgb.gdshader"):
-		sh = load("res://assets/laser_rgb.gdshader") as Shader
+	if ResourceLoader.exists("res://assets/laser_verde.gdshader"):
+		sh = load("res://assets/laser_verde.gdshader") as Shader
 
-	# halo largo (roxo/rosa difuso)
+	# A arte JÁ traz 3 feixes com núcleo branco. Empilhar 3 copias
+	# ADITIVAS daria 9 feixes e satura tudo pra branco. Então: 1 halo
+	# aditivo bem tênue + o feixe principal em blend normal.
+	# A arte é alta E larga (1126x2318); esprememos no X e esticamos no Y
+	# pra dar 3 feixes finos e altos em vez de uma coluna gigante.
+	const SX := 0.30
+	const SY := 0.40
+	const PY := -445.0 # centro do sprite: a base fica na boca do canhão
+
+	# halo largo (verde difuso)
 	var halo := Sprite2D.new()
 	halo.texture = tex_f
-	halo.scale = Vector2(5.2, 2.8)
-	halo.position = Vector2(0, -330)
+	halo.scale = Vector2(SX * 2.4, SY)
+	halo.position = Vector2(0, PY)
 	halo.material = mat_add
-	halo.modulate = Color(0.45, 0.10, 1.0, 0.20)
+	halo.modulate = Color(0.08, 0.90, 0.26, 0.13)
 	halo.z_index = -2
 	if sh != null:
 		var mh := ShaderMaterial.new()
 		mh.shader = sh
-		mh.set_shader_parameter("speed", 6.0)
+		mh.set_shader_parameter("speed", 5.0)
+		mh.set_shader_parameter("intensidade", 0.28)
 		halo.material = mh
-		# tinta roxa forte: sem isso o aditivo satura e fica branco/leitoso
-		halo.modulate = Color(0.50, 0.14, 1.0, 0.22)
 	add_child(halo)
 	_halo_largo = halo
 
-	# halo medio (rosa quente)
+	# halo medio (verde vivo, ainda discreto)
 	var halo2 := Sprite2D.new()
 	halo2.texture = tex_f
-	halo2.scale = Vector2(2.9, 2.8)
-	halo2.position = Vector2(0, -330)
+	halo2.scale = Vector2(SX * 1.3, SY)
+	halo2.position = Vector2(0, PY)
 	halo2.material = mat_add
-	halo2.modulate = Color(1.0, 0.22, 0.65, 0.26)
+	halo2.modulate = Color(0.28, 1.0, 0.40, 0.12)
 	halo2.z_index = -1
 	add_child(halo2)
 	_halo_med = halo2
@@ -193,21 +203,23 @@ func setup_laser(p: Vector2, v: Vector2, p_dano: int = 25) -> void:
 	# boca do canhao: nucleo de plasma que pulsa (desenhado por codigo)
 	var vb := Sprite2D.new()
 	vb.texture = _fazer_textura_radial()
-	vb.scale = Vector2(1.0, 1.0)
-	vb.position = Vector2(0, 20)
+	vb.scale = Vector2(0.7, 0.7)
+	vb.position = Vector2(0, 14)
+	vb.modulate = Color(0.25, 1.0, 0.38, 0.40)
 	vb.z_index = 1
 	add_child(vb)
 	_vortice_boca = vb
 
-	# nucleo (o feixe propriamente dito, bem mais largo que antes)
+	# feixe principal: blend NORMAL, a arte manda
 	fx = Sprite2D.new()
 	fx.texture = tex_f
-	fx.scale = Vector2(1.55, 2.8)
-	fx.position = Vector2(0, -330)
+	fx.scale = Vector2(SX, SY)
+	fx.position = Vector2(0, PY)
 	if sh != null:
 		var mat := ShaderMaterial.new()
 		mat.shader = sh
 		mat.set_shader_parameter("speed", 6.0)
+		mat.set_shader_parameter("intensidade", 0.62)
 		fx.material = mat
 	add_child(fx)
 
@@ -224,11 +236,11 @@ func _process(delta: float) -> void:
 		_sway_laser += delta * 3.1
 		var bal: float = 1.0 + 0.10 * sin(_sway_laser) + 0.06 * sin(_sway_laser * 1.9 + 1.0)
 		if fx != null:
-			fx.scale = Vector2(1.55 * bal, 2.8)
+			fx.scale = Vector2(0.30 * bal, 0.40)
 		if _halo_med != null:
-			_halo_med.scale = Vector2(2.9 * (1.0 + 0.08 * sin(_sway_laser * 1.4)), 2.8)
+			_halo_med.scale = Vector2(0.39 * (1.0 + 0.08 * sin(_sway_laser * 1.4)), 0.40)
 		if _halo_largo != null:
-			_halo_largo.scale = Vector2(5.2 * (1.0 + 0.12 * sin(_sway_laser * 0.8 + 2.0)), 2.8)
+			_halo_largo.scale = Vector2(0.72 * (1.0 + 0.12 * sin(_sway_laser * 0.8 + 2.0)), 0.40)
 		# boca do canhao acompanha
 		if _vortice_boca != null:
 			_vortice_boca.scale = Vector2.ONE * (1.0 + 0.10 * sin(_sway_laser * 2.2))
@@ -373,91 +385,91 @@ func _draw() -> void:
 		draw_circle(Vector2.ZERO, 4.0, Color(1.0, 0.6, 0.2))
 
 func _draw_vortice() -> void:
-	# boca do canhao: halo, flash e aneis girando (grande e quente)
-	var base := Vector2(0, 20)
+	# Boca do canhao: tudo em verde, sem nenhum resto do laser antigo
+	# (roxo/rosa/branco). Aneis girando + faiscas + nucleo quente.
+	var base := Vector2(0, 18)
 	var flash := 0.7 + 0.3 * sin(tempo * 31.0)
-	draw_circle(base, 92.0, Color(0.7, 0.25, 1.0, 0.16))
-	draw_circle(base, 58.0, Color(1.0, 0.4, 0.8, 0.20))
-	draw_circle(base, 30.0 * flash + 6.0, Color(1, 0.85, 0.4, 0.5))
-	draw_circle(base, 16.0 * flash + 4.0, Color(1, 1, 1, 0.85))
+	draw_circle(base, 96.0, Color(0.08, 0.75, 0.22, 0.14))
+	draw_circle(base, 62.0, Color(0.15, 1.0, 0.32, 0.18))
+	draw_circle(base, 32.0 * flash + 6.0, Color(0.55, 1.0, 0.60, 0.45))
+	draw_circle(base, 15.0 * flash + 4.0, Color(0.92, 1.0, 0.90, 0.80))
 	var r1 := tempo * 3.2
 	var r2 := -tempo * 2.3 + 1.0
 	var r3 := tempo * 4.1 + 2.0
-	draw_arc(base, 30.0, r1, r1 + 4.4, 24, Color(1, 0.6, 0.12, 0.9), 5.0)
-	draw_arc(base, 44.0, r2, r2 + 3.8, 24, Color(0.25, 0.95, 1.0, 0.85), 3.5)
-	draw_arc(base, 58.0, r3, r3 + 4.9, 28, Color(0.7, 0.3, 1.0, 0.7), 3.0)
-	draw_arc(base, 70.0, -r3, -r3 + 2.2, 20, Color(1, 0.3, 0.8, 0.5), 2.0)
+	draw_arc(base, 30.0, r1, r1 + 4.4, 24, Color(0.65, 1.0, 0.55, 0.85), 5.0)
+	draw_arc(base, 44.0, r2, r2 + 3.8, 24, Color(0.20, 0.95, 0.35, 0.80), 3.5)
+	draw_arc(base, 58.0, r3, r3 + 4.9, 28, Color(0.10, 0.80, 0.25, 0.65), 3.0)
+	draw_arc(base, 72.0, -r3, -r3 + 2.2, 20, Color(0.35, 1.0, 0.45, 0.45), 2.0)
 	# faiscas saltando da boca
 	for i in 8:
 		var a := tempo * 6.0 + TAU * float(i) / 8.0
 		var d := 34.0 + 10.0 * sin(tempo * 9.0 + float(i))
 		draw_circle(base + Vector2(cos(a), sin(a)) * d, 2.6,
-			Color(1.0, 0.85, 0.6, 0.8))
+			Color(0.70, 1.0, 0.65, 0.8))
 
 func _draw_raios() -> void:
-	# ---- tentaculos de plasma: filamentos ondulantes que saem do nucleo,
-	# com fase e frequencia proprias (parecem Separate coisas vivas)
+	# ---- Arcos eletricos verdes serpenteando pelos 3 feixes.
+	# Tudo em verde: o laser antigo branco/quente foi removido.
 	var rng_t := RandomNumberGenerator.new()
-	var passo_t := int(tempo * 5.0)
-	for i in 6:
+	for i in 8:
 		rng_t.seed = i * 7919
-		var lado := 1.0 if i % 2 == 0 else -1.0
-		var freq := rng_t.randf_range(0.018, 0.045)
-		var amp := rng_t.randf_range(6.0, 22.0) * (1.0 + 0.4 * sin(tempo * 1.3 + float(i)))
-		var vel := rng_t.randf_range(1.2, 3.4)
+		var faixa := float(i % 3) - 1.0      # -1, 0, 1 = os 3 feixes
+		var x0 := faixa * 62.0
+		var freq := rng_t.randf_range(0.020, 0.050)
+		var amp := rng_t.randf_range(4.0, 15.0) * (1.0 + 0.4 * sin(tempo * 1.6 + float(i)))
+		var vel := rng_t.randf_range(1.4, 3.8)
 		var fase := rng_t.randf_range(0.0, TAU)
 		var pts := PackedVector2Array()
-		var y := 10.0
+		var y := 4.0
 		var guarda := 0
-		while y > -660.0 and guarda < 200:
-			var f := -y / 660.0
-			var x := lado * (10.0 + f * 14.0
-				+ sin(-y * freq + tempo * vel + fase) * amp * (0.4 + f)
-				+ sin(-y * freq * 2.7 - tempo * vel * 1.6) * amp * 0.35)
+		while y > -900.0 and guarda < 260:
+			var f := -y / 900.0
+			var x := x0 + sin(-y * freq + tempo * vel + fase) * amp * (0.35 + f)
 			pts.append(Vector2(x, y))
-			y -= 26.0
+			y -= 22.0
 			guarda += 1
 		if pts.size() < 2:
 			continue
-		var quent := fmod(tempo * 0.5 + float(i) * 0.17, 1.0)
-		var cor := Color(1.0, 0.45, 0.35).lerp(Color(1.0, 0.85, 0.6), quent)
-		draw_polyline(pts, Color(cor.r, cor.g, cor.b, 0.18), 7.0)
-		draw_polyline(pts, Color(cor.r, cor.g, cor.b, 0.55), 2.5)
+		var quent := fmod(tempo * 0.6 + float(i) * 0.17, 1.0)
+		var cor := Color(0.18, 0.95, 0.32).lerp(Color(0.80, 1.0, 0.75), quent)
+		draw_polyline(pts, Color(cor.r, cor.g, cor.b, 0.14), 7.0)
+		draw_polyline(pts, Color(cor.r, cor.g, cor.b, 0.42), 2.2)
 
-	# ---- nodos de plasma subindo (bolhas brilhantes no miolo)
-	for i in 4:
-		var f2: float = fmod(tempo * 0.42 + float(i) / 4.0, 1.0)
-		var y2: float = lerpf(10.0, -660.0, f2)
+	# ---- bolhas de plasma subindo no miolo dos feixes
+	for i in 9:
+		var faixa2 := float(i % 3) - 1.0
+		var f2: float = fmod(tempo * 0.40 + float(i) * 0.11, 1.0)
+		var y2: float = lerpf(4.0, -900.0, f2)
 		var bal := sin(f2 * PI)
-		var x2 := sin(y2 * 0.02 + tempo * 1.7 + float(i) * 2.1) * 10.0
-		draw_circle(Vector2(x2, y2), 5.0 + 4.0 * bal, Color(1.0, 0.7, 0.4, 0.22 * bal))
-		draw_circle(Vector2(x2, y2), 2.2 + 1.8 * bal, Color(1, 1, 0.95, 0.65 * bal))
+		var x2 := faixa2 * 62.0 + sin(y2 * 0.02 + tempo * 1.9 + float(i)) * 7.0
+		draw_circle(Vector2(x2, y2), 4.0 + 3.4 * bal, Color(0.22, 1.0, 0.36, 0.20 * bal))
+		draw_circle(Vector2(x2, y2), 1.8 + 1.5 * bal, Color(0.85, 1.0, 0.88, 0.55 * bal))
 
 	# ---- aneis de energia subindo pelo feixe
 	for i in 5:
 		var f3: float = fmod(tempo * 0.55 + float(i) / 5.0, 1.0)
-		var y3: float = 10.0 - f3 * 660.0
-		var larg: float = 58.0 - 16.0 * f3
+		var y3: float = 4.0 - f3 * 900.0
+		var larg: float = 96.0 - 26.0 * f3
 		var a3: float = sin(f3 * PI) * 0.5
-		draw_arc(Vector2(0, y3), larg, 0.0, TAU, 26,
-			Color(1.0, 0.6, 0.35, a3 * 0.30), 5.0, true)
-		draw_arc(Vector2(0, y3), larg * 0.55, 0.0, TAU, 22,
-			Color(1, 0.95, 0.85, a3 * 0.45), 2.5, true)
+		draw_arc(Vector2(0, y3), larg, 0.0, TAU, 30,
+			Color(0.22, 1.0, 0.36, a3 * 0.16), 6.0, true)
+		draw_arc(Vector2(0, y3), larg * 0.55, 0.0, TAU, 24,
+			Color(0.75, 1.0, 0.80, a3 * 0.24), 2.5, true)
 
-	# ---- bloom na ponta (onde o plasma acerta)
+	# ---- bloom verde na ponta (onde o feixe acerta)
 	var tp := 0.6 + 0.4 * sin(tempo * 23.0)
-	draw_circle(Vector2(0, -660), 68.0 * tp, Color(1.0, 0.4, 0.25, 0.16))
-	draw_circle(Vector2(0, -660), 32.0 * tp, Color(1.0, 0.7, 0.4, 0.26))
-	draw_circle(Vector2(0, -660), 14.0, Color(1, 1, 0.95, 0.55))
+	draw_circle(Vector2(0, -900), 92.0 * tp, Color(0.15, 0.90, 0.28, 0.13))
+	draw_circle(Vector2(0, -900), 40.0 * tp, Color(0.40, 1.0, 0.50, 0.20))
+	draw_circle(Vector2(0, -900), 15.0, Color(0.90, 1.0, 0.92, 0.42))
 
-	# ---- faiscas subindo pelo feixe
+	# ---- faiscas verdes subindo pelo feixe
 	var passo := int(tempo / 0.07)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = passo * 57 + 7
-	for i in 20:
-		var fx_ := rng.randf_range(-40.0, 40.0)
-		var fy := rng.randf_range(-650.0, 10.0)
-		var tam := rng.randf_range(1.8, 4.5)
-		var cc := Color(1, 0.85, 0.45, 0.9) if i % 2 == 0 else Color(1.0, 0.45, 0.3, 0.9)
-		draw_circle(Vector2(fx_, fy), tam * 2.2, Color(cc.r, cc.g, cc.b, 0.20))
+	for i in 22:
+		var fx_ := rng.randf_range(-95.0, 95.0)
+		var fy := rng.randf_range(-890.0, 4.0)
+		var tam := rng.randf_range(1.6, 4.0)
+		var cc := Color(0.75, 1.0, 0.80, 0.85) if i % 2 == 0 else Color(0.20, 1.0, 0.36, 0.85)
+		draw_circle(Vector2(fx_, fy), tam * 2.2, Color(cc.r, cc.g, cc.b, 0.16))
 		draw_circle(Vector2(fx_, fy), tam, cc)

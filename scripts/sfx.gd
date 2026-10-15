@@ -191,7 +191,11 @@ func hit() -> void:
 	_tocar(s_hit, 1.0)
 
 func boss() -> void:
-	_tocar(s_boss, 1.0)
+	# DESLIGADO: esse estrondo grave (110->55Hz) era alto demais e aparecia
+	# no portal, no super tiro e no game over. O usuario pediu para tirar.
+	# Para reativar, descomente a linha abaixo.
+	# _tocar(s_boss, 1.0)
+	return
 
 func carga(nivel: int) -> void:
 	# energia subindo: 1s e 2s de carga

@@ -13,6 +13,7 @@ signal super_tiro(pos: Vector2)
 
 var sprite: Sprite2D = null
 var tem_sprite := false
+var usa_propulsor_png := false
 var carregando := false
 var carga := 0.0
 var carga_max := 3.0
@@ -23,6 +24,7 @@ var dash_dir := Vector2.ZERO
 var charge_fx: Sprite2D = null
 var charge_mat: ShaderMaterial = null
 var danger_fx: Sprite2D = null
+var aura: Node2D = null
 var danger_mat: ShaderMaterial = null
 var arma_equip: Sprite2D = null
 var escudo_sprite: Sprite2D = null
@@ -70,26 +72,31 @@ func _fazer_textura_radial(tam: int = 128) -> ImageTexture:
 
 func _ready() -> void:
 	position = Vector2(270, 800)
-	# tenta usar a imagem real da nave (png ou jpg)
-	for pp in ["res://assets/player.png", "res://assets/player.jpg"]:
+	# tenta usar a imagem real da nave. O Hulk ja vem com alpha e com os
+	# proprios propulsores, entao nao usa o shader remove_black nem o
+	# _chama_motor desenhado a mao.
+	for pp in ["res://assets/hulk_nave.png", "res://assets/player.png", "res://assets/player.jpg"]:
 		if ResourceLoader.exists(pp):
 			var tex := load(pp) as Texture2D
 			if tex != null:
 				sprite = Sprite2D.new()
 				sprite.texture = tex
-				# nave ocupa ~78% da imagem quadrada, queremos nave com ~130px
-				var w := float(tex.get_width())
-				if w > 0:
-					var s := 165.0 / w
+				# escala pela ALTURA: a nave e alta, entao 185px de altura
+				var h := float(tex.get_height())
+				if h > 0:
+					var s := 185.0 / h
 					sprite.scale = Vector2(s, s)
-				# shader tira o fundo preto e deixa so a nave + brilho
-				if ResourceLoader.exists("res://assets/remove_black.gdshader"):
+				# shader so nas imagens antigas (fundo preto assado)
+				if not pp.contains("hulk_nave") and ResourceLoader.exists("res://assets/remove_black.gdshader"):
 					var sh := load("res://assets/remove_black.gdshader") as Shader
 					var mat := ShaderMaterial.new()
 					mat.shader = sh
 					sprite.material = mat
 				add_child(sprite)
 				tem_sprite = true
+				# Hulk2 nao tem chama assada na arte (motores escuros), entao
+				# o propulsor verde e desenhado em codigo.
+				usa_propulsor_png = false
 				break
 	# fx de carga kamehameha (plasma RGB via shader, sem vetor)
 	charge_fx = Sprite2D.new()
@@ -152,6 +159,8 @@ func _ready() -> void:
 				escudo_sprite.visible = false
 				add_child(escudo_sprite)
 				break
+# escudo sem efeito visual: a nave ficou limpa para receber o novo modelo.
+# O no 'aura' e a funcao _draw_escudo_particulas foram desligados de proposito.
 	# escudo dissolvido: 110 microparticulas no anel 58-92 + 4 nos de energia
 	for i in 110:
 		var rol := randf()
@@ -171,9 +180,10 @@ func _process(delta: float) -> void:
 	tempo_escudo += delta
 	escudo_flash = maxf(0.0, escudo_flash - delta * 2.5)
 	onda = minf(99.0, onda + delta * 1.8)
-	# anel estatico desligado: escudo agora e so nuvem de microparticulas
+	# anel estatico desligado: o escudo agora e a AURA COSMICA (no no 'aura')
 	if escudo_sprite != null:
 		escudo_sprite.visible = false
+# escudo desligado (sem visual): nada a atualizar
 	for pt in pontos_energia:
 		pt["ang"] = float(pt["ang"]) + float(pt["vel"]) * delta
 		pt["raio"] = float(pt["base"]) + sin(tempo_escudo * 3.0 + float(pt["fase"])) * 4.0
@@ -277,22 +287,20 @@ func _input(event: InputEvent) -> void:
 		return
 
 func _draw() -> void:
-	_draw_escudo_fundo()
+	# o anel verde antigo saiu de uso: o escudo agora e a aura cosmica
+	# (desenhada no no 'aura', com blend aditivo). Aqui ficam so as
+	# particulas estelares por cima.
 	if invencivel > 0 and int(Time.get_ticks_msec() / 100) % 2 == 0:
 		if sprite != null:
 			sprite.visible = false
-		_draw_escudo_particulas()
 		return # piscando
 	if sprite != null:
 		sprite.visible = true
 	if tem_sprite:
-		# arte vem do PNG (aura verde removida)
-		_chama_motor(Vector2(-32, 30))
-		_chama_motor(Vector2(32, 30))
-		_draw_escudo_particulas()
+		if not usa_propulsor_png:
+			_draw_propulsores()
 		return
-	# glow verde em volta
-	draw_circle(Vector2.ZERO, 42, Color(0.1, 1.0, 0.4, 0.12))
+	# glow de escudo removido: nave limpa
 	# asas laterais
 	var asa_esq := PackedVector2Array([Vector2(-8, 5), Vector2(-58, 18), Vector2(-48, 0), Vector2(-12, -18)])
 	var asa_dir := PackedVector2Array([Vector2(8, 5), Vector2(58, 18), Vector2(48, 0), Vector2(12, -18)])
@@ -322,9 +330,10 @@ func _draw() -> void:
 	# antena topo
 	draw_line(Vector2(0, -52), Vector2(0, -62), Color(0.4, 1.0, 0.6), 2.0)
 	draw_circle(Vector2(0, -64), 3, Color(0.5, 1.0, 0.65))
-	_draw_escudo_particulas()
 
 func _draw_escudo_fundo() -> void:
+	# desligado: nave sem efeitos de escudo
+	return
 	if escudo_val <= 0.0:
 		return
 	var forca := clampf(escudo_val / 100.0, 0.0, 1.0)
@@ -357,6 +366,8 @@ func _draw_escudo_fundo() -> void:
 		draw_arc(Vector2.ZERO, r, 0, TAU, 40, Color(0.8, 1.0, 0.85, (1.0 - onda) * 0.7), 3.0)
 
 func _draw_escudo_particulas() -> void:
+	# desligado: nave sem efeitos de escudo
+	return
 	if escudo_val <= 0.0:
 		return
 	var forca := clampf(escudo_val / 100.0, 0.0, 1.0)
@@ -365,18 +376,22 @@ func _draw_escudo_particulas() -> void:
 		var tw := 0.45 + 0.55 * (0.5 + 0.5 * sin(tempo_escudo * 7.0 + float(pt["fase"])))
 		var w: float = float(pt["tam"])
 		var a := (0.25 + 0.75 * forca) * tw + escudo_flash * 0.5
+		# particulas estelares (combinam com a aura cosmica)
 		if int(pt["kind"]) == 0:
-			draw_circle(pp, w, Color(0.35, 1.0, 0.5, a))
+			draw_circle(pp, w * 2.0, Color(0.7, 0.85, 1.0, a * 0.25))
+			draw_circle(pp, w, Color(0.85, 0.95, 1.0, a))
 		elif int(pt["kind"]) == 1:
-			draw_circle(pp, w, Color(0.95, 1.0, 0.95, a))
+			draw_circle(pp, w * 2.0, Color(1.0, 0.6, 0.95, a * 0.25))
+			draw_circle(pp, w, Color(1.0, 0.85, 0.95, a))
 		else:
-			draw_circle(pp, w, Color(0.75, 0.85, 0.9, a))
+			draw_circle(pp, w * 2.0, Color(0.6, 0.95, 1.0, a * 0.25))
+			draw_circle(pp, w, Color(0.8, 1.0, 0.95, a))
 	# 4 nos de energia nos pontos cardeais (concentracao)
 	for i in 4:
 		var na := tempo_escudo * 0.5 + TAU * float(i) / 4.0
 		var np := Vector2(cos(na), sin(na)) * 75.0
 		var pulse := 0.7 + 0.3 * sin(tempo_escudo * 5.0 + float(i) * 1.7)
-		draw_circle(np, 6.0 * pulse, Color(0.4, 1.0, 0.55, 0.3 * forca))
+		draw_circle(np, 6.0 * pulse, Color(0.6, 0.8, 1.0, 0.22 * forca))
 		draw_circle(np, 2.6 * pulse, Color(1, 1, 1, 0.55 + 0.4 * forca))
 
 func _draw_caco(pos: Vector2, tam: float, rot: float, forca: float) -> void:
@@ -395,6 +410,75 @@ func _draw_caco(pos: Vector2, tam: float, rot: float, forca: float) -> void:
 func _draw_carga() -> void:
 	# desativado: carga agora e shader RGB (charge_fx), sem vetor
 	return
+
+func _bicos_motor() -> Array:
+	# bocas dos 5 propulsores, em pixels do jogo (nave com 185px de altura)
+	return [
+		Vector2(-38.0, 62.0),
+		Vector2(38.0, 62.0),
+		Vector2(-19.0, 82.0),
+		Vector2(19.0, 82.0),
+		Vector2(0.0, 90.0),
+	]
+
+func _draw_propulsores() -> void:
+	# Plasma verde vivo: chama em camadas + diamantes de choque + faiscas.
+	# A intensidade sobe com o impulso (dash) e o movimento.
+	var t := float(Time.get_ticks_msec()) / 1000.0
+	var forca := 1.0 + impulso * 0.9
+	for i in _bicos_motor().size():
+		var bico: Vector2 = _bicos_motor()[i]
+		var fase := float(i) * 1.7
+		var cintila := 0.78 + 0.22 * sin(t * 27.0 + fase) + 0.12 * sin(t * 51.0 + fase * 2.3)
+		var comp := (38.0 + 20.0 * forca) * cintila
+		var larg := 8.5 + impulso * 2.5
+		var vib := Vector2(sin(t * 37.0 + fase) * 1.6, 0)
+
+		# --- halo suave (aditivo) ---
+		draw_circle(bico + Vector2(0, comp * 0.18), larg * 2.4, Color(0.10, 0.95, 0.45, 0.13 * cintila))
+		draw_circle(bico + Vector2(0, comp * 0.10), larg * 1.5, Color(0.25, 1.0, 0.55, 0.18 * cintila))
+
+		# --- camadas da labareda, da mais larga pra mais brilhante ---
+		var perfil := [
+			[1.00, 1.00, Color(0.05, 0.75, 0.30, 0.30)],
+			[0.74, 0.86, Color(0.18, 1.00, 0.45, 0.55)],
+			[0.46, 0.68, Color(0.55, 1.00, 0.62, 0.80)],
+			[0.22, 0.44, Color(0.88, 1.00, 0.90, 0.95)],
+		]
+		for c in perfil.size():
+			var cx: float = float(perfil[c][0])
+			var cy: float = float(perfil[c][1])
+			var cor: Color = perfil[c][2]
+			var ponta := bico + vib * (1.0 - cx * 0.5) + Vector2(0, comp * cy)
+			draw_colored_polygon(PackedVector2Array([
+				bico + Vector2(-larg * cx, -2.0),
+				bico + Vector2(larg * cx, -2.0),
+				ponta,
+			]), cor)
+
+		# --- diamantes de choque flutuando na labareda ---
+		for d in 3:
+			var dy := comp * (0.30 + 0.28 * float(d))
+			var pulso := 0.55 + 0.45 * sin(t * 16.0 - dy * 0.22 + fase)
+			var dw := larg * (0.60 - 0.13 * float(d)) * (0.8 + 0.2 * pulso)
+			var dc := bico + vib * 0.5 + Vector2(0, dy)
+			draw_colored_polygon(PackedVector2Array([
+				dc + Vector2(-dw, 0), dc + Vector2(0, -dw * 0.42),
+				dc + Vector2(dw, 0), dc + Vector2(0, dw * 0.42),
+			]), Color(0.75, 1.0, 0.85, 0.30 * pulso))
+
+		# --- faiscas subindo e se apagando ---
+		for s in 4:
+			var ciclo := fmod(t * 1.7 + float(s) * 0.25 + fase * 0.15, 1.0)
+			var sy := bico.y + ciclo * comp * 1.35
+			var sa := (1.0 - ciclo) * 0.85
+			var sx := bico.x + sin(float(s) * 2.1 + fase) * larg * 0.9 + ciclo * ciclo * 5.0 * sin(fase + t)
+			draw_circle(Vector2(sx, sy), 1.9 * (1.0 - ciclo * 0.5), Color(0.55, 1.0, 0.70, sa))
+
+		# --- boca do motor acesa ---
+		draw_circle(bico, 4.4, Color(0.10, 0.55, 0.22, 0.9))
+		draw_circle(bico, 2.7, Color(0.45, 1.0, 0.60, 0.95))
+		draw_circle(bico, 1.4, Color(0.92, 1.0, 0.95, cintila))
 
 func _chama_motor(bico: Vector2) -> void:
 	# labareda do propulsor pra tras (+y) com tremor

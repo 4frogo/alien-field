@@ -1178,11 +1178,12 @@ func _process(delta: float) -> void:
 			charge_txt.visible = false
 			last_beep = 0
 
-	# feixe 2s: tick de dano na coluna a cada 0.15s
+	# feixe 2s: tick de dano a cada 0.05s (era 0.15s, e inimigo rapido
+	# cruzava o raio entre um tick e outro)
 	feixes = feixes.filter(func(x): return is_instance_valid(x))
 	if feixes.size() > 0:
 		feixe_tick += delta
-		if feixe_tick >= 0.15:
+		if feixe_tick >= 0.05:
 			feixe_tick = 0.0
 			for f in feixes:
 				if not is_instance_valid(f):
@@ -1192,8 +1193,10 @@ func _process(delta: float) -> void:
 						continue
 					var ep: Vector2 = (e as Node2D).position
 					# o raio serpenteia, entao a colisao segue as 3
-					# mechas de verdade (nao um retangulo na nave)
-					if f.call("atingido", ep, 30.0):
+					# mechas de verdade (nao um retangulo na nave).
+					# tol generoso de proposito: sem ele sobram buracos
+					# ENTRE as mechas e o inimigo passa ileso.
+					if f.call("atingido", ep, 60.0):
 						var tipo_e := str(e.get("tipo"))
 						# eletrocuta o chefe: ele treme e fica 2s sem atirar
 						if tipo_e == "boss":

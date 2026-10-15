@@ -16,6 +16,8 @@ var entrando := false
 var flash := 0.0
 var escala0 := Vector2.ONE
 var t_entrada := 0.0
+# atordoamento pelo raio triplo: o chefe treme e nao atira
+var atordoado := 0.0
 var pe0 := Vector2.ZERO
 var pe1 := Vector2.ZERO
 var pec := Vector2.ZERO
@@ -208,14 +210,21 @@ func _process(delta: float) -> void:
 		if entrando:
 			queue_redraw()
 			return
-		# boss vivo: desliza, inclina nas curvas e respira
 		# fases: 3 (>66%) tiro mirado | 2 (>33%) leque triplo | 1 enfurecido
 		var fase := 3 if hp > 80 else (2 if hp > 40 else 1)
 		var mult := 1.0 if fase == 3 else (1.35 if fase == 2 else 1.8)
-		position.y = 152.0 + sin(tempo * 2.0 * mult) * 16.0
-		position.x = 270.0 + sin(tempo * 1.35 * mult) * (135.0 if fase > 1 else 160.0)
-		rotation = cos(tempo * 1.35 * mult) * 0.07
+		var tremor := Vector2.ZERO
 		var resp := 1.0 + 0.02 * sin(tempo * 3.1)
+		if atordoado > 0.0:
+			# ATORDOADO pelo raio triplo: treme sem parar e nao atira
+			atordoado = maxf(0.0, atordoado - delta)
+			tremor = Vector2(
+				sin(tempo * 47.0) * 7.0 + sin(tempo * 83.0) * 3.0,
+				cos(tempo * 53.0) * 5.0 + sin(tempo * 91.0) * 2.5)
+			resp = 1.0 + 0.05 * sin(tempo * 41.0)
+		position.y = 152.0 + sin(tempo * 2.0 * mult) * 16.0 + tremor.y
+		position.x = 270.0 + sin(tempo * 1.35 * mult) * (135.0 if fase > 1 else 160.0) + tremor.x
+		rotation = cos(tempo * 1.35 * mult) * 0.07 + tremor.x * 0.012
 		scale = Vector2(resp, resp)
 		# nucleo abre conforme apanha
 		if brilho_nucleo != null:
@@ -223,8 +232,19 @@ func _process(delta: float) -> void:
 			var pb := 0.8 + 2.2 * falta + 0.25 * sin(tempo * 6.0)
 			brilho_nucleo.scale = Vector2(pb, pb)
 			brilho_nucleo.modulate.a = 0.3 + 0.6 * falta + 0.15 * sin(tempo * 6.0)
-		if fase == 1 and flash <= 0.0 and sprite != null:
-			sprite.modulate = Color(1.0, 0.72, 0.72)
+		# enquanto atordoado o casco fica esverdeado (eletrocutado)
+		if sprite != null:
+			if atordoado > 0.0:
+				sprite.modulate = Color(0.55, 1.0, 0.60) if int(tempo * 24.0) % 2 == 0 \
+					else Color(0.85, 1.0, 0.88)
+			elif fase == 1:
+				sprite.modulate = Color(1.0, 0.72, 0.72)
+			else:
+				sprite.modulate = Color(1, 1, 1)
+		if atordoado > 0.0:
+			# nao atira enquanto estiver eletrocutado
+			queue_redraw()
+			return
 		if fase == 3:
 			if randf() < delta * 1.1:
 				quer_atirar.emit(position + Vector2(randf_range(-40, 40), 80), true)
@@ -244,6 +264,13 @@ func _process(delta: float) -> void:
 			vivo = false
 			queue_free()
 	queue_redraw()
+
+func atordoar(segundos: float = 2.0) -> void:
+	# Chamado quando o raio triplo encosta. O chefe treme e fica 2s sem atirar.
+	# Nao acumula: se ja estiver atordoado, so garante o tempo restante.
+	atordoado = maxf(atordoado, segundos)
+	flash = maxf(flash, 0.5)
+
 
 func levar_dano(d: int) -> bool:
 	hp -= d

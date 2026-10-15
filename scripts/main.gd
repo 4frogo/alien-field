@@ -750,16 +750,20 @@ func _on_super_tiro(pos: Vector2) -> void:
 		f.set_script(FeixeScript)
 		add_child(f)
 		f.call("setup", player)
-		# alvo: inimigo vivo mais proximo da nave (o chefe tem prioridade)
+		# alvo: o CHEFE tem prioridade (ele fica no topo, e o raio tem que ir la).
+			# sem chefe, mira no inimigo vivo mais proximo.
 		var melhor: Node2D = null
-		var melhor_d := 1.0e20
-		for e in inimigos:
-			if e == null or not is_instance_valid(e) or not bool(e.get("vivo")):
-				continue
-			var d: float = e.position.distance_to(player.position)
-			if d < melhor_d:
-				melhor_d = d
-				melhor = e
+		if boss != null and is_instance_valid(boss) and bool(boss.get("vivo")):
+			melhor = boss
+		else:
+			var melhor_d := 1.0e20
+			for e in inimigos:
+				if e == null or not is_instance_valid(e) or not bool(e.get("vivo")):
+					continue
+				var d: float = e.position.distance_to(player.position)
+				if d < melhor_d:
+					melhor_d = d
+					melhor = e
 		if melhor != null:
 			f.set("alvo", melhor.position)
 			f.set("tem_alvo", true)
@@ -1189,7 +1193,12 @@ func _process(delta: float) -> void:
 					if not is_instance_valid(e) or not e.get("vivo"):
 						continue
 					var ep: Vector2 = (e as Node2D).position
+					# raio triplo: elektrocuta quem for atingido. O chefe
+					# treme e fica 2s sem atirar.
 					if absf(ep.x - fx) < 58.0 and ep.y < fy + 20.0 and ep.y > -60.0:
+						# eletrocuta o chefe: ele treme e fica 2s sem atirar
+						if str(e.get("tipo")) == "boss":
+							e.call("atordoar", 2.0)
 						var morreu: bool = e.call("levar_dano", 4)
 						if morreu:
 							if str(e.get("tipo")) == "boss":

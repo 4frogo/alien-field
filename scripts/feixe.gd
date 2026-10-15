@@ -86,6 +86,10 @@ func _process(delta: float) -> void:
 		queue_free()
 		return
 	position = Vector2(player.position.x, player.position.y - 40.0)
+	# sem alvo, o raio ainda sobe ate o topo da tela (da para eletrocutar
+	# o chefe que fica la em cima)
+	if not tem_alvo:
+		alvo = Vector2(position.x, -60.0)
 
 	if glow != null:
 		var gs := 52.0 + 10.0 * sin(age * 22.0)

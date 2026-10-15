@@ -59,7 +59,8 @@ var game_over_timer := -1.0
 var tempo_batalha := 0.0
 var boss_ja_entrou := false
 var aviso_label: Label = null
-var aviso_tex: TextureRect = null
+var aviso_tex: ColorRect = null
+var aviso_mat: ShaderMaterial = null
 var aviso_tempo := 0.0
 var aviso_dragao := false
 var power_timer := 0.0
@@ -192,41 +193,39 @@ func _ready() -> void:
 	await get_tree().process_frame
 	hud.atualizar(pontos, vidas, escudo)
 
-	# aviso de chefao: degrade vermelho pulsante + BOSS ALERT
+	# aviso de chefao: bordas vermelhas pulsantes + BOSS ALERT menor
 	aviso_label = Label.new()
 	aviso_label.text = "BOSS ALERT"
-	aviso_label.add_theme_font_size_override("font_size", 52)
+	aviso_label.add_theme_font_size_override("font_size", 30)
 	if _fonte() != null:
 		aviso_label.add_theme_font_override("font", _fonte())
-	aviso_label.add_theme_color_override("font_color", Color(1, 0.12, 0.08))
+	aviso_label.add_theme_color_override("font_color", Color(1, 0.14, 0.10))
 	aviso_label.add_theme_color_override("font_shadow_color", Color(0, 0, 0))
-	aviso_label.add_theme_constant_override("shadow_offset_x", 3)
-	aviso_label.add_theme_constant_override("shadow_offset_y", 3)
+	aviso_label.add_theme_constant_override("shadow_offset_x", 2)
+	aviso_label.add_theme_constant_override("shadow_offset_y", 2)
 	aviso_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	aviso_label.position = Vector2(0, 380)
-	aviso_label.size = Vector2(540, 90)
+	aviso_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	aviso_label.position = Vector2(0, 402)
+	aviso_label.size = Vector2(540, 48)
+	# escala ao centro pra poder crescer na entrada
+	aviso_label.pivot_offset = Vector2(270, 24)
+	aviso_label.scale = Vector2(0.2, 0.2)
 	aviso_label.visible = false
 	aviso_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hud.add_child(aviso_label)
-	# vinheta vermelha pulsante por tras do aviso
-	aviso_tex = TextureRect.new()
-	var grad := Gradient.new()
-	grad.set_color(0, Color(1, 0.08, 0.06, 0.0))
-	grad.set_color(1, Color(1, 0.05, 0.04, 0.9))
-	var gtex := GradientTexture2D.new()
-	gtex.gradient = grad
-	gtex.fill = GradientTexture2D.FILL_RADIAL
-	gtex.fill_from = Vector2(0.5, 0.5)
-	gtex.fill_to = Vector2(1.0, 0.5)
-	gtex.width = 540
-	gtex.height = 960
-	aviso_tex.texture = gtex
+
+	# crista vermelha so nas bordas (shader) — o centro fica limpo
+	aviso_tex = ColorRect.new()
 	aviso_tex.set_anchors_preset(Control.PRESET_FULL_RECT)
-	aviso_tex.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	aviso_tex.stretch_mode = TextureRect.STRETCH_SCALE
 	aviso_tex.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	aviso_tex.modulate.a = 0.0
 	aviso_tex.visible = false
+	if ResourceLoader.exists("res://assets/alerta_borda.gdshader"):
+		aviso_mat = ShaderMaterial.new()
+		aviso_mat.shader = load("res://assets/alerta_borda.gdshader") as Shader
+		aviso_mat.set_shader_parameter("cor", Color(1, 0.10, 0.06, 1))
+		aviso_mat.set_shader_parameter("largura", 0.22)
+		aviso_tex.material = aviso_mat
 	hud.add_child(aviso_tex)
 
 	power_label = Label.new()
@@ -1059,12 +1058,37 @@ func _process(delta: float) -> void:
 			_spawn_boss()
 	if aviso_label != null and aviso_label.visible:
 		aviso_tempo -= delta
-		# pisca texto + pulsa o degrade vermelho
-		aviso_label.modulate.a = 0.5 + 0.5 * sin(Time.get_ticks_msec() / 150.0)
+		var ms := Time.get_ticks_msec()
+		# entrada: o texto cresce com estalo, as bordas contraem de fora pra dentro
+		var entrada: float = clampf((5.0 - aviso_tempo) / 0.45, 0.0, 1.0)
+		var ease_in := 1.0 - pow(1.0 - entrada, 3.0)
+		if aviso_label != null:
+			var pop: float = 1.0 + 0.14 * sin(ease_in * PI)
+			aviso_label.scale = Vector2(ease_in * pop, ease_in * pop)
+			# tremor leve junto com o piscar do texto
+			aviso_label.position = Vector2(
+				randf_range(-1.6, 1.6) * entrada,
+				402.0 + randf_range(-1.2, 1.2) * entrada)
+			aviso_label.modulate.a = (0.55 + 0.45 * sin(ms / 150.0)) * entrada
 		if aviso_tex != null:
-			aviso_tex.modulate.a = 0.45 + 0.35 * sin(Time.get_ticks_msec() / 120.0)
+			aviso_tex.modulate.a = minf(1.0, entrada * 1.3)
+		if aviso_mat != null:
+			# a faixa e mais larga no inicio e encolhe ate o valor final
+			aviso_mat.set_shader_parameter("largura", lerpf(0.50, 0.22, ease_in))
+			aviso_mat.set_shader_parameter("pulso",
+				(0.72 + 0.28 * sin(ms / 110.0)) * entrada)
+			aviso_mat.set_shader_parameter("varredura", fmod(ms / 1400.0, 1.4) - 0.2)
+			aviso_mat.set_shader_parameter("tempo", ms / 1000.0)
+		# saida: some rapido no final
+		if aviso_tempo < 0.6:
+			var Some: float = clampf(aviso_tempo / 0.6, 0.0, 1.0)
+			if aviso_label != null:
+				aviso_label.modulate.a *= Some
+			if aviso_tex != null:
+				aviso_tex.modulate.a *= Some
 		if aviso_tempo <= 0:
-			aviso_label.visible = false
+			if aviso_label != null:
+				aviso_label.visible = false
 			if aviso_tex != null:
 				aviso_tex.visible = false
 

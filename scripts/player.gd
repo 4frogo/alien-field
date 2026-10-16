@@ -81,24 +81,30 @@ func _ready() -> void:
 	# proprios propulsores, entao nao usam o shader remove_black nem o
 	# _chama_motor desenhado a mao.
 	# (o que vier DEPOIS destas e imagem antiga, com fundo preto assado)
-	for pp in ["res://assets/nave_duende.png", "res://assets/hulk_nave.png",
-			"res://assets/player.png", "res://assets/player.jpg"]:
+	for pp in ["res://assets/nave_verde001.png", "res://assets/nave_duende.png",
+			"res://assets/hulk_nave.png", "res://assets/player.png",
+			"res://assets/player.jpg"]:
 		if ResourceLoader.exists(pp):
 			var tex := load(pp) as Texture2D
 			if tex != null:
 				sprite = Sprite2D.new()
 				sprite.texture = tex
 				# escala pela ALTURA, mas cada arte tem sua propria altura
-				# alvo: a nave do duende e mais alta e estreita (1024x1536),
-				# entao 185 de altura deixaria ela com so 123 de largura e
-				# ela some no meio do cenario. Aqui ela ganha 225.
+				# alvo: a VERDE001 e quase quadrada (1230x1278), entao
+				# 191 de altura daria 184 de largura e ela ficaria enorme.
+				# A do duende e alta e estreita (1024x1536) e precisa de mais.
 				var h := float(tex.get_height())
 				if h > 0:
-					var alvo: float = 191.0 if pp.contains("nave_duende") else 185.0
-					var s := alvo / h
-					sprite.scale = Vector2(s, s)
+					var alvo := 185.0
+					if pp.contains("nave_duende"):
+						alvo = 191.0
+					elif pp.contains("nave_verde001"):
+						alvo = 170.0
+					sprite.scale = Vector2(alvo / h, alvo / h)
 				# shader so nas imagens antigas (fundo preto assado)
-				var ja_tem_alpha: bool = pp.contains("hulk_nave") or pp.contains("nave_duende")
+				var ja_tem_alpha: bool = (pp.contains("hulk_nave")
+						or pp.contains("nave_duende")
+						or pp.contains("nave_verde001"))
 				if not ja_tem_alpha and ResourceLoader.exists("res://assets/remove_black.gdshader"):
 					var sh := load("res://assets/remove_black.gdshader") as Shader
 					var mat := ShaderMaterial.new()

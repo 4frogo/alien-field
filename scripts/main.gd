@@ -33,6 +33,15 @@ var hitstop_id := 0
 var dimensao := 1
 var tempo_fase := 0.0
 var portal: Node2D = null
+# O portal fica ACIMA da nave protetora, la no alto da tela. Subir ele
+# veio junto de uma consequencia: a nave do player nao passa de y=400, e
+# o centro do portal esta em y=230 -> 170px de distancia ate o limite
+# superior dela. Por isso o raio de entrada (PORTAL_NUCLEO) e maior que
+# o antigo 40% do raio visual; se ficasse em 106 a nave nunca alcancaria
+# e o jogo travava para sempre.
+const PORTAL_POS := Vector2(270.0, 230.0)
+const PORTAL_RAIO := 265.0
+const PORTAL_NUCLEO := 178.0
 # nave protetora do portal: bloqueia a travessia e as caixas de tiro ate
 # ser destruida com o super raio
 var protetor: Node2D = null
@@ -405,10 +414,12 @@ func _spawn_portal() -> void:
 	portal = Node2D.new()
 	portal.set_script(PortalScript)
 	add_child(portal)
-	# Portal grande, posicionado na metade de cima da tela sem encostar no topo.
-	# Centro em y=310 e raio 265 => o vortice vai de y=45 a y=575.
-	portal.position = Vector2(270, 310)
-	portal.set("raio", 265.0)
+	# Portal grande no alto da tela, ATRAS da nave protetora (que vem por
+	# cima dele). Centro em y=230 e raio 265 => o vortice vai de y=-35 a
+	# y=495: ele ja nasce cortado pelo topo, o que da a impressao de que
+	# continua la em cima.
+	portal.position = PORTAL_POS
+	portal.set("raio", PORTAL_RAIO)
 	portal_idade = 0.0   # conta o tempo que ele fica visivel antes de poder levar
 	if portal_label != null:
 		portal_label.visible = true
@@ -1163,7 +1174,7 @@ func _process(delta: float) -> void:
 			# mostra, mas nao leva ninguem. Ela sai do vortice quando o
 			# portal abre e so morre com o super raio.
 			if portal_idade >= PORTAL_MIN_VISIVEL and not _protetor_vivo():
-				var r_nucleo := r_portal * 0.40
+				var r_nucleo := PORTAL_NUCLEO
 				if player.position.distance_to(portal.position) < r_nucleo:
 					_entrar_dimensao2()
 		if tempo_batalha >= 100.0:

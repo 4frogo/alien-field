@@ -107,20 +107,22 @@ func setup(p_tipo: String, p_pos: Vector2, p_dir: Vector2 = Vector2(0, 1)) -> vo
 		saindo_do_portal = true
 		t_portal = 0.0
 		pos_portal = p_pos
-		pos_cruzeiro = Vector2(clampf(p_pos.x, 120.0, 420.0), 300.0)
+		# ela para ACIMA e NA FRENTE do portal (o portal esta em y=230), de
+		# modo que o vortice aparece atras dela na tela
+		pos_cruzeiro = Vector2(clampf(p_pos.x, 120.0, 420.0), p_pos.y + 66.0)
 		base_x = pos_cruzeiro.x
 		if ResourceLoader.exists("res://assets/protetor.png"):
 			_criar_sprite("res://assets/protetor.png", 210.0, "")
-			# ela aparece DENTRO de um portal laranja e brilliant, e o
-			# casco dela e preto. Com o aro laranja padrao dos inimigos ela
-			# se camuflava no vortice. Aqui o aro vai ciano e o fundo escuro
-			# (no _draw) cria o contraste que faltava.
+			# ela aparece DENTRO de um portal laranja e brilhante, e o
+			# casco dela e preto. O aro virou um brilho de borda quase
+			# branco (nao verde — o escudo verde foi removido de proposito,
+			# e um aro esverdeado dava a impressao de que ele continuava la).
 			if sprite != null and sprite.material is ShaderMaterial:
 				var cm := sprite.material as ShaderMaterial
-				cm.set_shader_parameter("cor", Color(0.02, 0.05, 0.06, 1.0))
-				cm.set_shader_parameter("espessura", 0.009)
-				cm.set_shader_parameter("brilho_borda", 0.95)
-				cm.set_shader_parameter("cor_brilho", Color(0.35, 1.0, 0.80, 1.0))
+				cm.set_shader_parameter("cor", Color(0.03, 0.03, 0.04, 1.0))
+				cm.set_shader_parameter("espessura", 0.008)
+				cm.set_shader_parameter("brilho_borda", 0.85)
+				cm.set_shader_parameter("cor_brilho", Color(0.88, 0.94, 1.0, 1.0))
 	elif tipo == "boss":
 		hp = 120
 		hp_max = 120
@@ -282,10 +284,12 @@ func _process(delta: float) -> void:
 		if sprite != null:
 			var resp := 1.0 + 0.02 * sin(tempo * 4.0)
 			sprite.scale = escala0 * resp
-			# aro esverdeado enquanto o escudo deflecta tiro normal
+			# piscada branca no instante em que o tiro e devolvido (o
+			# escudo verde foi removido, mas o jogador precisa ver que o
+			# tiro NAO entrou)
 			if deflection > 0.0:
 				var i2 := int(tempo * 30.0) % 2
-				sprite.modulate = Color(0.7, 1.0, 0.75) if i2 == 0 else Color(1, 1, 1)
+				sprite.modulate = Color(1.6, 1.6, 1.6) if i2 == 0 else Color(1, 1, 1)
 			else:
 				sprite.modulate = Color(1, 1, 1, 1)
 		# atira no player; leque de 3 quando esta ferida
@@ -402,24 +406,11 @@ func _draw() -> void:
 			draw_circle(Vector2.ZERO, 100, Color(1.0, 0.15, 0.1, 0.12))
 			return
 		elif tipo == "guard":
-			# fundo escuro atras do casco: sem isso a nave preta desaparece
-			# dentro do vortice laranja que esta logo atras dela
+			# SEM escudo verde: era um aro de energia com dois arcos
+			# girando, e tirava a leitura da nave. A unica coisa que fica
+			# e o disco escuro atras do casco (sem ele a nave preta some
+			# dentro do vortice laranja) e a barrinha de vida.
 			draw_circle(Vector2.ZERO, 108, Color(0.02, 0.03, 0.06, 0.62))
-			# aro de escudo: mostra que tiro normal NAO entra. Acende
-			# forte no instante em que um tiro e devolvido, e fica sempre
-			# com um brilho de fundo fraco pra leitura.
-			var pulso := 0.72 + 0.28 * sin(tempo * 3.4)
-			var d := deflection
-			var a_aro := (0.28 + 0.22 * pulso) + d * 0.50
-			var cor_aro := Color(0.35, 1.0, 0.72, a_aro).lerp(Color(1.0, 1.0, 0.75, a_aro + 0.25), d)
-			draw_circle(Vector2.ZERO, 104, Color(cor_aro.r, cor_aro.g, cor_aro.b, a_aro * 0.22))
-			draw_arc(Vector2.ZERO, 104, 0.0, TAU, 40, cor_aro, 3.0, true)
-			# arco de energia girando por fora
-			var g := tempo * 2.1
-			draw_arc(Vector2.ZERO, 114, g, g + 2.4, 24,
-				Color(0.45, 1.0, 0.80, 0.38 + 0.30 * d), 2.4, true)
-			draw_arc(Vector2.ZERO, 114, -g * 0.7 + PI, -g * 0.7 + PI + 1.8, 20,
-				Color(0.25, 1.0, 0.65, 0.28 + 0.30 * d), 2.4, true)
 			# barrinha de vida: so aparece depois que ela saiu do portal.
 			# Contra-rotacionada, senao ela gira junto com a nave e vira
 			# um risco torto em cima da nave.

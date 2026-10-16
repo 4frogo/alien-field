@@ -201,15 +201,31 @@ func _criar_sprite_boss() -> void:
 		brilho_nucleo.position = Vector2(0, 30)
 		brilho_nucleo.modulate = Color(1, 0.3, 0.15, 0.4)
 		add_child(brilho_nucleo)
-	# barra de vida do chefe no mesmo estilo da protetora: HUD bar no modo
-	# liquido, acima da nave. Cor laranja-avermelhada (boss). Vai acompanhando
-	# o tilt, como no guardiao.
+	# BARRA DE VIDA: agora usa o ASSET do jogador (barra_chefe.png, com
+	# fundo removido e crop da area util), por cima do desenho liquido.
+	# A liquido continua por baixo, assim o preenchimento anima do fundo
+	# e a imagem do jogador e a moldura/passam por cima: resultado é
+	# frame estático do artista + plasma vivo preenchendo 0..hp.
+	# medir escala da barra para o asset:
+	# O asset recortado e aproximadamente 1870x385. O alvo e ~210 de largura
+	# (300px na tela), altura proporcional -> ~41
+	var tex_chefe: Texture2D = null
+	if ResourceLoader.exists("res://assets/barra_chefe.png"):
+		tex_chefe = load("res://assets/barra_chefe.png") as Texture2D
+	if tex_chefe != null:
+		var sp := Sprite2D.new()
+		sp.texture = tex_chefe
+		var sc: float = 200.0 / float(tex_chefe.get_width())
+		sp.scale = Vector2(sc, sc)
+		sp.position = Vector2(0, -32)
+		add_child(sp)
+	# + liquido por baixo (desenho original, mesma base do guardiao)
 	var bb := preload("res://scripts/hud_bar.gd").new()
 	bb.set("cor", Color(1.0, 0.30, 0.12))
 	bb.set("cor_fundo", Color(0.18, 0.04, 0.02))
 	bb.set("liquido", true)
 	bb.size = Vector2(200.0, 14.0)
-	bb.position = Vector2(-100.0, -148.0)
+	bb.position = Vector2(-100.0, -30.0)    # alinhada com a area util do asset
 	bb.call("definir", float(hp), float(hp_max))
 	add_child(bb)
 	barra_hp = bb

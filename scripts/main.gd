@@ -1353,14 +1353,10 @@ func _colisoes() -> void:
 			var tipo_e := str(e.get("tipo"))
 			var raio_e := 115.0 if tipo_e == "boss" else (95.0 if tipo_e == "guard" else (22.0 if tipo_e == "turret" else (26.0 if tipo_e == "bonus" else 30.0)))
 			if b.position.distance_to(e.position) < raio_e + raio_b * 0.5:
-				# tiro NORMAL nao fura a proteora: ele acerta, faz faisca
-				# e some. O jogador ve o tiro morrer na barreira e entende
-				# que precisa de outra arma.
-				if tipo_e == "guard":
-					b.set("vivo", false)
-					b.queue_free()
-					_kill_confirm(e.position, 0, Color(0.55, 1.0, 0.60))
-					continue
+				# tiro NORMAL agora machuca a protetora (pedido do jogador).
+				# Antes era bloqueado aqui; hoje a colisao segue para
+				# levar_dano normalmente. O super ainda é o que finaliza
+				# mais rapido, mas não e a unica resposta.
 				var dano: int = int(b.get("dano"))
 				var perfurante: bool = bool(b.get("perfurante"))
 				if not perfurante:

@@ -103,7 +103,11 @@ func setup(p_tipo: String, p_pos: Vector2, p_dir: Vector2 = Vector2(0, 1)) -> vo
 		hp = 260
 		hp_max = 260
 		vel_base = 0.0
-		imune = true
+		# Agora o tiro NORMAL também machuca. A imunidade cai de proposito:
+		# o jogador pediu esse comportamento. A nave continua desviando
+		# (senoides) e o super ainda é a rota mais rápida, mas não a
+		# única — quando ela se aproxima da morte o leque de 3 tiros vira.
+		imune = false
 		saindo_do_portal = true
 		t_portal = 0.0
 		pos_portal = p_pos

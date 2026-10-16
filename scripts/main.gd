@@ -998,8 +998,9 @@ func _fx_bonus(pos: Vector2) -> void:	# explosao verde em 2 camadas: flash branc
 	n2.set_script(ExplosaoScript)
 	add_child(n2)
 	n2.call("setup", pos, Color(0.9, 1.0, 0.92), 40.0)
-	if sfx != null:
-		sfx.call("explosao")
+	# SEM SOM: a explosao verde da caixa era o outro estrondo duplicado
+	# if sfx != null:
+	# 	sfx.call("explosao")
 
 func _process(delta: float) -> void:
 	_atualizar_flash(delta)
@@ -1307,11 +1308,14 @@ func _colisoes() -> void:
 						# renasce boss apos 5s (nao usar await aqui)
 						_respawn_boss_apos(5.0)
 					elif e.get("tipo") == "bonus":
+						# SEM SOM: a caixa verde estourava o estrondo DUAS
+						# vezes (uma dentro de _fx_bonus, outra aqui).
 						pontos += 200
 						_fx_bonus(e.position)
 						_spawn_arma(e.position)
-						if sfx != null:
-							sfx.call("explosao")
+						# Para reativar:
+						# if sfx != null:
+						# 	sfx.call("explosao")
 					elif e.get("tipo") == "bonus2":
 						pontos += 200
 						_fx_explosao(e.position, false, false)

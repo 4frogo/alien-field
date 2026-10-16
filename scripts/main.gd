@@ -33,6 +33,10 @@ var hitstop_id := 0
 var dimensao := 1
 var tempo_fase := 0.0
 var portal: Node2D = null
+# Tempo que o portal precisa ficar na tela antes de poder levar a nave
+# para a dimensao 2. Sem isso ele nascia e sumia no mesmo frame.
+const PORTAL_MIN_VISIVEL := 2.6
+var portal_idade := 0.0
 var portal_label: Label = null
 var transicao_layer: CanvasLayer = null
 var transicao_anim := 0.0
@@ -402,6 +406,7 @@ func _spawn_portal() -> void:
 	# Centro em y=310 e raio 265 => o vortice vai de y=45 a y=575.
 	portal.position = Vector2(270, 310)
 	portal.set("raio", 265.0)
+	portal_idade = 0.0   # conta o tempo que ele fica visivel antes de poder levar
 	if portal_label != null:
 		portal_label.visible = true
 	# sem som ao abrir o portal (a transicao visual e o suficiente)
@@ -416,6 +421,7 @@ func _entrar_dimensao2() -> void:
 	if portal != null and is_instance_valid(portal):
 		portal.queue_free()
 	portal = null
+	portal_idade = 0.0
 	if portal_label != null:
 		portal_label.visible = false
 	if player != null and is_instance_valid(player):
@@ -1111,11 +1117,19 @@ func _process(delta: float) -> void:
 		if portal == null and tempo_batalha >= 18.0:
 			_spawn_portal()
 		if portal != null and is_instance_valid(portal) and player != null and is_instance_valid(player):
-			# dispara quando a nave ENTRA no vortice (distancia do centro menor
-		# que o raio do portal), e nao quando chega a 80px do centro exato:
-		# com o portal grande e la em cima, 80px seria impossivel de alcancar
-			if player.position.distance_to(portal.position) < float(portal.get("raio")):
-				_entrar_dimensao2()
+			portal_idade += delta
+			# O portal nasce em y=310 e a nave so consegue ir ate y=400,
+			# ou seja: quem esta na metade de cima da faixa ja nasce DENTRO
+			# do raio. Antes disso a transicao disparava no mesmo frame do
+			# nascimento e o buraco nunca aparecia.
+			#
+			# Agora: (1) o portal precisa existir por um tempo minimo, e
+			# (2) so dispara quando a nave entra no NUCLEO, nao na borda.
+			var r_portal := float(portal.get("raio"))
+			if portal_idade >= PORTAL_MIN_VISIVEL:
+				var r_nucleo := r_portal * 0.40
+				if player.position.distance_to(portal.position) < r_nucleo:
+					_entrar_dimensao2()
 		if tempo_batalha >= 100.0:
 			_entrar_dimensao2() # fallback: nunca trava
 	else:
@@ -1597,6 +1611,7 @@ func _reiniciar() -> void:
 	if portal != null and is_instance_valid(portal):
 		portal.queue_free()
 	portal = null
+	portal_idade = 0.0
 	if portal_label != null:
 		portal_label.visible = false
 	if bg_no != null and is_instance_valid(bg_no):
@@ -1670,6 +1685,7 @@ func _ir_para_menu() -> void:
 	if portal != null and is_instance_valid(portal):
 		portal.queue_free()
 	portal = null
+	portal_idade = 0.0
 	if portal_label != null:
 		portal_label.visible = false
 	if player != null and is_instance_valid(player):

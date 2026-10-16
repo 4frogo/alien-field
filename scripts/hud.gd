@@ -1,8 +1,7 @@
 extends CanvasLayer
-# HUD igual imagem: PONTOS, VIDAS, FASE, ESCUDO, ARMA LASER
+# HUD: PONTOS + icones de vida (sem os textos "VIDAS" e "FASE"), escudo e arma
 
 var lbl_pontos_val: Label
-var lbl_fase: Label
 var vidas_icons: Control
 var bar_escudo: Control
 var vidas_count := 3
@@ -36,30 +35,16 @@ func _ready() -> void:
 	lbl_pontos_val.add_theme_color_override("font_color", verde)
 	add_child(lbl_pontos_val)
 
-	# VIDAS
-	var lbl_vidas := Label.new()
-	lbl_vidas.text = "VIDAS"
-	lbl_vidas.position = Vector2(410, 12)
-	lbl_vidas.add_theme_font_size_override("font_size", 20)
-	if fonte_horror != null:
-		lbl_vidas.add_theme_font_override("font", fonte_horror)
-	lbl_vidas.add_theme_color_override("font_color", Color(0.8, 0.9, 0.85))
-	add_child(lbl_vidas)
-
+	# VIDAS: SEM a palavra "VIDAS" (removida de proposito). Os icones de
+	# vida sozinhos ja dizem quantas vidas tem, e o texto so ocupava o
+	# canto da tela competindo com o cenario.
 	vidas_icons = preload("res://scripts/vidas_icons.gd").new()
-	vidas_icons.position = Vector2(400, 38)
-	vidas_icons.size = Vector2(120, 32)
+	vidas_icons.position = Vector2(438, 14)
+	vidas_icons.size = Vector2(90, 32)
 	add_child(vidas_icons)
 
-	# FASE
-	lbl_fase = Label.new()
-	lbl_fase.text = "FASE 1-3"
-	lbl_fase.position = Vector2(390, 72)
-	lbl_fase.add_theme_font_size_override("font_size", 24)
-	if fonte_horror != null:
-		lbl_fase.add_theme_font_override("font", fonte_horror)
-	lbl_fase.add_theme_color_override("font_color", Color(0.85, 0.9, 0.88))
-	add_child(lbl_fase)
+	# SEM o rotulo "FASE 1-3" tambem: o unico lugar que aparecia a fase
+	# era esse texto, e ele encobria o portal na tela.
 
 	# ESCUDO: icone + barra (sem texto). Fica na faixa de cima da rodape, pra
 	# deixar espaco logo abaixo pro liquido do super tiro.

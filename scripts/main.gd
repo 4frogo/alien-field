@@ -441,9 +441,8 @@ func _spawn_protetor(pos_portal: Vector2) -> void:
 	inimigos.append(e)
 	# aviso curto: o jogador precisa saber oq fazer com essa nave
 	if aviso_label != null:
-		aviso_label.text = "PROTETOR DO PORTAL"
-		aviso_label.visible = true
-		aviso_tempo = 4.0
+		# (sem aviso "PROTETOR DO PORTAL" — pedido do jogador)
+		aviso_label.visible = false
 
 
 # true enquanto a nave protetora estiver viva: neste periodo o portal
@@ -1380,8 +1379,10 @@ func _colisoes() -> void:
 						_killcam_boss(e.position)
 						add_trauma(0.7)
 						boss = null
-						# renasce boss apos 5s (nao usar await aqui)
-						_respawn_boss_apos(5.0)
+						# sem respawn: o boss morreu, ponto final. O jogador
+						# segue para o proximo ato (portal) sem voltar o
+						# dragao. (pedido do jogador)
+						# _respawn_boss_apos(5.0) desativado
 					elif e.get("tipo") == "bonus":
 						# SEM SOM: a caixa verde estourava o estrondo DUAS
 						# vezes (uma dentro de _fx_bonus, outra aqui).

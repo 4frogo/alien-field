@@ -14,7 +14,15 @@ var valor := 1.0          # exibido (suavizado)
 var alvo := 1.0           # desejado
 var flash := 0.0          # 0..1, dispara quando alvo cai
 var liquido := false      # efeito de liquido animado (escudo)
+# modo PILULA: barra arredondada, sem o paralelograma inclinado (SK) que
+# vazava para fora do painel do HUD. Usado nas barras do rodape.
+@export var moderno := false
 @export var onda_amp := 1.0
+
+# StyleBoxFlat reaproveitados a cada frame (criar 2 por frame em 2 barras
+# seria desperdicio). So o bg_color/corner mudam, o resto fica.
+var _sb_trilho := StyleBoxFlat.new()
+var _sb_fill := StyleBoxFlat.new()
 
 const SEG := 18
 
@@ -140,7 +148,46 @@ func _desenha_liquido(c: Color, clara: Color, fundo: Color,
 	draw_circle(_pt(cx2, cy), 2.2 + 1.0 * sin(_t * 9.0), Color(clara.r, clara.g, clara.b, 0.50))
 
 
+# -------------------------------------------------------------- moderno
+
+# Barra em pilula: trilho escuro com cantos redondos, preenchimento solido
+# com um fio de brilho no topo e flash branco quando leva dano.
+func _desenha_moderno() -> void:
+	var w: float = size.x
+	var h: float = size.y
+	var r: int = int(h * 0.5)
+	var fra: float = clampf(valor, 0.0, 1.0)
+
+	_sb_trilho.bg_color = Color(0.03, 0.07, 0.05, 0.90)
+	_sb_trilho.set_corner_radius_all(r)
+	_sb_trilho.set_border_width_all(1)
+	_sb_trilho.border_color = Color(cor.r, cor.g, cor.b, 0.20)
+	draw_style_box(_sb_trilho, Rect2(0, 0, w, h))
+
+	if fra <= 0.004:
+		return
+
+	# o preenchimento nunca fica menor que a altura, senao o arredondamento
+	# vira um ponto e a barra parece quebrada
+	var wf: float = maxf(h, w * fra)
+	var cc: Color = cor.lerp(Color(1, 1, 1), 0.08)
+	if flash > 0.0:
+		cc = cc.lerp(Color(1, 0.82, 0.82), flash * 0.65)
+	_sb_fill.bg_color = cc
+	_sb_fill.set_corner_radius_all(r)
+	_sb_fill.set_border_width_all(0)
+	draw_style_box(_sb_fill, Rect2(0, 0, wf, h))
+
+	# fio de brilho no topo do liquido
+	var m: float = h * 0.34
+	draw_line(Vector2(m, h * 0.30), Vector2(maxf(m, wf - m), h * 0.30),
+		Color(1, 1, 1, 0.20), maxf(1.0, h * 0.10), true)
+
+
 func _draw() -> void:
+	if moderno:
+		_desenha_moderno()
+		return
 	var w: float = size.x
 	var h: float = size.y
 	var pad := 1.0

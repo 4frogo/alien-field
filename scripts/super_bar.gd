@@ -1,22 +1,23 @@
 extends Control
 
-# Barra de carga do SUPER TIRO — liquido de plasma enchendo ate a direita.
+# Barra de carga do SUPER TIRO.
 #
-# O liquido e desenhado como uma sequencia de quads simples (oGodot triangula
-# mal poligonos concavos/degenerados, entao evitamos um unico poligono grande).
+# O desenho antigo (paralelogramo inclinado, bolhas, menisco, chanfros,
+# faiscas) foi trocado por uma PILULA moderna: trilho escuro arredondado
+# + preenchimento solido com fio de brilho no topo. O skew (SK) empurrava
+# 9px para fora e a barra invadia a borda do painel do HUD.
 #
-# Efeitos:
-#   - liquido avanca da esquerda para a direita conforme a carga
-#   - frente (menisco) ondulando e estufando pra fora
-#   - profundidade: superficie clara -> fundo escuro
-#   - bolhas subindo, brilho pulsante na parede
-#   - moldura em paralelogramo (skew) com chanfros
-#   - fase: ciano (0.0) -> ambar (0.6) -> vermelho (1.0)
-#   - quando cheia: pulso + aneis de choque + faiscas
+# A rampa de cor continua igual: amarelo -> laranja -> vermelho.
+# Quando carrega, o preenchimento ganha pulso e halo.
+
+var moderno := true
 
 const SK := 9.0
 const BEVEL := 5.0
 const SEG := 20
+
+var _sb_trilho := StyleBoxFlat.new()
+var _sb_fill := StyleBoxFlat.new()
 
 var prog := 0.0
 var pronta := false
@@ -109,7 +110,67 @@ func _ond(y: float, amp: float) -> float:
 
 # ---------------------------------------------------------------- draw
 
+# Pilula moderna. Trilho escuro na cor do plasma (nao preto puro: parece
+# uma camara esperando encher), preenchimento na rampa amarelo->vermelho.
+func _desenha_moderno() -> void:
+	var w: float = size.x
+	var h: float = size.y
+	var r: int = int(h * 0.5)
+	var c: Color = _cor()
+	var clara: Color = _clara()
+	var fundo: Color = _profundo()
+
+	# halo quando carregada
+	if pulso > 0.01:
+		var breathe: float = 0.55 + 0.45 * sin(_t * 7.0)
+		var ga: float = (0.16 + 0.20 * breathe) * pulso
+		_sb_fill.bg_color = Color(c.r, c.g, c.b, ga * 0.35)
+		_sb_fill.set_corner_radius_all(r + int(5.0 * pulso))
+		_sb_fill.set_border_width_all(0)
+		draw_style_box(_sb_fill, Rect2(-5, -3, w + 10, h + 6))
+
+	# trilho
+	_sb_trilho.bg_color = Color(fundo.r, fundo.g, fundo.b, 0.55)
+	_sb_trilho.set_corner_radius_all(r)
+	_sb_trilho.set_border_width_all(1)
+	_sb_trilho.border_color = Color(c.r, c.g, c.b, 0.28 if not pronta else 0.75)
+	draw_style_box(_sb_trilho, Rect2(0, 0, w, h))
+
+	if prog <= 0.004:
+		return
+
+	# preenchimento: nunca menor que a altura (senao vira um ponto)
+	var wf: float = maxf(h, w * prog)
+	var cc: Color = c.lerp(Color(1, 1, 1), 0.06 + 0.10 * pulso)
+	_sb_fill.bg_color = cc
+	_sb_fill.set_corner_radius_all(r)
+	_sb_fill.set_border_width_all(0)
+	draw_style_box(_sb_fill, Rect2(0, 0, wf, h))
+
+	# fio de brilho no topo
+	var m: float = h * 0.34
+	draw_line(Vector2(m, h * 0.30), Vector2(maxf(m, wf - m), h * 0.30),
+		Color(clara.r, clara.g, clara.b, 0.28), maxf(1.0, h * 0.10), true)
+
+	# frente luminosa na ponta do preenchimento
+	if wf > h * 1.6:
+		draw_line(Vector2(wf - maxf(1.0, h * 0.08), h * 0.22),
+			Vector2(wf - maxf(1.0, h * 0.08), h * 0.78),
+			Color(clara.r, clara.g, clara.b, 0.55), maxf(1.0, h * 0.10), true)
+
+	# varredura suave pelo liquido (1 brilho por vez, sem poluir)
+	if wf > 24.0:
+		var ph: float = fmod(_t * 0.55, 1.0)
+		var sx: float = lerpf(h * 0.5, wf - h * 0.5, ph)
+		var fade: float = sin(ph * PI) * 0.20
+		draw_line(Vector2(sx, h * 0.22), Vector2(sx, h * 0.78),
+			Color(1, 1, 1, fade), maxf(1.0, h * 0.18), true)
+
+
 func _draw() -> void:
+	if moderno:
+		_desenha_moderno()
+		return
 	var w: float = size.x
 	var h: float = size.y
 	var c: Color = _cor()

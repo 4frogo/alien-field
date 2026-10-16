@@ -271,7 +271,8 @@ func _ready() -> void:
 	charge_bar = preload("res://scripts/super_bar.gd").new()
 	charge_bar.custom_minimum_size = Vector2(160, 16)
 	charge_bar.size = Vector2(160, 16)
-	charge_bar.position = Vector2(46, 918)
+	charge_bar.position = Vector2(48, 918)
+	charge_bar.size = Vector2(152, 14)
 	# sempre visivel: vazia quando o tiro nao esta carregando
 	charge_bar.visible = true
 	hud.add_child(charge_bar)

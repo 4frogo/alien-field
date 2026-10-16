@@ -769,7 +769,9 @@ func _dano_do_raio(delta: float) -> void:
 				continue
 			var tipo_e := str(e.get("tipo"))
 			if tipo_e == "small":
-				# nave pequena eletrocucada: EXPLODE NA HORA
+				# UNICA coisa que o raio limpa: nave pequena eletrocucada
+				# explode na hora. Capanga, torre, caixa e chefe NAO
+				# tomam dano — o feixe passa direto por eles.
 				pontos += 100
 				_registrar_abate()
 				e.call("levar_dano", 99999)
@@ -778,49 +780,9 @@ func _dano_do_raio(delta: float) -> void:
 				hitstop(0.04)
 				add_trauma(0.18)
 			elif tipo_e == "boss":
-				# eletrocuta o chefe: treme e fica 2s sem atirar
+				# o chefe nao toma dano, mas o choque ainda o paralisa:
+				# treme e fica 2s sem atirar. E o "limpa" nao chega ate ele.
 				e.call("atordoar", 2.0)
-				var mb: bool = e.call("levar_dano", 4)
-				if mb:
-					pontos += 2000
-					_registrar_abate()
-					_kill_confirm(ep, 2000, Color(1, 0.85, 0.3))
-					_fx_explosao(ep, true, false)
-					_rank_chefe()
-					_killcam_boss(ep)
-					add_trauma(0.7)
-					boss = null
-					_renascer_chefe_depois()
-			else:
-				var morreu: bool = e.call("levar_dano", 4)
-				if not morreu:
-					if tipo_e == "boss":
-						pontos += 40
-					_num(ep, "4", 18, Color(1, 1, 1))
-					_fx_tiro(ep)
-				elif tipo_e == "bonus":
-					pontos += 200
-					_fx_bonus(ep)
-					_spawn_arma(ep)
-				elif tipo_e == "bonus2":
-					pontos += 200
-					_fx_explosao(ep, false, false)
-					_disparar_missil()
-				else:
-					pontos += 100
-					_registrar_abate()
-					_kill_confirm(ep, 100, Color(0.5, 1.0, 0.55))
-					_fx_explosao(ep, false, false)
-					hitstop(0.06)
-					add_trauma(0.22)
-
-
-# Renascimento do chefe depois de 5s. Separate porque nao pode usar
-# await dentro do laco de dano do raio.
-func _renascer_chefe_depois() -> void:
-	await get_tree().create_timer(5.0).timeout
-	if vidas > 0:
-		_spawn_boss()
 
 
 func _on_super_tiro(pos: Vector2) -> void:

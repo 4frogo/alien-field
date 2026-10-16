@@ -34,10 +34,11 @@ func _criar_veu() -> ShaderMaterial:
 	if ResourceLoader.exists("res://assets/veu_fundo.gdshader"):
 		var m := ShaderMaterial.new()
 		m.shader = load("res://assets/veu_fundo.gdshader") as Shader
-		m.set_shader_parameter("vinheta", 0.85)
-		m.set_shader_parameter("dessat", 0.45)
-		m.set_shader_parameter("escurecer", 0.30)
-		m.set_shader_parameter("raio", 0.72)
+		m.set_shader_parameter("vinheta", 1.00)
+		m.set_shader_parameter("dessat", 0.22)
+		m.set_shader_parameter("escurecer", 0.10)
+		m.set_shader_parameter("raio", 0.82)
+		m.set_shader_parameter("realce", 0.35)
 		return m
 	return null
 

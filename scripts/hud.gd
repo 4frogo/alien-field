@@ -63,12 +63,11 @@ func _ready() -> void:
 	bar_escudo.set("alvo", 1.0)
 	add_child(bar_escudo)
 
-	# ARMA: icone triplo (sem texto)
-	var ico_arma = preload("res://scripts/hud_icon.gd").new()
-	ico_arma.set("modo", "laser")
-	ico_arma.position = Vector2(440, 896)
-	ico_arma.size = Vector2(28, 28)
-	add_child(ico_arma)
+	# SEM O ICONE DO LASER no rodape direito. Era aquele trio de setas
+	# verdes; removido a pedido do jogador. O estado do super tiro continua
+	# visivel pela barra liquida logo abaixo (super_bar.gd), que e o que
+	# importa na hora de disparar.
+	# (o modo "laser" do hud_icon.gd continua no script, so nao e usado)
 
 	# barra de vida do chefao (topo centro, escondida)
 	lbl_boss = Label.new()

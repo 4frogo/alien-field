@@ -28,7 +28,7 @@ func _ready() -> void:
 	# tiro suave: 520->180Hz curto e baixo volume
 	s_tiro = _carregar_ou_gerar("res://assets/tiro.wav", 520.0, 180.0, 0.09, 0.15)
 	s_tiro_ini = _carregar_ou_gerar("res://assets/tiro_inimigo.wav", 280.0, 130.0, 0.15, 0.10)
-	s_boom = _carregar_ou_gerar_noise("res://assets/explosao.wav", 0.6, 0.25)
+	s_boom = _carregar_ou_gerar_explosao("res://assets/explosao.wav", 0.34, 0.30)
 	s_hit = _carregar_ou_gerar("res://assets/hit.wav", 200.0, 80.0, 0.25, 0.6)
 	s_boss = _carregar_ou_gerar("res://assets/boss.wav", 110.0, 55.0, 0.8, 0.6)
 	# energia carregando: subidas cada vez mais agudas + estouro de pronta
@@ -48,12 +48,13 @@ func _carregar_ou_gerar(path: String, f0: float, f1: float, dur: float, vol: flo
 			return s
 	return _gerar_tom(f0, f1, dur, vol)
 
-func _carregar_ou_gerar_noise(path: String, dur: float, vol: float) -> AudioStream:
+func _carregar_ou_gerar_explosao(path: String, dur: float, vol: float) -> AudioStream:
+	# usa o wav custom se existir, senao gera procedural
 	if ResourceLoader.exists(path):
-		var s := load(path) as AudioStream
-		if s != null:
-			return s
-	return _gerar_noise(dur, vol)
+		var r := load(path) as AudioStream
+		if r != null:
+			return r
+	return _gerar_explosao(dur, vol)
 
 func _gerar_tom(f0: float, f1: float, dur: float, vol: float) -> AudioStreamWAV:
 	var rate := 22050
@@ -98,30 +99,65 @@ func _gerar_subida(f0: float, f1: float, dur: float, vol: float) -> AudioStreamW
 	w.data = data
 	return w
 
-func _gerar_noise(dur: float, vol: float) -> AudioStreamWAV:
-	# explosao realista: corpo grave + rumble filtrado, sem agudo estridente
-	var rate := 22050
+func _gerar_explosao(dur: float, vol: float) -> AudioStreamWAV:
+	# EXPLOSAO curta e com presenca, sem virar lama grave.
+	#
+	# O som antigo caia em 34 Hz, abaixo do que alto-falante de celular
+	# reproduz — no celular virava um "estrondo" sem definicao. Aqui o
+	# grao para em 70 Hz (limite de quase todo celular) e ganha 4 camadas:
+	#   - transiente: estouro agudo de ruido (o "estalo" que da precisao)
+	#   - corpo: varredura de 200 -> 70 Hz (peso, mas audivel)
+	#   - areia: ruido passa-banda medio (o "estalar")
+	#   - sub: 78 Hz curto, so no comeco (sensacao de impacto)
+	# 16 bits e 44.1 kHz: o de 8 bits soava sujo.
+	var rate := 44100
 	var n := int(rate * dur)
 	var data := PackedByteArray()
-	data.resize(n)
+	data.resize(n * 2)   # 16 bits = 2 bytes por amostra
 	var rng := RandomNumberGenerator.new()
-	rng.seed = 999
-	var lp := 0.0
+	rng.seed = 20240
+
+	var lp_bruta := 0.0   # passa-baixa do estrondo
+	var lp_areia := 0.0   # passa-baixa da "areia"
+	var fase_corpo := 0.0 # fase acumulada da varredura (evita estalo)
+
 	for i in n:
-		var k := float(i) / float(n)
-		var decay := pow(1.0 - k, 1.8)
-		var attack := minf(1.0, float(i) / (float(rate) * 0.006))
-		var env := attack * decay
-		# corpo: seno caindo 105Hz -> 34Hz
-		var f := lerpf(105.0, 34.0, pow(k, 0.6))
-		var corpo := sin(TAU * f * float(i) / float(rate)) * 0.85
-		# rumble: ruido passa-baixa (sem chiado)
-		var ruid := rng.randf_range(-1.0, 1.0)
-		lp += 0.12 * (ruid - lp)
-		var v := (corpo + lp * 1.4) * vol * env
-		data[i] = int(clampf(v * 127.0 + 128.0, 0, 255))
+		var t := float(i) / float(rate)
+		var k := float(i) / float(n)           # 0..1 no tempo
+		var ruido := rng.randf_range(-1.0, 1.0)
+		# ataque curtinho (2ms) pra nao comecar por cima
+		var atk := minf(1.0, t / 0.002)
+
+		# ---------- 1. TRANSIENTE (ate ~45ms): o estalo inicial
+		# passa-alta: sinal - versao filtrada, e some rapido
+		lp_bruta += 0.45 * (ruido - lp_bruta)
+		var hp := ruido - lp_bruta
+		var env_tr := pow(maxf(0.0, 1.0 - t / 0.045), 2.6)
+		var transiente := hp * env_tr * 0.55
+
+		# ---------- 2. CORPO: varredura 200 -> 70 Hz
+		# pow no k faz a queda comecar rapida e terminar suave
+		var f := lerpf(200.0, 70.0, pow(k, 0.75))
+		fase_corpo += TAU * f / float(rate)
+		var corpo := sin(fase_corpo) * pow(1.0 - k, 2.4) * atk * 0.80
+
+		# ---------- 3. AREIA: ruido passa-banda medio, o "estalar"
+		lp_areia += 0.22 * (ruido - lp_areia)
+		var areia := (lp_areia * 2.0) * pow(1.0 - k, 3.4) * atk * 0.42
+
+		# ---------- 4. SUB: 78 Hz, so no primeiro terco
+		var sub := sin(TAU * 78.0 * t) * pow(maxf(0.0, 1.0 - k / 0.34), 3.0) * atk * 0.34
+
+		# ---------- corte seco no fim: sem cauda comprida
+		var fim := 1.0 - smoothstep(0.82, 1.0, k)
+
+		var v := clampf((transiente + corpo + areia + sub) * vol * fim, -1.0, 1.0)
+		var s16 := int(v * 32767.0)
+		data[i * 2] = int(s16 & 0xFF)
+		data[i * 2 + 1] = int((s16 >> 8) & 0xFF)
+
 	var w := AudioStreamWAV.new()
-	w.format = AudioStreamWAV.FORMAT_8_BITS
+	w.format = AudioStreamWAV.FORMAT_16_BITS
 	w.mix_rate = rate
 	w.stereo = false
 	w.data = data

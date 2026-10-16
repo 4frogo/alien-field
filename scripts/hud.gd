@@ -1,10 +1,13 @@
 extends CanvasLayer
-# HUD: PONTOS + icones de vida (sem os textos "VIDAS" e "FASE"), escudo e arma
+# HUD: PONTOS no canto superior esquerdo, escudo e arma embaixo. O canto
+# superior direito fica VAZIO de proposito (nada de "VIDAS", "FASE" nem
+# icones de vida).
 
 var lbl_pontos_val: Label
-var vidas_icons: Control
 var bar_escudo: Control
-var vidas_count := 3
+# ultimo valor de vidas recebido. Os icones do canto da tela sairam, mas
+# o main.gd continua mandando esse numero e o game over depende dele.
+var _vidas_atual := 3
 var lbl_boss: Label
 var bar_boss: Control
 var retrato_boss: Sprite2D
@@ -35,16 +38,12 @@ func _ready() -> void:
 	lbl_pontos_val.add_theme_color_override("font_color", verde)
 	add_child(lbl_pontos_val)
 
-	# VIDAS: SEM a palavra "VIDAS" (removida de proposito). Os icones de
-	# vida sozinhos ja dizem quantas vidas tem, e o texto so ocupava o
-	# canto da tela competindo com o cenario.
-	vidas_icons = preload("res://scripts/vidas_icons.gd").new()
-	vidas_icons.position = Vector2(438, 14)
-	vidas_icons.size = Vector2(90, 32)
-	add_child(vidas_icons)
-
-	# SEM o rotulo "FASE 1-3" tambem: o unico lugar que aparecia a fase
-	# era esse texto, e ele encobria o portal na tela.
+	# CANTO SUPERIOR DIREITO VAZIO DE PROPOSITO.
+	# Antes ficava aqui a palavra "VIDAS" e embaixo dela as 3 mini-naves
+	# de vida. Os dois foram removidos: o jogador pediu a area limpa, e
+	# o canto competia com o portal, que e a cena mais importante da
+	# fase. A quantidade de vidas agora so aparece quando acaba.
+	# (o script vidas_icons.gd continua no projeto, so nao e instanciado)
 
 	# ESCUDO: icone + barra (sem texto). Fica na faixa de cima da rodape, pra
 	# deixar espaco logo abaixo pro liquido do super tiro.
@@ -119,8 +118,11 @@ func _ready() -> void:
 
 func atualizar(pontos: int, vidas: int, escudo: float) -> void:
 	lbl_pontos_val.text = "%06d" % pontos
-	vidas_count = vidas
-	vidas_icons.queue_redraw()
+	# `vidas` chegou a ser usado so pelos icones de vida, que foram
+	# removidos do canto da tela. O parametro continua na assinatura
+	# porque o main.gd chama assim; dar valor a ele evita o aviso de
+	# parametro sem uso.
+	_vidas_atual = vidas
 	bar_escudo.call("definir", escudo, 100.0)
 
 func boss_vida(hp: int, hp_max: int) -> void:

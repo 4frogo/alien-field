@@ -714,8 +714,10 @@ func _equipar_power() -> void:
 	if player != null and is_instance_valid(player):
 		_fx_bonus(player.position)
 		player.call("set_equipado", true)
-	if sfx != null:
-		sfx.call("pickup")
+	# SEM SOM ao pegar o item das caixas.
+	# Para reativar:
+	# if sfx != null:
+	# 	sfx.call("pickup")
 
 func _on_player_atirar(pos: Vector2) -> void:
 	if vidas <= 0:

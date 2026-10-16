@@ -22,6 +22,9 @@ var pe0 := Vector2.ZERO
 var pe1 := Vector2.ZERO
 var pec := Vector2.ZERO
 var brilho_nucleo: Sprite2D = null
+# barra de vida da protetora. Mesmo desenho que o HUD do jogador
+# (liquido, menisco, bolhas) para a familia de barrinhas ficar coerente.
+var barra_hp: Control = null
 # --- nave protetora do portal ("guard") -------------------------------
 # Ela e o unico alvo que os tiros NORMAIS nao furam: levar_dano vira
 # deflector. A unica coisa que machuca e o super raio, via levar_dano_super.
@@ -117,16 +120,23 @@ func setup(p_tipo: String, p_pos: Vector2, p_dir: Vector2 = Vector2(0, 1)) -> vo
 		base_x = pos_cruzeiro.x
 		if ResourceLoader.exists("res://assets/protetor.png"):
 			_criar_sprite("res://assets/protetor.png", 210.0, "")
-			# ela aparece DENTRO de um portal laranja e brilhante, e o
-			# casco dela e preto. O aro virou um brilho de borda quase
-			# branco (nao verde — o escudo verde foi removido de proposito,
-			# e um aro esverdeado dava a impressao de que ele continuava la).
 			if sprite != null and sprite.material is ShaderMaterial:
 				var cm := sprite.material as ShaderMaterial
 				cm.set_shader_parameter("cor", Color(0.03, 0.03, 0.04, 1.0))
 				cm.set_shader_parameter("espessura", 0.008)
 				cm.set_shader_parameter("brilho_borda", 0.85)
 				cm.set_shader_parameter("cor_brilho", Color(0.88, 0.94, 1.0, 1.0))
+		# a barra de vida da protetora segue o mesmo desenho do HUD
+		# (hud_bar com liquido + menisco + bolhas). Identica a familia.
+		var hb := preload("res://scripts/hud_bar.gd").new()
+		hb.set("cor", Color(1.0, 0.30, 0.28))
+		hb.set("cor_fundo", Color(0.18, 0.04, 0.05))
+		hb.set("liquido", true)
+		hb.size = Vector2(170.0, 14.0)
+		hb.position = Vector2(-85.0, -138.0)   # top-left; barra desenha com margem zero
+		hb.call("definir", float(hp), float(hp_max))
+		add_child(hb)
+		barra_hp = hb
 	elif tipo == "boss":
 		hp = 120
 		hp_max = 120
@@ -285,6 +295,11 @@ func _process(delta: float) -> void:
 		position.x = pos_cruzeiro.x + sin(tempo * 1.5) * 82.0 + sin(tempo * 2.9 + 1.1) * 34.0
 		position.y = pos_cruzeiro.y + sin(tempo * 1.9) * 20.0
 		rotation = cos(tempo * 1.5) * 0.11 + sin(tempo * 2.9) * 0.05
+		# barra de vida: correto com o tilt da nave (counter-rotation) e
+		# atualiza o valor do hp a cada frame
+		if barra_hp != null:
+			barra_hp.rotation = -rotation
+			barra_hp.call("definir", float(hp), float(hp_max))
 		if sprite != null:
 			var resp := 1.0 + 0.02 * sin(tempo * 4.0)
 			sprite.scale = escala0 * resp
@@ -418,15 +433,10 @@ func _draw() -> void:
 			# barrinha de vida: so aparece depois que ela saiu do portal.
 			# Contra-rotacionada, senao ela gira junto com a nave e vira
 			# um risco torto em cima da nave.
-			if not saindo_do_portal:
-				var w := 160.0
-				var frac := clampf(float(hp) / float(hp_max), 0.0, 1.0)
-				draw_set_transform(Vector2.ZERO, -rotation, Vector2.ONE)
-				draw_rect(Rect2(-w * 0.5 - 3, -132, w + 6, 14), Color(0, 0, 0, 0.75), true)
-				draw_rect(Rect2(-w * 0.5, -129, w, 8), Color(0.18, 0.04, 0.05, 1.0), true)
-				draw_rect(Rect2(-w * 0.5, -129, w * frac, 8), Color(1.0, 0.28, 0.28, 0.95), true)
-				draw_rect(Rect2(-w * 0.5 - 3, -132, w + 6, 14), Color(0.5, 1.0, 0.85, 0.45), false, 1.4)
-				draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+			# barrinha de vida agora e um FILHO (hud_bar) - desenha por conta
+			# propria, com as ondas e o liquido. O contra-tilt esta no
+			# _process guard, para ela continuar horizontal mesmo quando a
+			# nave entorna.
 			return
 		elif tipo == "bonus":
 			# sprite do upgrade + glow + barrinha de vida

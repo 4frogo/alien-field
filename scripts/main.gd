@@ -230,7 +230,7 @@ func _ready() -> void:
 	aviso_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hud.add_child(aviso_label)
 
-	# crista vermelha so nas bordas (shader) — o centro fica limpo
+	# crista vermelha so nas bordas (shader) â€” o centro fica limpo
 	aviso_tex = ColorRect.new()
 	aviso_tex.set_anchors_preset(Control.PRESET_FULL_RECT)
 	aviso_tex.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -266,7 +266,7 @@ func _ready() -> void:
 	portal_label.visible = false
 	hud.add_child(portal_label)
 
-	# barrinha de carga do super tiro — FIXA no rodape, logo abaixo da barra de
+	# barrinha de carga do super tiro â€” FIXA no rodape, logo abaixo da barra de
 	# escudo. Antes ela seguia a nave e cobria o casco.
 	charge_bar = preload("res://scripts/super_bar.gd").new()
 	charge_bar.custom_minimum_size = Vector2(160, 16)
@@ -764,7 +764,7 @@ func _on_player_atirar(pos: Vector2) -> void:
 		add_child(b)
 		b.call("setup_triplotiro", pos + Vector2(0, -26), Vector2(0, -640), 6)
 		tiros.append(b)
-		# clarão verde no cano a cada rajada (só visual)
+		# clarÃ£o verde no cano a cada rajada (sÃ³ visual)
 		var flash := Node2D.new()
 		flash.set_script(ExplosaoScript)
 		add_child(flash)
@@ -785,7 +785,7 @@ func _on_player_atirar(pos: Vector2) -> void:
 
 # Dano do raio triplo. Fica numa funcao SEPARADA de proposito:
 # dentro do _process existia um `await` (renascimento do chefe) que
-# transformava o _process inteiro em corrotina — e o resto do bloco de
+# transformava o _process inteiro em corrotina â€” e o resto do bloco de
 # dano ficava sem executar. Nenhum await aqui dentro.
 func _dano_do_raio(delta: float) -> void:
 	feixes = feixes.filter(func(x): return is_instance_valid(x))
@@ -812,7 +812,7 @@ func _dano_do_raio(delta: float) -> void:
 			if tipo_e == "small":
 				# UNICA coisa que o raio limpa: nave pequena eletrocucada
 				# explode na hora. Capanga, torre, caixa e chefe NAO
-				# tomam dano — o feixe passa direto por eles.
+				# tomam dano â€” o feixe passa direto por eles.
 				pontos += 100
 				_registrar_abate()
 				e.call("levar_dano", 99999)
@@ -827,7 +827,7 @@ func _dano_do_raio(delta: float) -> void:
 			elif tipo_e == "guard":
 				# NAVE PROTETORA: este e o UNICO alvo que o raio consegue
 				# matar (alem do small). Ela e imune a tiro normal, entao
-				# o super e a resposta — e a unica forma de abrir o portal.
+				# o super e a resposta â€” e a unica forma de abrir o portal.
 				# 25 por tick a 20 ticks/s => ~500 de dano por segundo.
 				var restou: float = clampf(float(e.get("hp")) / 260.0, 0.0, 1.0)
 				var morreu := bool(e.call("levar_dano_super", 25))
@@ -894,7 +894,7 @@ func _on_super_tiro(pos: Vector2) -> void:
 		b.call("setup", pos, Vector2(0, -520), true, 10, true)
 		tiros.append(b)
 	# SEM SOM: o estrondo de explosao no super raio era alto demais. Antes
-	# ainda tocava DOIS estrondos juntos — um daqui e outro do
+	# ainda tocava DOIS estrondos juntos â€” um daqui e outro do
 	# sfx.call("explosao") logo abaixo.
 	_fx_explosao(pos, false, false)
 	# Para reativar o som:
@@ -1103,7 +1103,7 @@ func _process(delta: float) -> void:
 			var zoom: float = lerpf(1.0, 2.15, ze)
 			var s: float = fit * zoom
 			art.scale = Vector2(s, s)
-			# Comeca centralizado e SÓ deriva durante o zoom. Se a imagem
+			# Comeca centralizado e SÃ“ deriva durante o zoom. Se a imagem
 			# ja nascesse deslocada pra manter a ancora no centro, sobraria
 			# faixa preta na borda oposta (a escala de "cobrir" nao cobre o
 			# deslocamento). Com o lerp, no fim a ancora chega ao centro.
@@ -1118,7 +1118,7 @@ func _process(delta: float) -> void:
 		if poe != null and poe.has_method("set"):
 			poe.set("intensidade", prog)
 		if flash != null:
-			# clarão curto, só pra cobrir o corte da entrada
+			# clarÃ£o curto, sÃ³ pra cobrir o corte da entrada
 			flash.color.a = maxf(0.0, 0.85 - transicao_anim * 3.4)
 		if not transicao_trocou and transicao_anim >= 1.8:
 			transicao_trocou = true
@@ -1234,7 +1234,7 @@ func _process(delta: float) -> void:
 	# torres desativadas por enquanto
 
 	# bonus a cada 30s
-	# COM A NAVE PROTETORA VIVA NAO VEM CAIXA: ela é a unica coisa que
+	# COM A NAVE PROTETORA VIVA NAO VEM CAIXA: ela Ã© a unica coisa que
 	# pode matar o player no inicio da fase e um upgrade de tiro aqui
 	# burlaria a regra de que so o super tiro a fere.
 	bonus_timer -= delta
@@ -1324,7 +1324,7 @@ func _process(delta: float) -> void:
 	_limpar_listas()
 	hud.atualizar(pontos, vidas, escudo)
 	if boss != null and is_instance_valid(boss):
-		hud.call("boss_vida", int(boss.get("hp")), int(boss.get("hp_max")))
+		hud.call("boss_vida", int(boss.get("hp")), 120)
 	else:
 		hud.call("boss_fora")
 	# camera shake com decaimento
@@ -1355,15 +1355,10 @@ func _colisoes() -> void:
 			if b.position.distance_to(e.position) < raio_e + raio_b * 0.5:
 				# tiro NORMAL agora machuca a protetora (pedido do jogador).
 				# Antes era bloqueado aqui; hoje a colisao segue para
-				# levar_dano normalmente. O super ainda é o que finaliza
-				# mais rapido, mas não e a unica resposta.
+				# levar_dano normalmente. O super ainda Ã© o que finaliza
+				# mais rapido, mas nÃ£o e a unica resposta.
 				var dano: int = int(b.get("dano"))
 				var perfurante: bool = bool(b.get("perfurante"))
-				# tiro NORMAL no chefe nao deve derreter ele: 1/2 do dano
-				# (10 -> 5) e hp bem mais alto (240). Com rapido disparo
-				# normal ele dura cerca de 12-15s; bem mais que antes.
-				if tipo_e == "boss" and not perfurante:
-					dano = maxf(5, int(float(dano) / 2.0))
 				if not perfurante:
 					b.set("vivo", false)
 					b.queue_free()
@@ -1783,7 +1778,7 @@ func _ir_para_menu() -> void:
 	add_child(menu_layer)
 	var center := Vector2(270, 480) # fixo do projeto
 	var f := _fonte()
-	# arte cheia de fundo (bg da fase 1) + véu escuro pra leitura
+	# arte cheia de fundo (bg da fase 1) + vÃ©u escuro pra leitura
 	for mp in ["res://assets/bg.png", "res://assets/bg.jpg", "res://assets/VENOM.png"]:
 		if ResourceLoader.exists(mp):
 			var mtex := load(mp) as Texture2D

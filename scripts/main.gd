@@ -540,8 +540,10 @@ func _spawn_boss() -> void:
 	tw.tween_callback(_chegada_boss)
 	if sfx != null:
 		sfx.call("boss")
-	if musica != null and musica.has_method("trocar_para_boss"):
-		musica.call("trocar_para_boss")
+	# SEM MUSICA DE BATALHA: o chefe nao troca mais a trilha, a musica
+	# normal continua tocando. Para reativar:
+	# if musica != null and musica.has_method("trocar_para_boss"):
+	# 	musica.call("trocar_para_boss")
 
 func _chegada_boss() -> void:
 	if boss != null and is_instance_valid(boss):

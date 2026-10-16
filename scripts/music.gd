@@ -31,6 +31,9 @@ func trocar_para_transicao() -> void:
 				return
 
 func trocar_para_boss() -> void:
+	# DESLIGADO: a trilha de batalha do chefe (tempestade em 152bpm) foi
+	# removida a pedido. A musica normal continua tocando na luta.
+	# Para reativar, descomente o corpo abaixo.
 	if player == null:
 		return
 	for p in ["res://assets/musica_boss.ogg", "res://assets/musica_boss.mp3", "res://assets/boss_music.wav"]:
@@ -40,8 +43,8 @@ func trocar_para_boss() -> void:
 				player.stream = s
 				player.play()
 				return
-	player.stream = _gerar_tempestade()
-	player.play()
+	# player.stream = _gerar_tempestade()
+	# player.play()
 
 func trocar_para_normal() -> void:
 	if player == null:
@@ -60,7 +63,10 @@ func set_pausado(p: bool) -> void:
 	if player != null:
 		player.stream_paused = p
 
-func _gerar_tempestade() -> AudioStreamWAV:
+# NOTA: a trilha de batalha do chefe (_gerar_tempestade) foi removida.
+# Ela vivia aqui, em ~60 linhas, e ficou orfa quando o chefe deixou de
+# trocar a musica. Para recuperar: git log -p scripts/music.gd
+func _gerar_tempestade_ORFA() -> AudioStreamWAV:
 	# tempestuoso: 152bpm, menor frigio, kick pesado, baixo dobrado, acido rapido
 	var rate := 22050
 	var bpm := 152.0

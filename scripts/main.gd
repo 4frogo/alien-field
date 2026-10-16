@@ -469,24 +469,10 @@ func _mostrar_transicao() -> void:
 	flash.set_anchors_preset(Control.PRESET_FULL_RECT)
 	flash.name = "Flash"
 	transicao_layer.add_child(flash)
-	# quadrinhos da travessia
-	var falas := ["O PORTAL SE ABRIU...", "A FROTA FICOU PARA TRAS", "SO RESTOU VOCE"]
-	for i in 3:
-		var q := Label.new()
-		q.text = falas[i]
-		q.add_theme_font_size_override("font_size", 26)
-		if _fonte() != null:
-			q.add_theme_font_override("font", _fonte())
-		q.add_theme_color_override("font_color", Color(0.92, 1.0, 0.94))
-		q.add_theme_color_override("font_shadow_color", Color(0, 0, 0))
-		q.add_theme_constant_override("shadow_offset_x", 2)
-		q.add_theme_constant_override("shadow_offset_y", 2)
-		q.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		q.position = Vector2(0, 180.0 + float(i) * 300.0)
-		q.size = Vector2(540, 40)
-		q.name = "Q%d" % i
-		q.modulate.a = 0.0
-		transicao_layer.add_child(q)
+	# SEM quadrinhos: as falas da travessia ("O PORTAL SE ABRIU...",
+	# "A FROTA FICOU PARA TRAS", "SO RESTOU VOCE") foram removidas de
+	# proposito. A imagem de transicao ja conta a historia sozinha e o
+	# texto competia com ela.
 	# poeira subindo (mantem: da profundidade sem competir com o zoom)
 	var poe := Node2D.new()
 	poe.set_script(preload("res://scripts/poeira.gd"))
@@ -1061,20 +1047,6 @@ func _process(delta: float) -> void:
 		if flash != null:
 			# clarão curto, só pra cobrir o corte da entrada
 			flash.color.a = maxf(0.0, 0.85 - transicao_anim * 3.4)
-		# quadrinhos entram em sequencia
-		for i in 3:
-			var q := transicao_layer.get_node_or_null("Q%d" % i) as Label if transicao_layer != null else null
-			if q != null:
-				var ini := 0.25 + float(i) * 0.65
-				var fim := ini + 0.9
-				if transicao_anim < ini:
-					q.modulate.a = 0.0
-				elif transicao_anim < ini + 0.25:
-					q.modulate.a = (transicao_anim - ini) / 0.25
-				elif transicao_anim < fim:
-					q.modulate.a = 1.0
-				else:
-					q.modulate.a = maxf(0.0, 1.0 - (transicao_anim - fim) / 0.3)
 		if not transicao_trocou and transicao_anim >= 1.8:
 			transicao_trocou = true
 			_fim_transicao()

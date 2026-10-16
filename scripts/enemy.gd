@@ -106,10 +106,10 @@ func setup(p_tipo: String, p_pos: Vector2, p_dir: Vector2 = Vector2(0, 1)) -> vo
 		hp = 260
 		hp_max = 260
 		vel_base = 0.0
-		# Agora o tiro NORMAL também machuca. A imunidade cai de proposito:
+		# Agora o tiro NORMAL tambâ”œÂ®m machuca. A imunidade cai de proposito:
 		# o jogador pediu esse comportamento. A nave continua desviando
-		# (senoides) e o super ainda é a rota mais rápida, mas não a
-		# única — quando ela se aproxima da morte o leque de 3 tiros vira.
+		# (senoides) e o super ainda â”œÂ® a rota mais râ”œÃ­pida, mas nâ”œÃºo a
+		# â”œâ•‘nica Ã”Ã‡Ã¶ quando ela se aproxima da morte o leque de 3 tiros vira.
 		imune = false
 		saindo_do_portal = true
 		t_portal = 0.0
@@ -138,8 +138,11 @@ func setup(p_tipo: String, p_pos: Vector2, p_dir: Vector2 = Vector2(0, 1)) -> vo
 		add_child(hb)
 		barra_hp = hb
 	elif tipo == "boss":
-		hp = 120
-		hp_max = 120
+		# cheche ha mais tank: 120 era pouco, morria com 4-6 tiros do super
+		# ou com um burst de 3 projeteis triplexos. 240 deixa o tempo de
+		# combate pelo menos ~12-15s como esperado.
+		hp = 240
+		hp_max = 240
 		_criar_sprite_boss()
 	elif tipo == "turret":
 		hp = 6
@@ -200,35 +203,10 @@ func _criar_sprite_boss() -> void:
 		brilho_nucleo.texture = _fazer_brilho()
 		brilho_nucleo.position = Vector2(0, 30)
 		brilho_nucleo.modulate = Color(1, 0.3, 0.15, 0.4)
-		add_child(brilho_nucleo)
-	# BARRA DE VIDA: agora usa o ASSET do jogador (barra_chefe.png, com
-	# fundo removido e crop da area util), por cima do desenho liquido.
-	# A liquido continua por baixo, assim o preenchimento anima do fundo
-	# e a imagem do jogador e a moldura/passam por cima: resultado é
-	# frame estático do artista + plasma vivo preenchendo 0..hp.
-	# medir escala da barra para o asset:
-	# O asset recortado e aproximadamente 1870x385. O alvo e ~210 de largura
-	# (300px na tela), altura proporcional -> ~41
-	var tex_chefe: Texture2D = null
-	if ResourceLoader.exists("res://assets/barra_chefe.png"):
-		tex_chefe = load("res://assets/barra_chefe.png") as Texture2D
-	if tex_chefe != null:
-		var sp := Sprite2D.new()
-		sp.texture = tex_chefe
-		var sc: float = 200.0 / float(tex_chefe.get_width())
-		sp.scale = Vector2(sc, sc)
-		sp.position = Vector2(0, -32)
-		add_child(sp)
-	# + liquido por baixo (desenho original, mesma base do guardiao)
-	var bb := preload("res://scripts/hud_bar.gd").new()
-	bb.set("cor", Color(1.0, 0.30, 0.12))
-	bb.set("cor_fundo", Color(0.18, 0.04, 0.02))
-	bb.set("liquido", true)
-	bb.size = Vector2(200.0, 14.0)
-	bb.position = Vector2(-100.0, -30.0)    # alinhada com a area util do asset
-	bb.call("definir", float(hp), float(hp_max))
-	add_child(bb)
-	barra_hp = bb
+	# barra de vida vive NO HUD, acima do nome DRAGAO DO VAZIO
+	# (handle em hud.gd via boss_vida). Aqui nao plantamos nada
+	# acima da nave.
+	barra_hp = null
 
 func _fazer_brilho() -> ImageTexture:
 	var tam := 64
@@ -319,7 +297,7 @@ func _process(delta: float) -> void:
 			return
 		# ja saiu: fica perto do portal e DESVIA. Tres senoides somados
 		# (lenta + media + rapida) nao dao um padrao legivel, dai a
-		# sensação de que ela esta esquivando de proposito.
+		# sensaâ”œÂºâ”œÃºo de que ela esta esquivando de proposito.
 		position.x = pos_cruzeiro.x + sin(tempo * 1.5) * 82.0 + sin(tempo * 2.9 + 1.1) * 34.0
 		position.y = pos_cruzeiro.y + sin(tempo * 1.9) * 20.0
 		rotation = cos(tempo * 1.5) * 0.11 + sin(tempo * 2.9) * 0.05
@@ -422,7 +400,7 @@ func atordoar(segundos: float = 2.0) -> void:
 
 func levar_dano(d: int) -> bool:
 	# A NAVE PROTETORA e imune a tiro normal. O tiro acerta, faz faisca e
-	# some — e isso DE PROPONTO: so o super raio triplo a machuca, e o
+	# some Ã”Ã‡Ã¶ e isso DE PROPONTO: so o super raio triplo a machuca, e o
 	# jogador precisa descobrir isso.
 	if imune:
 		deflection = 1.0

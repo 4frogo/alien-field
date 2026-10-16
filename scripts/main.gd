@@ -1324,7 +1324,7 @@ func _process(delta: float) -> void:
 	_limpar_listas()
 	hud.atualizar(pontos, vidas, escudo)
 	if boss != null and is_instance_valid(boss):
-		hud.call("boss_vida", int(boss.get("hp")), 120)
+		hud.call("boss_vida", int(boss.get("hp")), int(boss.get("hp_max")))
 	else:
 		hud.call("boss_fora")
 	# camera shake com decaimento
@@ -1359,6 +1359,11 @@ func _colisoes() -> void:
 				# mais rapido, mas não e a unica resposta.
 				var dano: int = int(b.get("dano"))
 				var perfurante: bool = bool(b.get("perfurante"))
+				# tiro NORMAL no chefe nao deve derreter ele: 1/2 do dano
+				# (10 -> 5) e hp bem mais alto (240). Com rapido disparo
+				# normal ele dura cerca de 12-15s; bem mais que antes.
+				if tipo_e == "boss" and not perfurante:
+					dano = maxf(5, int(float(dano) / 2.0))
 				if not perfurante:
 					b.set("vivo", false)
 					b.queue_free()

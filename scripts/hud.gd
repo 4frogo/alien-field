@@ -114,10 +114,10 @@ func _ready() -> void:
 	# barra de vida do chefao (topo centro, escondida)
 	lbl_boss = Label.new()
 	lbl_boss.text = "DRAGAO DO VAZIO"
-	lbl_boss.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	lbl_boss.position = Vector2(0, 108)
-	lbl_boss.size = Vector2(540, 28)
-	lbl_boss.add_theme_font_size_override("font_size", 20)
+	lbl_boss.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	lbl_boss.position = Vector2(8, 8)
+	lbl_boss.size = Vector2(220, 20)
+	lbl_boss.add_theme_font_size_override("font_size", 14)
 	if fonte_horror != null:
 		lbl_boss.add_theme_font_override("font", fonte_horror)
 	lbl_boss.add_theme_color_override("font_color", Color(1, 0.25, 0.15))
@@ -126,12 +126,12 @@ func _ready() -> void:
 	add_child(lbl_boss)
 
 	bar_boss = preload("res://scripts/hud_bar.gd").new()
-	bar_boss.set("cor", Color(0.95, 0.16, 0.10))
-	bar_boss.set("cor_fundo", Color(0.14, 0.02, 0.02))
-	bar_boss.set("mostrar_segmentos", true)
-	bar_boss.set("segmentos", 12)
-	bar_boss.position = Vector2(120, 136)
-	bar_boss.size = Vector2(300, 14)
+	bar_boss.set("cor", Color(1.0, 0.30, 0.12))
+	bar_boss.set("cor_fundo", Color(0.18, 0.04, 0.02))
+	bar_boss.set("liquido", true)
+	bar_boss.set("mostrar_segmentos", false)
+	bar_boss.size = Vector2(150, 12)
+	bar_boss.position = Vector2(8, 32)
 	bar_boss.set("valor", 1.0)
 	bar_boss.set("alvo", 1.0)
 	bar_boss.visible = false
@@ -153,7 +153,7 @@ func _ready() -> void:
 				var bsc := 64.0 / (bw * 0.40)
 				retrato_boss.scale = Vector2(bsc, bsc)
 				break
-	retrato_boss.position = Vector2(82, 143)
+	retrato_boss.position = Vector2(24, 14)
 	retrato_boss.visible = false
 	add_child(retrato_boss)
 

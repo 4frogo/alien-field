@@ -33,19 +33,32 @@ func _initialize() -> void:
 	var H: int = img.get_height()
 	var total: int = W * H
 	var buf := img.get_data()
-	var mw: int = W / DIV
-	var mh: int = H / DIV
+	# ceil: as artes podem ter dimensao IMPAR (1189x1323), e ai W/DIV
+	# arredonda pra baixo e o ultimo pixel estoura a mascara.
+	var mw: int = int(ceilf(float(W) / float(DIV)))
+	var mh: int = int(ceilf(float(H) / float(DIV)))
 
 	# ---- 1. mascara da arte -------------------------------------------
 	var casco := PackedByteArray()
 	casco.resize(mw * mh)
 	for my in mh:
 		var y0: int = my * DIV
+		if y0 >= H:
+			continue
 		for mx in mw:
+			var x0: int = mx * DIV
+			if x0 >= W:
+				continue
 			var v := 0
 			for dy in DIV:
-				var b: int = (y0 + dy) * W * 4 + (mx * DIV) * 4
+				var yy: int = y0 + dy
+				if yy >= H:
+					break
+				var b: int = yy * W * 4 + x0 * 4
 				for dx in DIV:
+					var xx: int = x0 + dx
+					if xx >= W:
+						break
 					if maxi(maxi(int(buf[b + dx * 4]), int(buf[b + dx * 4 + 1])),
 							int(buf[b + dx * 4 + 2])) >= PRETO:
 						v = 1

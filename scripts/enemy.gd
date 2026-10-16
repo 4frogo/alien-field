@@ -62,7 +62,13 @@ func setup(p_tipo: String, p_pos: Vector2, p_dir: Vector2 = Vector2(0, 1)) -> vo
 	if tipo == "small":
 		hp = 9
 		hp_max = 9
-		if ResourceLoader.exists("res://assets/capanga2.png"):
+		# inimigo_r.png: nave vermelha com o nariz pra baixo (1189x1323).
+		# A arte e quase quadrada, entao encolhendo pela LARGURA nao
+		# funciona igual: 99 de largura deixa com 110 de altura, perto da
+		# proporcao da capanga antiga (78x117).
+		if ResourceLoader.exists("res://assets/inimigo_r.png"):
+			_criar_sprite("res://assets/inimigo_r.png", 99.0, "")
+		elif ResourceLoader.exists("res://assets/capanga2.png"):
 			_criar_sprite("res://assets/capanga2.png", 78.0, "")
 		elif ResourceLoader.exists("res://assets/capanga2.jpg"):
 			_criar_sprite("res://assets/capanga2.jpg", 78.0, "")

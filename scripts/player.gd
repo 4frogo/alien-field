@@ -77,22 +77,29 @@ func _fazer_textura_radial(tam: int = 128) -> ImageTexture:
 
 func _ready() -> void:
 	position = Vector2(270, 800)
-	# tenta usar a imagem real da nave. O Hulk ja vem com alpha e com os
-	# proprios propulsores, entao nao usa o shader remove_black nem o
+	# tenta usar a imagem real da nave. Estas ja vem com alpha e com os
+	# proprios propulsores, entao nao usam o shader remove_black nem o
 	# _chama_motor desenhado a mao.
-	for pp in ["res://assets/hulk_nave.png", "res://assets/player.png", "res://assets/player.jpg"]:
+	# (o que vier DEPOIS destas e imagem antiga, com fundo preto assado)
+	for pp in ["res://assets/nave_duende.png", "res://assets/hulk_nave.png",
+			"res://assets/player.png", "res://assets/player.jpg"]:
 		if ResourceLoader.exists(pp):
 			var tex := load(pp) as Texture2D
 			if tex != null:
 				sprite = Sprite2D.new()
 				sprite.texture = tex
-				# escala pela ALTURA: a nave e alta, entao 185px de altura
+				# escala pela ALTURA, mas cada arte tem sua propria altura
+				# alvo: a nave do duende e mais alta e estreita (1024x1536),
+				# entao 185 de altura deixaria ela com so 123 de largura e
+				# ela some no meio do cenario. Aqui ela ganha 225.
 				var h := float(tex.get_height())
 				if h > 0:
-					var s := 185.0 / h
+					var alvo: float = 225.0 if pp.contains("nave_duende") else 185.0
+					var s := alvo / h
 					sprite.scale = Vector2(s, s)
 				# shader so nas imagens antigas (fundo preto assado)
-				if not pp.contains("hulk_nave") and ResourceLoader.exists("res://assets/remove_black.gdshader"):
+				var ja_tem_alpha: bool = pp.contains("hulk_nave") or pp.contains("nave_duende")
+				if not ja_tem_alpha and ResourceLoader.exists("res://assets/remove_black.gdshader"):
 					var sh := load("res://assets/remove_black.gdshader") as Shader
 					var mat := ShaderMaterial.new()
 					mat.shader = sh

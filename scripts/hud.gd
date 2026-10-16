@@ -93,7 +93,11 @@ func _ready() -> void:
 	bar_escudo = preload("res://scripts/hud_bar.gd").new()
 	bar_escudo.set("cor", verde)
 	bar_escudo.set("cor_fundo", Color(0.04, 0.14, 0.07))
-	bar_escudo.set("moderno", true)
+	# sem moderno: agora a barra de escudo usa o modo LIQUIDO igual ao
+	# super tiro (escudo = plasma/líquido), como o jogador pediu. 'moderne'
+	# daria uma barra lisa sem a animacao do liquido.
+	bar_escudo.set("moderno", false)
+	bar_escudo.set("liquido", true)
 	bar_escudo.position = Vector2(48, 897)
 	bar_escudo.size = Vector2(152, 14)
 	bar_escudo.set("liquido", true)

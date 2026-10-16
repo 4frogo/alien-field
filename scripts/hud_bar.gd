@@ -3,7 +3,9 @@ extends Control
 # Barra de HUD moderna: preenchimento animado, brilho, flash ao levar dano,
 # serrilhado e varredura. Reaproveitada no escudo e na vida do chefao.
 
-const SK := 7.0
+# SK a 0: a inclinacao empurrava ate 7px para fora e a barra passava do
+# painel. O gostinho paralelogramo so saiu porque nao valia o transtorno.
+const SK := 0.0
 
 @export var cor: Color = Color(0.25, 1.0, 0.45)
 @export var cor_fundo: Color = Color(0.05, 0.12, 0.08)

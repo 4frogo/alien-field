@@ -33,6 +33,9 @@ var hitstop_id := 0
 var dimensao := 1
 var tempo_fase := 0.0
 var portal: Node2D = null
+# nave protetora do portal: bloqueia a travessia e as caixas de tiro ate
+# ser destruida com o super raio
+var protetor: Node2D = null
 # Tempo que o portal precisa ficar na tela antes de poder levar a nave
 # para a dimensao 2. Sem isso ele nascia e sumia no mesmo frame.
 const PORTAL_MIN_VISIVEL := 2.6
@@ -410,6 +413,31 @@ func _spawn_portal() -> void:
 	if portal_label != null:
 		portal_label.visible = true
 	# sem som ao abrir o portal (a transicao visual e o suficiente)
+	# a nave protetora sai de dentro do vortice assim que ele abre
+	_spawn_protetor(portal.position)
+
+
+func _spawn_protetor(pos_portal: Vector2) -> void:
+	if protetor != null and is_instance_valid(protetor):
+		return
+	var e := Node2D.new()
+	e.set_script(EnemyScript)
+	add_child(e)
+	e.connect("quer_atirar", Callable(self, "_on_enemy_atirar"))
+	e.call("setup", "guard", pos_portal, Vector2(0, 1))
+	protetor = e
+	inimigos.append(e)
+	# aviso curto: o jogador precisa saber oq fazer com essa nave
+	if aviso_label != null:
+		aviso_label.text = "PROTETOR DO PORTAL"
+		aviso_label.visible = true
+		aviso_tempo = 4.0
+
+
+# true enquanto a nave protetora estiver viva: neste periodo o portal
+# NAO leva a nave do player e nem aparecem caixas de tiro.
+func _protetor_vivo() -> bool:
+	return protetor != null and is_instance_valid(protetor) and bool(protetor.get("vivo"))
 
 func _entrar_dimensao2() -> void:
 	if dimensao == 2 or em_transicao:
@@ -422,6 +450,9 @@ func _entrar_dimensao2() -> void:
 		portal.queue_free()
 	portal = null
 	portal_idade = 0.0
+	if protetor != null and is_instance_valid(protetor):
+		protetor.queue_free()
+	protetor = null
 	if portal_label != null:
 		portal_label.visible = false
 	if player != null and is_instance_valid(player):
@@ -781,6 +812,31 @@ func _dano_do_raio(delta: float) -> void:
 				_fx_explosao(ep, false, false)
 				hitstop(0.04)
 				add_trauma(0.18)
+			elif tipo_e == "guard":
+				# NAVE PROTETORA: este e o UNICO alvo que o raio consegue
+				# matar (alem do small). Ela e imune a tiro normal, entao
+				# o super e a resposta — e a unica forma de abrir o portal.
+				# 25 por tick a 20 ticks/s => ~500 de dano por segundo.
+				var restou: float = clampf(float(e.get("hp")) / 260.0, 0.0, 1.0)
+				var morreu := bool(e.call("levar_dano_super", 25))
+				if morreu:
+					pontos += 5000
+					_registrar_abate()
+					_kill_confirm(ep, 5000, Color(1.0, 0.35, 0.30))
+					_fx_explosao(ep, false, false)
+					hitstop(0.10)
+					add_trauma(0.55)
+					protetor = null
+					if portal_label != null:
+						portal_label.text = "PORTAL ABERTO"
+					if aviso_label != null:
+						aviso_label.text = "ATRAVESSE O PORTAL"
+						aviso_label.visible = true
+						aviso_tempo = 3.5
+				else:
+					# faisca de escudo a cada acerto, sem som
+					_kill_confirm(ep, 0, Color(0.45, 1.0, 0.55))
+					restou = clampf(restou, 0.0, 1.0)
 			elif tipo_e == "boss":
 				# o chefe nao toma dano, mas o choque ainda o paralisa:
 				# treme e fica 2s sem atirar. E o "limpa" nao chega ate ele.
@@ -796,10 +852,14 @@ func _on_super_tiro(pos: Vector2) -> void:
 		f.set_script(FeixeScript)
 		add_child(f)
 		f.call("setup", player)
-		# alvo: o CHEFE tem prioridade (ele fica no topo, e o raio tem que ir la).
-			# sem chefe, mira no inimigo vivo mais proximo.
+		# alvo: o PROTETOR do portal e o CHEFE temem prioridade, nessa ordem.
+		# a proteora vem primeiro porque ate ela morrer o portal nao abre e
+		# ela e o unico alvo que o super consegue furar.
+			# sem nenhum dos dois, mira no inimigo vivo mais proximo.
 		var melhor: Node2D = null
-		if boss != null and is_instance_valid(boss) and bool(boss.get("vivo")):
+		if _protetor_vivo():
+			melhor = protetor
+		elif boss != null and is_instance_valid(boss) and bool(boss.get("vivo")):
 			melhor = boss
 		else:
 			var melhor_d := 1.0e20
@@ -812,6 +872,7 @@ func _on_super_tiro(pos: Vector2) -> void:
 					melhor = e
 		if melhor != null:
 			f.set("alvo", melhor.position)
+			f.set("alvo_nodo", melhor)
 			f.set("tem_alvo", true)
 		feixes.append(f)
 	else:
@@ -1098,7 +1159,10 @@ func _process(delta: float) -> void:
 			# Agora: (1) o portal precisa existir por um tempo minimo, e
 			# (2) so dispara quando a nave entra no NUCLEO, nao na borda.
 			var r_portal := float(portal.get("raio"))
-			if portal_idade >= PORTAL_MIN_VISIVEL:
+			# TRAVA DO PROTETOR: com a nave protetora viva o portal so
+			# mostra, mas nao leva ninguem. Ela sai do vortice quando o
+			# portal abre e so morre com o super raio.
+			if portal_idade >= PORTAL_MIN_VISIVEL and not _protetor_vivo():
 				var r_nucleo := r_portal * 0.40
 				if player.position.distance_to(portal.position) < r_nucleo:
 					_entrar_dimensao2()
@@ -1158,16 +1222,21 @@ func _process(delta: float) -> void:
 	# torres desativadas por enquanto
 
 	# bonus a cada 30s
+	# COM A NAVE PROTETORA VIVA NAO VEM CAIXA: ela é a unica coisa que
+	# pode matar o player no inicio da fase e um upgrade de tiro aqui
+	# burlaria a regra de que so o super tiro a fere.
 	bonus_timer -= delta
 	if bonus_timer <= 0:
 		bonus_timer = 30.0
-		_spawn_bonus()
+		if not _protetor_vivo():
+			_spawn_bonus()
 
 	# caixa vermelha a cada 25s (so com chefao)
 	bonus2_timer -= delta
 	if bonus2_timer <= 0:
 		bonus2_timer = 25.0
-		_spawn_bonus2()
+		if not _protetor_vivo():
+			_spawn_bonus2()
 
 	# combo some sem matar por 2.5s
 	if combo_timer > 0:
@@ -1270,8 +1339,16 @@ func _colisoes() -> void:
 				break
 			var raio_b: float = float(b.get("raio"))
 			var tipo_e := str(e.get("tipo"))
-			var raio_e := 115.0 if tipo_e == "boss" else (22.0 if tipo_e == "turret" else (26.0 if tipo_e == "bonus" else 30.0))
+			var raio_e := 115.0 if tipo_e == "boss" else (95.0 if tipo_e == "guard" else (22.0 if tipo_e == "turret" else (26.0 if tipo_e == "bonus" else 30.0)))
 			if b.position.distance_to(e.position) < raio_e + raio_b * 0.5:
+				# tiro NORMAL nao fura a proteora: ele acerta, faz faisca
+				# e some. O jogador ve o tiro morrer na barreira e entende
+				# que precisa de outra arma.
+				if tipo_e == "guard":
+					b.set("vivo", false)
+					b.queue_free()
+					_kill_confirm(e.position, 0, Color(0.55, 1.0, 0.60))
+					continue
 				var dano: int = int(b.get("dano"))
 				var perfurante: bool = bool(b.get("perfurante"))
 				if not perfurante:
@@ -1369,7 +1446,7 @@ func _colisoes() -> void:
 			if not is_instance_valid(e):
 				continue
 			var te := str(e.get("tipo"))
-			var r := 115.0 if te == "boss" else (22.0 if te == "turret" else (26.0 if te == "bonus" else 26.0))
+			var r := 115.0 if te == "boss" else (78.0 if te == "guard" else (22.0 if te == "turret" else (26.0 if te == "bonus" else 26.0)))
 			if player.position.distance_to(e.position) < r:
 				if te == "bonus":
 					_equipar_power()
@@ -1399,7 +1476,7 @@ func _colisoes_misseis() -> void:
 			var te := str(e.get("tipo"))
 			if te == "bonus" or te == "bonus2" or te == "turret":
 				continue
-			var raio_e := 115.0 if te == "boss" else 30.0
+			var raio_e := 115.0 if te == "boss" else (85.0 if te == "guard" else 30.0)
 			if (m as Node2D).position.distance_to((e as Node2D).position) < raio_e + 10.0:
 				m.set("vivo", false)
 				m.queue_free()
@@ -1584,6 +1661,9 @@ func _reiniciar() -> void:
 		portal.queue_free()
 	portal = null
 	portal_idade = 0.0
+	if protetor != null and is_instance_valid(protetor):
+		protetor.queue_free()
+	protetor = null
 	if portal_label != null:
 		portal_label.visible = false
 	if bg_no != null and is_instance_valid(bg_no):
@@ -1658,6 +1738,9 @@ func _ir_para_menu() -> void:
 		portal.queue_free()
 	portal = null
 	portal_idade = 0.0
+	if protetor != null and is_instance_valid(protetor):
+		protetor.queue_free()
+	protetor = null
 	if portal_label != null:
 		portal_label.visible = false
 	if player != null and is_instance_valid(player):

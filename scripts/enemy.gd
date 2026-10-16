@@ -1,7 +1,7 @@
 extends Node2D
-# Inimigos: small | turret | boss
+# Inimigos: small | guard | turret | boss
 
-var tipo := "small" # small | turret | boss | bonus | bonus2
+var tipo := "small" # small | guard | turret | boss | bonus | bonus2
 var hp := 9
 var hp_max := 9
 var tempo := 0.0
@@ -22,6 +22,19 @@ var pe0 := Vector2.ZERO
 var pe1 := Vector2.ZERO
 var pec := Vector2.ZERO
 var brilho_nucleo: Sprite2D = null
+# --- nave protetora do portal ("guard") -------------------------------
+# Ela e o unico alvo que os tiros NORMAIS nao furam: levar_dano vira
+# deflector. A unica coisa que machuca e o super raio, via levar_dano_super.
+var imune := false
+# sai de dentro do portal: nasce la dentro e desliza ate a posicao de
+# cruzeiro antes de comecar a brigar
+var saindo_do_portal := false
+var t_portal := 0.0
+var pos_portal := Vector2(270, 310)
+var pos_cruzeiro := Vector2(270, 300)
+# quanto de tiro normal bateu nela e foi devolvido (faisca do escudo)
+var deflection := 0.0
+# o player sobreviveu a ultima onda? (so pra msg de vitoria)
 
 signal quer_atirar(pos: Vector2, grande: bool)
 
@@ -84,6 +97,30 @@ func setup(p_tipo: String, p_pos: Vector2, p_dir: Vector2 = Vector2(0, 1)) -> vo
 		pe0 = p_pos
 		pe1 = Vector2(clampf(base_x, 100.0, 440.0), randf_range(90.0, 170.0))
 		pec = (pe0 + pe1) * 0.5 + Vector2(randf_range(-160.0, 160.0), -40.0)
+	elif tipo == "guard":
+		# NAVE PROTETORA DO PORTAL. Forte, desvia e e imune a tiro normal:
+		# so o super raio triplo furla ela. Nasce DENTRO do portal e sai.
+		hp = 260
+		hp_max = 260
+		vel_base = 0.0
+		imune = true
+		saindo_do_portal = true
+		t_portal = 0.0
+		pos_portal = p_pos
+		pos_cruzeiro = Vector2(clampf(p_pos.x, 120.0, 420.0), 300.0)
+		base_x = pos_cruzeiro.x
+		if ResourceLoader.exists("res://assets/protetor.png"):
+			_criar_sprite("res://assets/protetor.png", 210.0, "")
+			# ela aparece DENTRO de um portal laranja e brilliant, e o
+			# casco dela e preto. Com o aro laranja padrao dos inimigos ela
+			# se camuflava no vortice. Aqui o aro vai ciano e o fundo escuro
+			# (no _draw) cria o contraste que faltava.
+			if sprite != null and sprite.material is ShaderMaterial:
+				var cm := sprite.material as ShaderMaterial
+				cm.set_shader_parameter("cor", Color(0.02, 0.05, 0.06, 1.0))
+				cm.set_shader_parameter("espessura", 0.009)
+				cm.set_shader_parameter("brilho_borda", 0.95)
+				cm.set_shader_parameter("cor_brilho", Color(0.35, 1.0, 0.80, 1.0))
 	elif tipo == "boss":
 		hp = 120
 		hp_max = 120
@@ -215,6 +252,50 @@ func _process(delta: float) -> void:
 			if tempo > 2.0:
 				vivo = false
 				queue_free()
+	elif tipo == "guard":
+		deflection = maxf(0.0, deflection - delta * 3.0)
+		if saindo_do_portal:
+			# emerge do portal: nasce dentro do vortice e desliza ate a
+			# posicao de cruzeiro. O scale vai de 0.25 a 1 (ela "materializa")
+			t_portal += delta / 1.3
+			var k := minf(1.0, t_portal)
+			var e := 1.0 - pow(1.0 - k, 2.0)
+			position = pos_portal.lerp(pos_cruzeiro, e)
+			if sprite != null:
+				sprite.scale = escala0 * (0.25 + 0.75 * e)
+				sprite.modulate.a = e
+			rotation = (1.0 - e) * 0.6
+			if k >= 1.0:
+				saindo_do_portal = false
+				if sprite != null:
+					sprite.scale = escala0
+					sprite.modulate = Color(1, 1, 1, 1)
+				rotation = 0.0
+			queue_redraw()
+			return
+		# ja saiu: fica perto do portal e DESVIA. Tres senoides somados
+		# (lenta + media + rapida) nao dao um padrao legivel, dai a
+		# sensação de que ela esta esquivando de proposito.
+		position.x = pos_cruzeiro.x + sin(tempo * 1.5) * 82.0 + sin(tempo * 2.9 + 1.1) * 34.0
+		position.y = pos_cruzeiro.y + sin(tempo * 1.9) * 20.0
+		rotation = cos(tempo * 1.5) * 0.11 + sin(tempo * 2.9) * 0.05
+		if sprite != null:
+			var resp := 1.0 + 0.02 * sin(tempo * 4.0)
+			sprite.scale = escala0 * resp
+			# aro esverdeado enquanto o escudo deflecta tiro normal
+			if deflection > 0.0:
+				var i2 := int(tempo * 30.0) % 2
+				sprite.modulate = Color(0.7, 1.0, 0.75) if i2 == 0 else Color(1, 1, 1)
+			else:
+				sprite.modulate = Color(1, 1, 1, 1)
+		# atira no player; leque de 3 quando esta ferida
+		if randf() < delta * 0.85:
+			quer_atirar.emit(position + Vector2(0, 70), false)
+		if hp < hp_max * 0.5 and randf() < delta * 0.55:
+			quer_atirar.emit(position + Vector2(-60, 64), false)
+			quer_atirar.emit(position + Vector2(60, 64), false)
+		queue_redraw()
+		return
 	elif tipo == "turret":
 		position.y += vel_base * delta
 		if position.y > 40 and position.y < 820 and randf() < delta * 0.55:
@@ -289,6 +370,13 @@ func atordoar(segundos: float = 2.0) -> void:
 
 
 func levar_dano(d: int) -> bool:
+	# A NAVE PROTETORA e imune a tiro normal. O tiro acerta, faz faisca e
+	# some — e isso DE PROPONTO: so o super raio triplo a machuca, e o
+	# jogador precisa descobrir isso.
+	if imune:
+		deflection = 1.0
+		flash = maxf(flash, 0.55)
+		return false
 	hp -= d
 	flash = 1.0
 	if sprite != null and tipo != "boss":
@@ -299,10 +387,51 @@ func levar_dano(d: int) -> bool:
 		return true
 	return false
 
+
+# unico caminho que tira vida da nave protetora: o super raio.
+func levar_dano_super(d: int) -> bool:
+	var era_imune := imune
+	imune = false
+	var morreu := levar_dano(d)
+	imune = era_imune
+	return morreu
+
 func _draw() -> void:
 	if tem_sprite and sprite != null:
 		if tipo == "boss":
 			draw_circle(Vector2.ZERO, 100, Color(1.0, 0.15, 0.1, 0.12))
+			return
+		elif tipo == "guard":
+			# fundo escuro atras do casco: sem isso a nave preta desaparece
+			# dentro do vortice laranja que esta logo atras dela
+			draw_circle(Vector2.ZERO, 108, Color(0.02, 0.03, 0.06, 0.62))
+			# aro de escudo: mostra que tiro normal NAO entra. Acende
+			# forte no instante em que um tiro e devolvido, e fica sempre
+			# com um brilho de fundo fraco pra leitura.
+			var pulso := 0.72 + 0.28 * sin(tempo * 3.4)
+			var d := deflection
+			var a_aro := (0.28 + 0.22 * pulso) + d * 0.50
+			var cor_aro := Color(0.35, 1.0, 0.72, a_aro).lerp(Color(1.0, 1.0, 0.75, a_aro + 0.25), d)
+			draw_circle(Vector2.ZERO, 104, Color(cor_aro.r, cor_aro.g, cor_aro.b, a_aro * 0.22))
+			draw_arc(Vector2.ZERO, 104, 0.0, TAU, 40, cor_aro, 3.0, true)
+			# arco de energia girando por fora
+			var g := tempo * 2.1
+			draw_arc(Vector2.ZERO, 114, g, g + 2.4, 24,
+				Color(0.45, 1.0, 0.80, 0.38 + 0.30 * d), 2.4, true)
+			draw_arc(Vector2.ZERO, 114, -g * 0.7 + PI, -g * 0.7 + PI + 1.8, 20,
+				Color(0.25, 1.0, 0.65, 0.28 + 0.30 * d), 2.4, true)
+			# barrinha de vida: so aparece depois que ela saiu do portal.
+			# Contra-rotacionada, senao ela gira junto com a nave e vira
+			# um risco torto em cima da nave.
+			if not saindo_do_portal:
+				var w := 160.0
+				var frac := clampf(float(hp) / float(hp_max), 0.0, 1.0)
+				draw_set_transform(Vector2.ZERO, -rotation, Vector2.ONE)
+				draw_rect(Rect2(-w * 0.5 - 3, -132, w + 6, 14), Color(0, 0, 0, 0.75), true)
+				draw_rect(Rect2(-w * 0.5, -129, w, 8), Color(0.18, 0.04, 0.05, 1.0), true)
+				draw_rect(Rect2(-w * 0.5, -129, w * frac, 8), Color(1.0, 0.28, 0.28, 0.95), true)
+				draw_rect(Rect2(-w * 0.5 - 3, -132, w + 6, 14), Color(0.5, 1.0, 0.85, 0.45), false, 1.4)
+				draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 			return
 		elif tipo == "bonus":
 			# sprite do upgrade + glow + barrinha de vida
@@ -315,6 +444,8 @@ func _draw() -> void:
 			return
 	if tipo == "small":
 		_draw_small()
+	elif tipo == "guard":
+		return
 	elif tipo == "turret":
 		_draw_turret()
 	elif tipo == "bonus":

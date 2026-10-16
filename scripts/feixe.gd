@@ -13,6 +13,10 @@ var life := 2.0
 var age := 0.0
 var alvo := Vector2(0, -600)     # ponto de convergencia (inimigo)
 var tem_alvo := false
+# no de verdade, para o raio ACOMPANHAR o alvo enquanto ele se mexe.
+# Sem isso a nave protetora do portal (que desvia o tempo todo) nunca era
+# acertada: o feixe apontava para onde ela ESTAVA no momento do disparo.
+var alvo_nodo: Node2D = null
 var glow: Sprite2D = null
 
 # Os 3 raios saem do MESMO ponto (centro/nucleo da nave) e abrem em leque
@@ -115,6 +119,12 @@ func _process(delta: float) -> void:
 		queue_free()
 		return
 	position = Vector2(player.position.x, player.position.y - 40.0)
+
+	# o alvo se move, entao o ponto de convergencia e refeito todo frame.
+	# Sem isso o raio ficaria parado onde o alvo estava no disparo.
+	if alvo_nodo != null and is_instance_valid(alvo_nodo):
+		alvo = alvo_nodo.position
+		tem_alvo = true
 
 	if glow != null:
 		var gs := 52.0 + 10.0 * sin(age * 22.0)

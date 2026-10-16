@@ -201,6 +201,18 @@ func _criar_sprite_boss() -> void:
 		brilho_nucleo.position = Vector2(0, 30)
 		brilho_nucleo.modulate = Color(1, 0.3, 0.15, 0.4)
 		add_child(brilho_nucleo)
+	# barra de vida do chefe no mesmo estilo da protetora: HUD bar no modo
+	# liquido, acima da nave. Cor laranja-avermelhada (boss). Vai acompanhando
+	# o tilt, como no guardiao.
+	var bb := preload("res://scripts/hud_bar.gd").new()
+	bb.set("cor", Color(1.0, 0.30, 0.12))
+	bb.set("cor_fundo", Color(0.18, 0.04, 0.02))
+	bb.set("liquido", true)
+	bb.size = Vector2(200.0, 14.0)
+	bb.position = Vector2(-100.0, -148.0)
+	bb.call("definir", float(hp), float(hp_max))
+	add_child(bb)
+	barra_hp = bb
 
 func _fazer_brilho() -> ImageTexture:
 	var tam := 64

@@ -94,7 +94,7 @@ func _ready() -> void:
 				# ela some no meio do cenario. Aqui ela ganha 225.
 				var h := float(tex.get_height())
 				if h > 0:
-					var alvo: float = 225.0 if pp.contains("nave_duende") else 185.0
+					var alvo: float = 191.0 if pp.contains("nave_duende") else 185.0
 					var s := alvo / h
 					sprite.scale = Vector2(s, s)
 				# shader so nas imagens antigas (fundo preto assado)

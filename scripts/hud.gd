@@ -1,7 +1,7 @@
 extends CanvasLayer
-# HUD: PONTOS no canto superior esquerdo, escudo e arma embaixo. O canto
-# superior direito fica VAZIO de proposito (nada de "VIDAS", "FASE" nem
-# icones de vida).
+# HUD: no rodape, escudo + super a esquerda e PONTOS a direita. Os cantos
+# SUPERIORES ficam vazios de proposito (nada de "VIDAS", "FASE" nem icones
+# de vida), para nao competir com o cenario.
 
 var lbl_pontos_val: Label
 var bar_escudo: Control
@@ -19,23 +19,45 @@ var fonte_horror: Font = null
 func _ready() -> void:
 	if ResourceLoader.exists("res://assets/horror.ttf"):
 		fonte_horror = load("res://assets/horror.ttf") as Font
-	# PONTOS
+	# ---------------------------------------------------------------
+	# PONTOS — canto INFERIOR DIREITO, num painel arredondado.
+	# Antes ficava no canto superior esquerdo com a horror.ttf (que tem
+	# pingos de tinta) e nao combinava com o resto. Agora: painel escuro
+	# com cantos redondos, filete verde na esquerda, rotulo pequeno com
+	# espacamento entre letras e o numero grande alinhado a direita.
+	# ---------------------------------------------------------------
+	var painel := Panel.new()
+	painel.position = Vector2(348, 890)
+	painel.size = Vector2(176, 56)
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.02, 0.06, 0.04, 0.62)
+	sb.set_corner_radius_all(10)
+	sb.set_border_width_all(1)
+	sb.border_color = Color(0.25, 1.0, 0.45, 0.22)
+	# filete de cor a esquerda: da o acento de "painel ativo"
+	sb.border_width_left = 3
+	sb.border_color = Color(0.25, 1.0, 0.45, 0.75)
+	painel.add_theme_stylebox_override("panel", sb)
+	add_child(painel)
+
 	var lbl_pontos := Label.new()
-	lbl_pontos.text = "PONTOS"
-	lbl_pontos.position = Vector2(18, 12)
-	lbl_pontos.add_theme_font_size_override("font_size", 20)
-	if fonte_horror != null:
-		lbl_pontos.add_theme_font_override("font", fonte_horror)
-	lbl_pontos.add_theme_color_override("font_color", Color(0.8, 0.9, 0.85))
+	lbl_pontos.text = "P O N T O S"
+	lbl_pontos.position = Vector2(362, 897)
+	lbl_pontos.size = Vector2(150, 16)
+	lbl_pontos.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	lbl_pontos.add_theme_font_size_override("font_size", 11)
+	lbl_pontos.add_theme_color_override("font_color", Color(0.45, 0.85, 0.55, 0.85))
 	add_child(lbl_pontos)
 
 	lbl_pontos_val = Label.new()
 	lbl_pontos_val.text = "000000"
-	lbl_pontos_val.position = Vector2(18, 34)
-	lbl_pontos_val.add_theme_font_size_override("font_size", 30)
-	if fonte_horror != null:
-		lbl_pontos_val.add_theme_font_override("font", fonte_horror)
+	lbl_pontos_val.position = Vector2(352, 913)
+	lbl_pontos_val.size = Vector2(160, 30)
+	lbl_pontos_val.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	lbl_pontos_val.add_theme_font_size_override("font_size", 28)
 	lbl_pontos_val.add_theme_color_override("font_color", verde)
+	# SEM a horror.ttf aqui de proposito: a fonte de pingos e o que
+	# deixava o HUD com cara de coisa antiga.
 	add_child(lbl_pontos_val)
 
 	# CANTO SUPERIOR DIREITO VAZIO DE PROPOSITO.
@@ -45,18 +67,33 @@ func _ready() -> void:
 	# fase. A quantidade de vidas agora so aparece quando acaba.
 	# (o script vidas_icons.gd continua no projeto, so nao e instanciado)
 
+	# PAINEL DO RODAPE ESQUERDO: mesmo visual do painel de PONTOS, para os
+	# dois blocos de status lerem como um sistema so.
+	var painel_esc := Panel.new()
+	painel_esc.position = Vector2(8, 886)
+	painel_esc.size = Vector2(204, 60)
+	var sb2 := StyleBoxFlat.new()
+	sb2.bg_color = Color(0.02, 0.06, 0.04, 0.62)
+	sb2.set_corner_radius_all(10)
+	sb2.set_border_width_all(1)
+	sb2.border_color = Color(0.25, 1.0, 0.45, 0.22)
+	sb2.border_width_left = 3
+	sb2.border_color = Color(0.25, 1.0, 0.45, 0.75)
+	painel_esc.add_theme_stylebox_override("panel", sb2)
+	add_child(painel_esc)
+
 	# ESCUDO: icone + barra (sem texto). Fica na faixa de cima da rodape, pra
 	# deixar espaco logo abaixo pro liquido do super tiro.
 	var ico_esc = preload("res://scripts/hud_icon.gd").new()
 	ico_esc.set("modo", "escudo")
-	ico_esc.position = Vector2(14, 896)
+	ico_esc.position = Vector2(18, 894)
 	ico_esc.size = Vector2(24, 24)
 	add_child(ico_esc)
 
 	bar_escudo = preload("res://scripts/hud_bar.gd").new()
 	bar_escudo.set("cor", verde)
 	bar_escudo.set("cor_fundo", Color(0.04, 0.14, 0.07))
-	bar_escudo.position = Vector2(42, 900)
+	bar_escudo.position = Vector2(46, 898)
 	bar_escudo.size = Vector2(160, 16)
 	bar_escudo.set("liquido", true)
 	bar_escudo.set("valor", 1.0)

@@ -422,7 +422,9 @@ func _entrar_dimensao2() -> void:
 		player.visible = false
 	for e in inimigos:
 		if is_instance_valid(e):
-			_fx_explosao((e as Node2D).position, false)
+			# SEM SOM: antes estourava o mesmo estrondo UMA VEZ POR INIMIGO,
+			# entao 4 inimigos = 4 estrondos sobrepostos ao entrar no portal.
+			_fx_explosao((e as Node2D).position, false, false)
 			e.queue_free()
 	inimigos.clear()
 	_mostrar_transicao()
@@ -776,7 +778,11 @@ func _dano_do_raio(delta: float) -> void:
 				_registrar_abate()
 				e.call("levar_dano", 99999)
 				_kill_confirm(ep, 100, Color(0.5, 1.0, 0.55))
-				_fx_explosao(ep, false, true)
+				# SEM SOM: cada nave limpa pelo raio estourava com o mesmo estrondo de
+				# explosao. Com 4 na tela, o super tiro tocava o boom varias
+				# vezes seguidas. O estrondo no seu lugar fica a charge_fx
+				# do player.
+				_fx_explosao(ep, false, false)
 				hitstop(0.04)
 				add_trauma(0.18)
 			elif tipo_e == "boss":
@@ -818,10 +824,13 @@ func _on_super_tiro(pos: Vector2) -> void:
 		add_child(b)
 		b.call("setup", pos, Vector2(0, -520), true, 10, true)
 		tiros.append(b)
-	_fx_explosao(pos, false)
-	if sfx != null:
-		sfx.call("explosao")
-		sfx.call("boss")
+	# SEM SOM: o estrondo de explosao no super raio era alto demais. Antes
+	# ainda tocava DOIS estrondos juntos — um daqui e outro do
+	# sfx.call("explosao") logo abaixo.
+	_fx_explosao(pos, false, false)
+	# Para reativar o som:
+	# if sfx != null:
+	# 	sfx.call("explosao")
 
 func _on_enemy_atirar(pos: Vector2, grande: bool = false) -> void:
 	var b := Node2D.new()
@@ -953,7 +962,7 @@ func _atualizar_flash(delta: float) -> void:
 		if flash_t <= 0.0:
 			flash_forca = 0.0
 
-func _fx_explosao(pos: Vector2, grande: bool, com_som: bool = true) -> void:
+func _fx_explosao(pos: Vector2, grande: bool, com_som: bool = false) -> void:
 	if tex_explode_seq.size() == 4:
 		# sequencia de 4 frames
 		var es := Node2D.new()

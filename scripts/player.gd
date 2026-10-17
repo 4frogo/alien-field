@@ -10,6 +10,7 @@ var usa_analogico := false
 
 signal atirar(pos: Vector2)
 signal super_tiro(pos: Vector2)
+signal shuriken_tiro(pos: Vector2)
 
 # Topo da faixa reservada ao HUD (barras de escudo + super tiro).
 # A nave e mantida acima desse valor.
@@ -25,6 +26,12 @@ var usa_propulsor_png := false
 var carregando := false
 var carga := 0.0
 var carga_max := 3.0
+# SHURIKEN (caixa vermelha): municao + carga propria (mais rapida que o
+# super). Enquanto houver municao, segurar L carrega a SHURIKEN em vez do
+# super tiro; soltar lanca ela.
+var shuriken_cargas := 0
+var carga_max_shuriken := 0.85
+var usando_shuriken := false
 var trail: Node2D = null
 var dash_t := 0.0
 var dash_cd := 0.0
@@ -83,14 +90,23 @@ func escudo_atingido() -> void:
 func set_equipado(on: bool) -> void:
 	if arma_equip != null:
 		arma_equip.visible = on and (invencivel <= 0 or int(Time.get_ticks_msec() / 100) % 2 == 1)
+	if on:
+		shuriken_cargas = 3
 
 func carga_progress() -> float:
 	if not carregando:
 		return 0.0
-	return clampf((carga - 0.45) / (carga_max - 0.45), 0.0, 1.0)
+	var alvo_carga: float = carga_max_shuriken if usando_shuriken else carga_max
+	return clampf((carga - 0.45) / (alvo_carga - 0.45), 0.0, 1.0)
 
 func carga_pronta() -> bool:
-	return carregando and carga >= carga_max
+	var alvo_carga: float = carga_max_shuriken if usando_shuriken else carga_max
+	return carregando and carga >= alvo_carga
+
+
+# mutacao para a UI saber quantas shurikens restam
+func shuriken_restantes() -> int:
+	return shuriken_cargas
 
 func _fazer_textura_radial(tam: int = 128) -> ImageTexture:
 	var img := Image.create(tam, tam, false, Image.FORMAT_RGBA8)
@@ -322,9 +338,12 @@ func _process(delta: float) -> void:
 		if not carregando:
 			carregando = true
 			carga = 0.0
+			# se tem municao de shuriken, carrega a shuriken em vez do super
+			usando_shuriken = shuriken_cargas > 0
 		carga += delta
-		if carga < 0.45:
-			# rajada normal no inicio
+		var alvo_carga: float = carga_max_shuriken if usando_shuriken else carga_max
+		if carga < 0.45 and not usando_shuriken:
+			# rajada normal no inicio (so no modo super)
 			if shoot_cooldown <= 0:
 				shoot_cooldown = 0.18
 				var offset_y := -60.0 if tem_sprite else -38.0
@@ -332,11 +351,15 @@ func _process(delta: float) -> void:
 		# depois de 0.45s para de atirar e so carrega
 	else:
 		if carregando:
-			if carga >= carga_max:
-				var offset_y := -70.0 if tem_sprite else -48.0
+			var offset_y := -70.0 if tem_sprite else -48.0
+			if usando_shuriken and carga >= carga_max_shuriken:
+				shuriken_tiro.emit(position + Vector2(0, offset_y))
+				shuriken_cargas = max(0, shuriken_cargas - 1)
+			elif carga >= carga_max:
 				super_tiro.emit(position + Vector2(0, offset_y))
 			carregando = false
 			carga = 0.0
+			usando_shuriken = false
 	# atualiza fx plasma + tremor de perigo
 	if charge_fx != null:
 		if carregando and carga >= 0.45:
@@ -347,6 +370,13 @@ func _process(delta: float) -> void:
 			if charge_mat != null:
 				charge_mat.set_shader_parameter("charge", k)
 				charge_mat.set_shader_parameter("speed", 3.5 + 4.0 * k)
+				# cor da carga: laranja quando e shuriken, verde quando e super
+				if usando_shuriken:
+					charge_mat.set_shader_parameter("cor_a", Color(1.0, 0.45, 0.10))
+					charge_mat.set_shader_parameter("cor_b", Color(1.0, 0.92, 0.60))
+				else:
+					charge_mat.set_shader_parameter("cor_a", Color(0.10, 0.95, 0.28))
+					charge_mat.set_shader_parameter("cor_b", Color(0.45, 1.0, 0.60))
 			# tremor cresce com a carga (perigo), respeitando a faixa do HUD
 			var tremor := k * k * 7.0
 			position.x = clamp(position.x + randf_range(-tremor, tremor),

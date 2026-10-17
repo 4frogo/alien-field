@@ -1,7 +1,8 @@
 extends Sprite2D
-# Aura de chama na nave enquanto a arma (Gunn) esta ativa.
-# Separate da bolha de escudo (escudo_bolha.gd): sao dois efeitos que
-# podem coexistir. Se o shader falhar, o no simplesmente nao aparece.
+# AURA DE CHAMA — envolve a nave enquanto a arma (Gunn) esta ativa.
+# Nao e um escudo: e "a nave pegando fogo" de arma equipada.
+# Diferente da bolha de escudo (escudo_bolha.gd): esta dura o tempo todo
+# do tiro triplo (15s). Se o shader falhar, o no simplesmente nao aparece.
 
 var mat: ShaderMaterial = null
 var t := 0.0

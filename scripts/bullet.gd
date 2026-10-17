@@ -23,14 +23,19 @@ var plasma: Sprite2D = null
 var fx_plasma: Sprite2D = null
 var _plasma_mat: ShaderMaterial = null
 
-func setup_disparo(p: Vector2, v: Vector2, qual: int = 0) -> void:
+# escala do projetil: a caixa VERDE aumenta os disparos normais, entao
+# o raio de colisao e o tamanho desenhado crescem junto (area maior).
+var escala := 1.0
+
+func setup_disparo(p: Vector2, v: Vector2, qual: int = 0, p_escala: float = 1.0) -> void:
 	# tiro normal desenhado a mao: raio de energia (sem imagem)
 	position = p
 	vel = v
 	amigo = true
 	dano = 1
 	e_disparo = true
-	raio = 9.0
+	escala = clampf(p_escala, 0.5, 4.0)
+	raio = 9.0 * escala
 	fx = null
 	fx_fase = float(qual) * 2.1 + randf() * 0.6
 
@@ -259,21 +264,22 @@ func _draw() -> void:
 		# raio de energia desenhado a mao, tremeluzindo
 		var t := tempo * 25.0 + fx_fase
 		var pul := 1.0 + 0.12 * sin(t)
+		var s := escala     # caixa verde deixa o tiro maior (area maior)
 		# rastro: glow na base + tracer atras
-		draw_circle(Vector2(0, 12), 5.0, Color(0.15, 0.9, 0.35, 0.25))
-		draw_circle(Vector2(0, 8), 3.0, Color(0.4, 1.0, 0.5, 0.4))
-		_rastro(Vector2.DOWN, 34.0, 3.6, Color(0.3, 1.0, 0.5))
+		draw_circle(Vector2(0, 12 * s), 5.0 * s, Color(0.15, 0.9, 0.35, 0.25))
+		draw_circle(Vector2(0, 8 * s), 3.0 * s, Color(0.4, 1.0, 0.5, 0.4))
+		_rastro(Vector2.DOWN, 34.0 * s, 3.6 * s, Color(0.3, 1.0, 0.5))
 		# corpo: losango alongado em 3 camadas
-		var w := 6.5 * pul
-		var tip := -24.0 * pul
-		draw_colored_polygon(PackedVector2Array([Vector2(0, tip), Vector2(w, -4), Vector2(0, 12), Vector2(-w, -4)]), Color(0.15, 0.85, 0.32, 0.55))
+		var w := 6.5 * pul * s
+		var tip := -24.0 * pul * s
+		draw_colored_polygon(PackedVector2Array([Vector2(0, tip), Vector2(w, -4 * s), Vector2(0, 12 * s), Vector2(-w, -4 * s)]), Color(0.15, 0.85, 0.32, 0.55))
 		var w2 := w * 0.55
-		var tip2 := -19.0 * pul
-		draw_colored_polygon(PackedVector2Array([Vector2(0, tip2), Vector2(w2, -3), Vector2(0, 9), Vector2(-w2, -3)]), Color(0.4, 1.0, 0.55, 0.9))
+		var tip2 := -19.0 * pul * s
+		draw_colored_polygon(PackedVector2Array([Vector2(0, tip2), Vector2(w2, -3 * s), Vector2(0, 9 * s), Vector2(-w2, -3 * s)]), Color(0.4, 1.0, 0.55, 0.9))
 		var w3 := w * 0.25
-		draw_colored_polygon(PackedVector2Array([Vector2(0, tip2 + 3.0), Vector2(w3, -2), Vector2(0, 7), Vector2(-w3, -2)]), Color(0.93, 1.0, 0.94, 0.95))
+		draw_colored_polygon(PackedVector2Array([Vector2(0, tip2 + 3.0 * s), Vector2(w3, -2 * s), Vector2(0, 7 * s), Vector2(-w3, -2 * s)]), Color(0.93, 1.0, 0.94, 0.95))
 		# faisca na ponta
-		draw_circle(Vector2(sin(t * 1.7) * 2.0, tip), 2.0, Color(0.9, 1.0, 0.9, 0.8))
+		draw_circle(Vector2(sin(t * 1.7) * 2.0 * s, tip), 2.0 * s, Color(0.9, 1.0, 0.9, 0.8))
 		return
 	if e_triplo:
 		# brasa na boca

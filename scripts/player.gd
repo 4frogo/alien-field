@@ -246,10 +246,13 @@ func _process(delta: float) -> void:
 	# ---- limites de tela: a nave nao pode invadir a faixa do HUD.
 	# O clamp usa a posicao do no (centro), mas a sprite e grande, entao
 	# compensamos pela metade da altura/largura real ja escalada.
+	# COM a camera afastada (CAM_ZOOM 0.92 no main.gd) a area visivel
+	# grew ~4.6% para cada lado: o topo pode ir ate y=340 e a base
+	# continua presa no topo do HUD em 888.
 	var meia_h := _meia_altura_px()
 	var meia_w := _meia_largura_px()
 	position.x = clamp(position.x, meia_w + 8.0, 540.0 - meia_w - 8.0)
-	position.y = clamp(position.y, 400.0, minf(900.0, TOPO_HUD - meia_h - 6.0))
+	position.y = clamp(position.y, 340.0, minf(900.0, TOPO_HUD - meia_h - 6.0))
 	# impulso pros propulsores (0 parado, 1 movendo)
 	var forca_imp: float = 1.0 if dash_t > 0.0 else clampf(dir.length(), 0.0, 1.0)
 	impulso = lerpf(impulso, forca_imp, minf(1.0, (12.0 if dash_t > 0.0 else 6.0) * delta))
@@ -258,9 +261,21 @@ func _process(delta: float) -> void:
 	if trail != null:
 		trail.set("intensidade", impulso)
 
-	# efeito 3D: inclina (bank) pros lados, arfagem vertical leve
-	var alvo_rot := dir.x * 0.32
-	rotation = lerpf(rotation, alvo_rot, minf(1.0, 10.0 * delta))
+	# ---- EFEITO 3D: banking (inclinar ao virar) + arfagem vertical
+	# Usa dir_suave (a direcao JA suavizada) em vez de dir crua: assim a
+	# nave nao "dobra" no primeiro frame do input e depois volta — ela
+	# entra na curva com atraso, que e o que da peso.
+	var bank: float = dir_suave.x * 0.26
+	# arfagem (pitch): leve, e para o lado OPOSTO da subida/descida.
+	# Sobe -> nariz cai um pouco (arfagem); desce -> nariz sobe.
+	var pitch: float = -dir_suave.y * 0.06
+	# quando accelerate (dash), a nave mergulha um pouco mais
+	if dash_t > 0.0:
+		pitch -= 0.05
+	var alvo_rot: float = bank + pitch
+	# overshoot: lerp rapido, mas com uma " Elasticidade" no ganho — a
+	# nave chega rapido no angulo final e ainda tem um leve retorno.
+	rotation = lerpf(rotation, alvo_rot, minf(1.0, 12.0 * delta))
 	if not surgindo:
 		var alvo_sx := 1.0 + absf(dir.x) * 0.10
 		var alvo_sy := 1.0 - dir.y * 0.04 - absf(dir.x) * 0.03

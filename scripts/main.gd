@@ -42,6 +42,16 @@ var portal: Node2D = null
 const PORTAL_POS := Vector2(270.0, 230.0)
 const PORTAL_RAIO := 265.0
 const PORTAL_NUCLEO := 178.0
+# ------------------------------------------------- camera / enquadramento
+# CAM_ZOOM < 1.0 = camera AF ASTADA (mostra mais mundo que a tela).
+# Com 0.92 sobra ~47px de folga em cima e embaixo: a nave ganha espaco
+# para subir e descer sem encostar na borda nem no painel do HUD.
+# CAM_Y sobe um pouco junto, para a folga extra nao ficar toda embaixo.
+const CAM_ZOOM := 0.92
+const CAM_Y := 470.0
+# posicao "padrão" da camera: todo reset usa estes dois, para nao
+# voltar sozinho pra 1.0 / 480 no meio da partida.
+const CAM_POS_NORMAL := Vector2(270.0, CAM_Y)
 # nave protetora do portal: bloqueia a travessia e as caixas de tiro ate
 # ser destruida com o super raio
 var protetor: Node2D = null
@@ -197,7 +207,16 @@ func _ready() -> void:
 
 	# camera do jogo (shake/hit-stop); HUD fica parado
 	cam = Camera2D.new()
-	cam.position = Vector2(270, 480)
+	# ZOOM BASE: afastar a camera da acao (valores > 1 = ve mais longe).
+	# Antes era 1.0 (mostrava 540x960 = exatamente a tela). Com 0.92 a
+	# camera enquadra ~587x1043, sobrando ~47px de folga em cima e embaixo
+	# para a nave subir e descer sem encostar nas bordas. Como o
+	# viewport e 540x960 e o jogo e 540x960, qualquer valor diferente de
+	# 1.0 mostra alem da tela (as laterais ficam vazias, cortadas pela
+	# margem preta do navegador — por isso so mexemos no eixo Y via
+	# zoom igual nos dois eixos + posicao ajustada).
+	cam.zoom = Vector2(CAM_ZOOM, CAM_ZOOM)
+	cam.position = Vector2(270, CAM_Y)
 	add_child(cam)
 	cam.make_current()
 
@@ -615,7 +634,7 @@ func _chegada_boss() -> void:
 	if cam != null and is_instance_valid(cam):
 		var tw := create_tween()
 		tw.tween_property(cam, "zoom", Vector2(1.09, 1.09), 0.22).set_trans(Tween.TRANS_SINE)
-		tw.tween_property(cam, "zoom", Vector2.ONE, 0.45).set_trans(Tween.TRANS_SINE)
+		tw.tween_property(cam, "zoom", Vector2(CAM_ZOOM, CAM_ZOOM), 0.45).set_trans(Tween.TRANS_SINE)
 	_intro_chefe()
 
 func _intro_chefe() -> void:
@@ -981,14 +1000,14 @@ func _killcam_boss(pos: Vector2) -> void:
 	Engine.time_scale = 0.3
 	if cam != null and is_instance_valid(cam):
 		var tw := create_tween().set_parallel(true)
-		tw.tween_property(cam, "zoom", Vector2(1.4, 1.4), 0.5).set_trans(Tween.TRANS_SINE)
+		tw.tween_property(cam, "zoom", Vector2(CAM_ZOOM * 1.5, CAM_ZOOM * 1.5), 0.5).set_trans(Tween.TRANS_SINE)
 		tw.tween_property(cam, "position", Vector2(270, clampf(pos.y, 200.0, 480.0)), 0.5).set_trans(Tween.TRANS_SINE)
 	await get_tree().create_timer(1.4, true, false, true).timeout
 	if meu != morto_id:
 		return
 	if cam != null and is_instance_valid(cam):
-		cam.zoom = Vector2.ONE
-		cam.position = Vector2(270, 480)
+		cam.zoom = Vector2(CAM_ZOOM, CAM_ZOOM)
+		cam.position = CAM_POS_NORMAL
 	Engine.time_scale = 1.0
 
 func _rank_chefe() -> void:
@@ -1687,8 +1706,8 @@ func _reiniciar() -> void:
 	morto_id += 1
 	if cam != null and is_instance_valid(cam):
 		cam.offset = Vector2.ZERO
-		cam.zoom = Vector2.ONE
-		cam.position = Vector2(270, 480)
+		cam.zoom = Vector2(CAM_ZOOM, CAM_ZOOM)
+		cam.position = CAM_POS_NORMAL
 	dano_no_chefe = false
 	fase_livre = false
 	_cartao_fase()

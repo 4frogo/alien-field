@@ -49,8 +49,13 @@ func _criar_nebulosa() -> void:
 	# ColorRect e um Control: ancoras iguais (top-left) + size explicito.
 	# Nao usar FULL_RECT aqui — o size e sobrescrito depois do _ready.
 	nebulosa_scr.set_anchors_preset(Control.PRESET_TOP_LEFT)
-	nebulosa_scr.size = Vector2(540, 960)
-	nebulosa_scr.position = Vector2.ZERO
+	# tamanho maior que a tela: a camera afastada mostra alem de 540x960,
+	# e sem isso a nebulosa deixava tarja preta nas laterais
+	nebulosa_scr.size = Vector2(660, 1180)
+	# desloca pra cima/esquerda: o Camera2D esta em (270, 470), entao a
+	# nebulosa comeca em (0,0) e deixa a borda superior/inferior nua.
+	# -60/-110 garante que cobre a area visivel da camera afastada.
+	nebulosa_scr.position = Vector2(-60, -110)
 	nebulosa_scr.z_index = -20
 	nebulosa_scr.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	# Node2D wrapper: z_index do Control nao affects o draw order do mundo
@@ -113,19 +118,27 @@ func _montar_coluna(lista: Array) -> void:
 		veu_mat = _criar_veu()
 	var y_cursor := 1400.0
 	var idx := 0
-	while y_cursor > -1400.0 and idx < 12:
+	# MARGEM DA CAMERA: com a camera afastada (CAM_ZOOM 0.92 no main.gd)
+	# a area visivel passa de 540x960. Os sprites do cenario eram
+	# escalados por 540.0 e ficavam com tarja preta nas laterais.
+	# Aqui escalamos por FUNDO_LARGURA, que e maior que a tela, e
+	# centralizamos em 270 — assim o cenario cobre tudo que a camera
+	# pode mostrar.
+	const FUNDO_LARGURA := 620.0
+	const FUNDO_CX := 270.0
+	while y_cursor > -1600.0 and idx < 14:
 		var tex: Texture2D = lista[idx % lista.size()]
 		var tw := float(tex.get_width())
 		var th := float(tex.get_height())
 		if tw <= 0 or th <= 0:
 			idx += 1
 			continue
-		var s := 540.0 / tw
+		var s := FUNDO_LARGURA / tw
 		var h := th * s
 		var sp := Sprite2D.new()
 		sp.texture = tex
 		sp.scale = Vector2(s, s)
-		sp.position = Vector2(270, y_cursor - h / 2.0)
+		sp.position = Vector2(FUNDO_CX, y_cursor - h / 2.0)
 		sp.z_index = -10
 		if veu_mat != null:
 			sp.material = veu_mat
@@ -285,7 +298,7 @@ func _draw() -> void:
 		_draw_infinito()
 		return
 	# ceu
-	draw_rect(Rect2(0, 0, 540, 960), Color(0.008, 0.03, 0.02))
+	draw_rect(Rect2(-60, -110, 660, 1180), Color(0.008, 0.03, 0.02))
 	# nebulosa central verde
 	draw_circle(Vector2(270, 400), 220, Color(0.02, 0.12, 0.07, 0.55))
 	draw_circle(Vector2(270, 400), 120, Color(0.05, 0.22, 0.11, 0.5))

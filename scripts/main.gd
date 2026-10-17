@@ -574,6 +574,8 @@ func _mostrar_transicao() -> void:
 func _fim_transicao() -> void:
 	# mundo novo perigoso (imagem ainda se desfazendo por cima)
 	dimensao = 2
+	bonus_timer = 8.0
+	bonus2_timer = 9999.0
 	tempo_fase = 0.0
 	boss_ja_entrou = false
 	aviso_dragao = false
@@ -828,6 +830,9 @@ func _equipar_power() -> void:
 	if vidas <= 0:
 		return
 	pontos += 500
+	# A caixa VERMELHA (bonus2) da shuriken; a VERDE (bonus) da raio triplo.
+	# Aqui nao sabemos qual caixa foi, entao assumimos que quem chamou sabe o que faz.
+	# A logica de qual poder dar eh feita no _colisoes().
 	power_timer = 15.0
 	_num(player.position + Vector2(0, -90), "POWER!", 30, Color(0.45, 1.0, 0.6))
 	if player != null and is_instance_valid(player):
@@ -1487,14 +1492,14 @@ func _colisoes() -> void:
 					elif e.get("tipo") == "bonus2":
 						pontos += 200
 						_fx_explosao(e.position, false, false)
-						_disparar_missil()
-					else:
-						pontos += 100
-						_registrar_abate()
-						_kill_confirm(e.position, 100, Color(0.5, 1.0, 0.55))
-						_fx_explosao(e.position, false, false)
-						hitstop(0.06)
-						add_trauma(0.22)
+						# Shuriken: da 3 cargas para o jogador carregar e lancar com L
+						if player != null and is_instance_valid(player):
+							player.set("shuriken_cargas", 3)
+							_num(player.position + Vector2(0, -90), "SHURIKEN x3", 30, Color(1.0, 0.55, 0.20))
+						e.set("vivo", false)
+						e.queue_free()
+													
+													
 						# A PROTETORA tambem pode cair por TIRO NORMAL (ela
 						# nao e mais imune). Esse caminho precisa ligar a
 						# trava da tela limpa igual ao do super raio — sem

@@ -429,8 +429,10 @@ func _spawn_portal() -> void:
 	portal.position = PORTAL_POS
 	portal.set("raio", PORTAL_RAIO)
 	portal_idade = 0.0   # conta o tempo que ele fica visivel antes de poder levar
+	# SEM TEXTO "ATRAVESSE O PORTAL" (pedido do jogador): o vortice
+	# gigante no alto da tela ja convence. O rotulo fica escondido.
 	if portal_label != null:
-		portal_label.visible = true
+		portal_label.visible = false
 	# sem som ao abrir o portal (a transicao visual e o suficiente)
 	# a nave protetora sai de dentro do vortice assim que ele abre
 	_spawn_protetor(portal.position)
@@ -871,12 +873,11 @@ func _dano_do_raio(delta: float) -> void:
 					# inimigos que restarem vao embora
 					fase_livre = true
 					_limpar_inimigos_ao_vivo()
+					# SEM TEXTO nenhum apos derrubar a protetora: o portal
+					# aceso e a ausencia de inimigos ja dizem que a
+					# hora de atravessar chegou (pedido do jogador).
 					if portal_label != null:
-						portal_label.text = "PORTAL ABERTO"
-					if aviso_label != null:
-						aviso_label.text = "ATRAVESSE O PORTAL"
-						aviso_label.visible = true
-						aviso_tempo = 3.5
+						portal_label.visible = false
 				else:
 					# faisca de escudo a cada acerto, sem som
 					_kill_confirm(ep, 0, Color(0.45, 1.0, 0.55))
@@ -1445,12 +1446,10 @@ func _colisoes() -> void:
 							protetor = null
 							fase_livre = true
 							_limpar_inimigos_ao_vivo()
+							# sem texto apos a protetora cair (ver o
+							# caminho do super raio, linhas acima)
 							if portal_label != null:
-								portal_label.text = "PORTAL ABERTO"
-							if aviso_label != null:
-								aviso_label.text = "ATRAVESSE O PORTAL"
-								aviso_label.visible = true
-								aviso_tempo = 3.5
+								portal_label.visible = false
 				else:
 					if e.get("tipo") == "boss":
 						pontos += 10 * dano

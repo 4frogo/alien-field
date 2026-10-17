@@ -18,6 +18,10 @@ const TOPO_HUD := 888.0
 var sprite: Sprite2D = null
 var tem_sprite := false
 var usa_propulsor_png := false
+# (A ideia de trocar a labareda por shader foi tentada e revertida: as
+#  chamas saiam como cunhas chapadas, sem o gradiente e o nuclei branco
+#  do desenho em codigo. _draw_propulsores() continua sendo o dono do
+#  visual dos propulsores.)
 var carregando := false
 var carga := 0.0
 var carga_max := 3.0
@@ -518,9 +522,21 @@ func _draw_propulsores() -> void:
 		comp *= vis
 		larg *= vis
 
-		# --- halo suave (aditivo) ---
-		draw_circle(bico + jato * 0.5 + Vector2(0, comp * 0.18), larg * 2.4, Color(0.10, 0.95, 0.45, 0.13 * cintila * ganho * vis))
-		draw_circle(bico + jato * 0.3 + Vector2(0, comp * 0.10), larg * 1.5, Color(0.25, 1.0, 0.55, 0.18 * cintila * ganho * vis))
+		# --- halo suave: desenhado em ANEIS concentricos com alpha
+		# decrescente. Antes eram 2 draw_circle com alpha fixo, o que
+		# aparecia como um disco chapado em volta de cada motor.
+		var halo_r: float = larg * 2.4
+		var halo_c: Vector2 = bico + jato * 0.5 + Vector2(0, comp * 0.18)
+		for anel in 5:
+			var fr := 1.0 - float(anel) / 5.0          # 1.0 -> 0.2
+			var a_h: float = (0.030 + 0.022 * fr) * cintila * ganho * vis
+			draw_circle(halo_c, halo_r * fr, Color(0.10, 0.95, 0.45, a_h))
+		var halo2_r: float = larg * 1.5
+		var halo2_c: Vector2 = bico + jato * 0.3 + Vector2(0, comp * 0.10)
+		for anel2 in 4:
+			var fr2 := 1.0 - float(anel2) / 4.0
+			var a_h2: float = (0.040 + 0.030 * fr2) * cintila * ganho * vis
+			draw_circle(halo2_c, halo2_r * fr2, Color(0.25, 1.0, 0.55, a_h2))
 
 		# --- camadas da labareda, da mais larga pra mais brilhante ---
 		var perfil := [

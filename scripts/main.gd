@@ -45,6 +45,11 @@ const PORTAL_NUCLEO := 178.0
 # nave protetora do portal: bloqueia a travessia e as caixas de tiro ate
 # ser destruida com o super raio
 var protetor: Node2D = null
+# true assim que a protetora MORRE. A partir dai nada mais spawna e os
+# inimigos que restam na tela vao embora: o trecho entre o fim da
+# protetora e a entrada no portal fica limpo, so a travessia. Vira false
+# de novo quando o jogador entra no portal (nova dimensao).
+var fase_livre := false
 # Tempo que o portal precisa ficar na tela antes de poder levar a nave
 # para a dimensao 2. Sem isso ele nascia e sumia no mesmo frame.
 const PORTAL_MIN_VISIVEL := 2.6
@@ -269,10 +274,12 @@ func _ready() -> void:
 	# barrinha de carga do super tiro â€” FIXA no rodape, logo abaixo da barra de
 	# escudo. Antes ela seguia a nave e cobria o casco.
 	charge_bar = preload("res://scripts/super_bar.gd").new()
-	charge_bar.custom_minimum_size = Vector2(160, 16)
-	charge_bar.size = Vector2(160, 16)
-	charge_bar.position = Vector2(48, 918)
-	charge_bar.size = Vector2(150, 14)
+	# MESMA GRADE da barra de escudo (hud.gd): x=28, largura 176, 16px de
+	# altura, 8px de gap vertical. Antes cada barra tinha medidas proprias
+	# e o rodape ficava visivelmente torto.
+	charge_bar.custom_minimum_size = Vector2(176, 16)
+	charge_bar.size = Vector2(176, 16)
+	charge_bar.position = Vector2(28, 922)
 	# sempre visivel: vazia quando o tiro nao esta carregando
 	charge_bar.visible = true
 	hud.add_child(charge_bar)
@@ -450,9 +457,26 @@ func _spawn_protetor(pos_portal: Vector2) -> void:
 func _protetor_vivo() -> bool:
 	return protetor != null and is_instance_valid(protetor) and bool(protetor.get("vivo"))
 
+
+# Tira da tela tudo que ainda estiver voando depois da protetora cair:
+# o trecho final da dimensao 1 fica silencioso e so com o portal. Some
+# com uma explosao rapida (sem som) pra nao ser um "estou" seco.
+func _limpar_inimigos_ao_vivo() -> void:
+	for e in inimigos:
+		if not is_instance_valid(e):
+			continue
+		var ep: Vector2 = (e as Node2D).position
+		_fx_explosao(ep, false, false)
+		e.queue_free()
+	inimigos.clear()
+
+
 func _entrar_dimensao2() -> void:
 	if dimensao == 2 or em_transicao:
 		return
+	# a trava de "tela limpa" so vale na dimensao 1: na proxima os
+	# inimigos voltam a aparecer normalmente
+	fase_livre = false
 	# congela e mostra a transicao dramatica antes do mundo novo
 	em_transicao = true
 	transicao_anim = 0.0
@@ -660,6 +684,11 @@ func _spawn_turret() -> void:
 			inimigos.append(e)
 
 func _spawn_small() -> void:
+	# TRAVA DEFENSIVA: com a protetora ja derrotada (fase_livre) nada mais
+	# nasce ate a travessia do portal. O bloqueio tambem existe no timer de
+	# spawn; repetir aqui garante que nenhum outro caminho escape.
+	if fase_livre:
+		return
 	var e := Node2D.new()
 	e.set_script(EnemyScript)
 	add_child(e)
@@ -838,6 +867,10 @@ func _dano_do_raio(delta: float) -> void:
 					hitstop(0.10)
 					add_trauma(0.55)
 					protetor = null
+					# tela limpa ate a travessia: nada mais spawna e os
+					# inimigos que restarem vao embora
+					fase_livre = true
+					_limpar_inimigos_ao_vivo()
 					if portal_label != null:
 						portal_label.text = "PORTAL ABERTO"
 					if aviso_label != null:
@@ -1239,14 +1272,14 @@ func _process(delta: float) -> void:
 	bonus_timer -= delta
 	if bonus_timer <= 0:
 		bonus_timer = 30.0
-		if not _protetor_vivo():
+		if not _protetor_vivo() and not fase_livre:
 			_spawn_bonus()
 
 	# caixa vermelha a cada 25s (so com chefao)
 	bonus2_timer -= delta
 	if bonus2_timer <= 0:
 		bonus2_timer = 25.0
-		if not _protetor_vivo():
+		if not _protetor_vivo() and not fase_livre:
 			_spawn_bonus2()
 
 	# combo some sem matar por 2.5s
@@ -1315,7 +1348,8 @@ func _process(delta: float) -> void:
 		for e in inimigos:
 			if is_instance_valid(e) and e.get("tipo") == "small":
 				n_small += 1
-		if n_small < 5:
+		# apos a protetora cair a tela fica vazia ate a travessia
+		if n_small < 5 and not fase_livre:
 			_spawn_small()
 
 	_colisoes()
@@ -1403,6 +1437,20 @@ func _colisoes() -> void:
 						_fx_explosao(e.position, false, false)
 						hitstop(0.06)
 						add_trauma(0.22)
+						# A PROTETORA tambem pode cair por TIRO NORMAL (ela
+						# nao e mais imune). Esse caminho precisa ligar a
+						# trava da tela limpa igual ao do super raio — sem
+						# isso os inimigos continuavam nascendo depois.
+						if e.get("tipo") == "guard":
+							protetor = null
+							fase_livre = true
+							_limpar_inimigos_ao_vivo()
+							if portal_label != null:
+								portal_label.text = "PORTAL ABERTO"
+							if aviso_label != null:
+								aviso_label.text = "ATRAVESSE O PORTAL"
+								aviso_label.visible = true
+								aviso_tempo = 3.5
 				else:
 					if e.get("tipo") == "boss":
 						pontos += 10 * dano
@@ -1643,6 +1691,7 @@ func _reiniciar() -> void:
 		cam.zoom = Vector2.ONE
 		cam.position = Vector2(270, 480)
 	dano_no_chefe = false
+	fase_livre = false
 	_cartao_fase()
 	if pause_layer != null:
 		pause_layer.visible = false

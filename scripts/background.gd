@@ -28,6 +28,45 @@ var rng_inf := RandomNumberGenerator.new()
 var veu_mat: ShaderMaterial = null
 # parallax: camadas de destroços em velocidades diferentes
 var parallax: Array = []
+# camada procedural: nebulosa + estrelas geradas por shader (z=-20,
+# fica ATRAS das artes de cenario e preenche o vazio preto)
+var nebulosa_mat: ShaderMaterial = null
+var nebulosa_scr: ColorRect = null
+
+
+func _criar_nebulosa() -> void:
+	# desliga se o shader nao existir (fallback seguro)
+	if not ResourceLoader.exists("res://assets/nebulosa_fundo.gdshader"):
+		return
+	nebulosa_mat = ShaderMaterial.new()
+	nebulosa_mat.shader = load("res://assets/nebulosa_fundo.gdshader") as Shader
+	if nebulosa_mat.shader == null:
+		nebulosa_mat = null
+		return
+	nebulosa_scr = ColorRect.new()
+	nebulosa_scr.material = nebulosa_mat
+	nebulosa_scr.color = Color(1, 1, 1, 1)
+	# ColorRect e um Control: ancoras iguais (top-left) + size explicito.
+	# Nao usar FULL_RECT aqui — o size e sobrescrito depois do _ready.
+	nebulosa_scr.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	nebulosa_scr.size = Vector2(540, 960)
+	nebulosa_scr.position = Vector2.ZERO
+	nebulosa_scr.z_index = -20
+	nebulosa_scr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# Node2D wrapper: z_index do Control nao affects o draw order do mundo
+	var holder := Node2D.new()
+	holder.z_index = -20
+	holder.add_child(nebulosa_scr)
+	add_child(holder)
+
+
+func _atualizar_nebulosa() -> void:
+	if nebulosa_mat == null:
+		return
+	# scroll e acumulado e sempre crescente -> usa fmod pra nao estourar
+	nebulosa_mat.set_shader_parameter("scroll",
+		fmod(tempo_total * scroll_speed * 0.30, 2000.0))
+	nebulosa_mat.set_shader_parameter("tempo", fmod(tempo_total, 100.0))
 
 
 func _criar_veu() -> ShaderMaterial:
@@ -108,6 +147,7 @@ func trocar_dimensao(n: int) -> void:
 func _ready() -> void:
 	z_index = -10
 	veu_mat = _criar_veu()
+	_criar_nebulosa()
 	_criar_parallax()
 	var paths1: Array = ["res://assets/pinkpoison_seamless.png"]
 	if not ResourceLoader.exists("res://assets/pinkpoison_seamless.png"):
@@ -160,6 +200,7 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	tempo_total += delta
 	var resp := 1.0 + 0.15 * sin(tempo_total * 0.13) # respiracao: voo vivo, nao mecanico
+	_atualizar_nebulosa()
 	_atualiza_parallax(delta)
 	if use_image:
 		for i in bg_sprites.size():

@@ -24,12 +24,23 @@ var glow: Sprite2D = null
 const ABERTURA := 52.0   # quanto o leque abre ate a largura final
 const SEG := 34          # segmentos por raio
 
+# O shader de tremor eletrico (feixe_super.gdshader) fica DESLIGADO: em
+# blend_add ele soma as 5 camadas verdes e satura o raio pra branco.
+# O visual original das polylines ja e bom — o shader so fica disponivel.
+var usar_shader := false
+
 
 func setup(p: Node2D) -> void:
 	player = p
 
 
 func _ready() -> void:
+	# shader do raio: so entra se usar_shader=true (ver nota da variavel).
+	if usar_shader and ResourceLoader.exists("res://assets/feixe_super.gdshader"):
+		var fm := ShaderMaterial.new()
+		fm.shader = load("res://assets/feixe_super.gdshader") as Shader
+		if fm.shader != null:
+			material = fm
 	# halo aditivo na boca do canhao
 	glow = Sprite2D.new()
 	glow.texture = _textura_radial()
@@ -138,6 +149,12 @@ func _process(delta: float) -> void:
 	elif life < 0.35:
 		a = maxf(0.0, life / 0.35)
 	modulate.a = a
+
+	# alimenta o shader do raio
+	if material is ShaderMaterial:
+		var sm := material as ShaderMaterial
+		if sm.shader != null and sm.shader.resource_path.ends_with("feixe_super.gdshader"):
+			sm.set_shader_parameter("tempo", fmod(age, 100.0))
 	queue_redraw()
 
 

@@ -67,6 +67,13 @@ func _ready() -> void:
 	_spr.texture = _frames[0]
 	_spr.z_index = -1
 	_spr.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+	# vortex: swirl + distorcao + aberracao no sprite principal
+	if ResourceLoader.exists("res://assets/portal_vortex.gdshader"):
+		var vm := ShaderMaterial.new()
+		vm.shader = load("res://assets/portal_vortex.gdshader") as Shader
+		if vm.shader != null:
+			vm.set_shader_parameter("semente", randf() * 10.0)
+			_spr.material = vm
 	add_child(_spr)
 
 	rotation = randf_range(0.0, TAU)
@@ -106,6 +113,12 @@ func _process(delta: float) -> void:
 		_glow.scale = Vector2.ONE * (_base * resp * 1.20)
 		_glow.modulate = Color(1.0, 0.45, 0.18, 0.34 * pulso)
 		_glow.rotation = -rotation * 1.6
+
+		# alimenta o shader do vortice
+		if _spr.material is ShaderMaterial:
+			var sm := _spr.material as ShaderMaterial
+			if sm.shader != null and sm.shader.resource_path.ends_with("portal_vortex.gdshader"):
+				sm.set_shader_parameter("tempo", fmod(tempo, 100.0))
 	queue_redraw()
 
 

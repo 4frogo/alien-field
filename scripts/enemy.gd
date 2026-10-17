@@ -22,8 +22,9 @@ var pe0 := Vector2.ZERO
 var pe1 := Vector2.ZERO
 var pec := Vector2.ZERO
 var brilho_nucleo: Sprite2D = null
-# barra de vida da protetora. Mesmo desenho que o HUD do jogador
-# (liquido, menisco, bolhas) para a familia de barrinhas ficar coerente.
+# Barra de vida sobre a nave. Hoje SO o chefe usa (via HUD); a protetora
+# ficou sem barra a pedido do jogador, mas a variavel continua aqui para
+# nao quebrar as referencias antigas.
 var barra_hp: Control = null
 # --- nave protetora do portal ("guard") -------------------------------
 # Ela e o unico alvo que os tiros NORMAIS nao furam: levar_dano vira
@@ -126,17 +127,9 @@ func setup(p_tipo: String, p_pos: Vector2, p_dir: Vector2 = Vector2(0, 1)) -> vo
 				cm.set_shader_parameter("espessura", 0.008)
 				cm.set_shader_parameter("brilho_borda", 0.85)
 				cm.set_shader_parameter("cor_brilho", Color(0.88, 0.94, 1.0, 1.0))
-		# a barra de vida da protetora segue o mesmo desenho do HUD
-		# (hud_bar com liquido + menisco + bolhas). Identica a familia.
-		var hb := preload("res://scripts/hud_bar.gd").new()
-		hb.set("cor", Color(1.0, 0.30, 0.28))
-		hb.set("cor_fundo", Color(0.18, 0.04, 0.05))
-		hb.set("liquido", true)
-		hb.size = Vector2(170.0, 14.0)
-		hb.position = Vector2(-85.0, -138.0)   # top-left; barra desenha com margem zero
-		hb.call("definir", float(hp), float(hp_max))
-		add_child(hb)
-		barra_hp = hb
+		# SEM BARRA DE VIDA na protetora (pedido do jogador): barra e painel
+		# de vidro sairam daqui. As barras ficam so nos CHEFOES. A protetora
+		# mostra o estado pelas faiscas de escudo a cada acerto do super.
 	elif tipo == "boss":
 		# cheche ha mais tank: 120 era pouco, morria com 4-6 tiros do super
 		# ou com um burst de 3 projeteis triplexos. 240 deixa o tempo de
@@ -301,11 +294,9 @@ func _process(delta: float) -> void:
 		position.x = pos_cruzeiro.x + sin(tempo * 1.5) * 82.0 + sin(tempo * 2.9 + 1.1) * 34.0
 		position.y = pos_cruzeiro.y + sin(tempo * 1.9) * 20.0
 		rotation = cos(tempo * 1.5) * 0.11 + sin(tempo * 2.9) * 0.05
-		# barra de vida: correto com o tilt da nave (counter-rotation) e
-		# atualiza o valor do hp a cada frame
-		if barra_hp != null:
-			barra_hp.rotation = -rotation
-			barra_hp.call("definir", float(hp), float(hp_max))
+		# SEM barra de vida na protetora (so os chefes tem). O bloco abaixo
+		# ficava so para atualizar a barra; as faiscas de escudo no
+		# super raio ja mostram que o tiro esta pegando.
 		if sprite != null:
 			var resp := 1.0 + 0.02 * sin(tempo * 4.0)
 			sprite.scale = escala0 * resp

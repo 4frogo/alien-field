@@ -9,8 +9,33 @@ var faiscas: Array = []
 var fumaca: Array = []
 var detritos: Array = []
 var rng := RandomNumberGenerator.new()
+# camada de fogo procedural (shader) por cima do desenho em _draw()
+var fogo: Sprite2D = null
+var fogo_mat: ShaderMaterial = null
+
+func _criar_fogo() -> void:
+	# fallback seguro: se o shader nao existir, o desenho antigo assume
+	if not ResourceLoader.exists("res://assets/explosao_fogo.gdshader"):
+		return
+	fogo_mat = ShaderMaterial.new()
+	fogo_mat.shader = load("res://assets/explosao_fogo.gdshader") as Shader
+	if fogo_mat.shader == null:
+		fogo_mat = null
+		return
+	fogo = Sprite2D.new()
+	# textura 1x1 branca: o shader gera tudo, so precisa de um quad
+	var img := Image.create(4, 4, false, Image.FORMAT_RGBA8)
+	img.fill(Color(1, 1, 1, 1))
+	fogo.texture = ImageTexture.create_from_image(img)
+	fogo.material = fogo_mat
+	fogo.centered = true
+	fogo.z_index = 1
+	add_child(fogo)
+	fogo_mat.set_shader_parameter("semente", randf() * 100.0)
+	fogo_mat.set_shader_parameter("intensidade", 0.92)
 
 func setup(p: Vector2, p_cor: Color, p_tam: float) -> void:
+	_criar_fogo()
 	position = p
 	cor = p_cor
 	tamanho = p_tam
@@ -81,7 +106,21 @@ func _process(delta: float) -> void:
 		d["v"] = (d["v"] as Vector2) + Vector2(0, 90.0) * delta
 		d["p"] = (d["p"] as Vector2) + (d["v"] as Vector2) * delta
 		d["rot"] = float(d["rot"]) + float(d["spin"]) * delta
+	_atualiza_fogo()
 	queue_redraw()
+
+func _atualiza_fogo() -> void:
+	if fogo == null or fogo_mat == null:
+		return
+	var k := clampf(tempo / dur, 0.0, 1.0)
+	# diametro = raio x 2, com margem pra turbulencia nao cortar
+	var d := tamanho * 2.6 + 24.0
+	fogo.scale = Vector2(d / 4.0, d / 4.0)
+	fogo_mat.set_shader_parameter("progresso", k)
+	fogo_mat.set_shader_parameter("tamanho", tamanho)
+	fogo_mat.set_shader_parameter("cor_fogo", Vector3(cor.r, cor.g, cor.b))
+	# no comeco (flash) o fogo some: o brilho branco vem do _draw
+	fogo.visible = tempo > 0.04
 
 func _draw() -> void:
 	var k := clampf(tempo / dur, 0.0, 1.0)
@@ -93,10 +132,12 @@ func _draw() -> void:
 	var pop := sin(minf(1.0, k / 0.28) * PI) * 0.55
 	var fr := tamanho * ((1.0 - k * 0.75) + pop)
 	var fa2 := 1.0 - k
-	draw_circle(Vector2.ZERO, fr * 1.35, Color(cor.r, cor.g, cor.b, fa2 * 0.22))
-	draw_circle(Vector2.ZERO, fr, Color(cor.r, cor.g, cor.b, fa2 * 0.75))
-	draw_circle(Vector2.ZERO, fr * 0.62, Color(minf(1.0, cor.r + 0.35), cor.g + 0.2, cor.b, fa2))
-	draw_circle(Vector2.ZERO, fr * 0.32, Color(1, 0.95, 0.85, fa2))
+	if fogo == null:
+		# fallback: bola de fogo classica em circulos (so usa se o shader falhou)
+		draw_circle(Vector2.ZERO, fr * 1.45, Color(cor.r, cor.g, cor.b, fa2 * 0.30))
+		draw_circle(Vector2.ZERO, fr, Color(cor.r, cor.g, cor.b, fa2 * 0.75))
+		draw_circle(Vector2.ZERO, fr * 0.62, Color(minf(1.0, cor.r + 0.35), cor.g + 0.2, cor.b, fa2))
+		draw_circle(Vector2.ZERO, fr * 0.32, Color(1, 0.95, 0.85, fa2))
 	# onda de choque expandindo
 	var orr := tamanho * (0.3 + 1.9 * k)
 	draw_arc(Vector2.ZERO, orr, 0, TAU, 32, Color(cor.r, cor.g, cor.b, (1.0 - k) * 0.7), 3.0 * (1.0 - k) + 1.0)

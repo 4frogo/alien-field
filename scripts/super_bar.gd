@@ -28,6 +28,18 @@ var pronta := false
 var pulso := 0.0
 
 var _t := 0.0
+# Textura branca 4x4: os quads usam ela no lugar de poligono puro pra
+# que o shader de plasma tenha UV. Sem isso, o shader fica sem amostra.
+var _tex_branca: Texture2D = null
+var _plasma_mat: ShaderMaterial = null
+
+
+func _tex() -> Texture2D:
+	if _tex_branca == null:
+		var img := Image.create(4, 4, false, Image.FORMAT_RGBA8)
+		img.fill(Color(1, 1, 1, 1))
+		_tex_branca = ImageTexture.create_from_image(img)
+	return _tex_branca
 
 
 func _ready() -> void:
@@ -37,10 +49,29 @@ func _ready() -> void:
 	if custom_minimum_size.x < 1.0:
 		custom_minimum_size = Vector2(160, 16)
 		size = custom_minimum_size
+	_aplicar_plasma()
+
+
+func _aplicar_plasma() -> void:
+	# plasma procedural na barra do super tiro
+	if not ResourceLoader.exists("res://assets/plasma_barra.gdshader"):
+		return
+	_plasma_mat = ShaderMaterial.new()
+	_plasma_mat.shader = load("res://assets/plasma_barra.gdshader") as Shader
+	if _plasma_mat.shader == null:
+		_plasma_mat = null
+		return
+	_plasma_mat.set_shader_parameter("cor_plasma", _cor())
+	_plasma_mat.set_shader_parameter("cor_quente", Color(1.0, 0.92, 0.45))
+	_plasma_mat.set_shader_parameter("velocidade", 1.6)
+	material = _plasma_mat
 
 
 func _process(delta: float) -> void:
 	_t += delta
+	if _plasma_mat != null:
+		_plasma_mat.set_shader_parameter("tempo", fmod(_t, 100.0))
+		_plasma_mat.set_shader_parameter("progresso", clampf(prog, 0.0, 1.0))
 	if not visible:
 		return
 	if pronta:
@@ -99,6 +130,11 @@ func _pt(x: float, y: float) -> Vector2:
 func _quad(x0: float, y0: float, x1: float, y1: float, col: Color) -> void:
 	if x1 - x0 < 0.05 or y1 - y0 < 0.05:
 		return
+	# SK e 0, entao o quad e um retangulo alinhado: com plasma ativado
+	# desenhamos a textura branca (mascara+UV) em vez do poligono.
+	if _plasma_mat != null:
+		draw_texture_rect(_tex(), Rect2(_pt(x0, y0), Vector2(x1 - x0, y1 - y0)), false, col)
+		return
 	draw_colored_polygon(PackedVector2Array([
 		_pt(x0, y0), _pt(x1, y0), _pt(x1, y1), _pt(x0, y1),
 	]), col)
@@ -128,10 +164,10 @@ func _draw() -> void:
 		_quad(-5, -5, w + 5, h + 5, Color(c.r, c.g, c.b, ga * 0.45))
 		_quad(-9, -9, w + 9, h + 9, Color(c.r, c.g, c.b, ga * 0.22))
 
-	# ---- camera vazia: fundo escuro no tom do plasma, pra parecer uma
-	# camara esperando encher em vez de um buraco preto
-	_quad(0, 0, w, h, Color(fundo.r, fundo.g, fundo.b, 0.55))
-	_quad(0, 0, w, h * 0.45, Color(0, 0, 0, 0.30))
+	# ---- camera vazia: NADA. O painel de vidro do HUD da o fundo; qualquer
+	# retangulo aqui era pintado pelo shader de plasma e virava um bloco
+	# verde solido por cima do painel.
+	pass
 
 	var pad := 1.5
 	var y0: float = pad + 1.0
@@ -226,13 +262,9 @@ func _draw() -> void:
 		draw_circle(_pt(cx, cy), 5.5 + 2.0 * sin(_t * 6.0), Color(c.r, c.g, c.b, 0.20))
 		draw_circle(_pt(cx, cy), 2.4 + 1.2 * sin(_t * 10.0), Color(clara.r, clara.g, clara.b, 0.55))
 
-	# ---- moldura
-	var bc: Color = clara if pronta else Color(c.r, c.g, c.b, 0.9)
-	var bw: float = 2.0 if pronta else 1.4
-	var mold := PackedVector2Array([
-		_pt(0, 0), _pt(w, 0), _pt(w, h), _pt(0, h), _pt(0, 0),
-	])
-	draw_polyline(mold, bc, bw, true)
+	# SEM moldura: o painel de vidro ja desenha a borda. Manter aqui
+	# duplicava o contorno e apertava as duas barras visualmente.
+	pass
 
 	# SEM chanfros: eles dependiam do BEVEL, que foi a 0 junto com o SK.
 	# Com os dois em zero eles viravam linhas de comprimento zero.

@@ -1,13 +1,16 @@
 extends CanvasLayer
-# HUD: no rodape, escudo + super a esquerda e PONTOS a direita. Os cantos
-# SUPERIORES ficam vazios de proposito (nada de "VIDAS", "FASE" nem icones
-# de vida), para nao competir com o cenario.
+# HUD: so o rodape esquerdo (escudo + super tiro) dentro de um painel de
+# vidro. O contador de PONTOS foi removido, os icones de vida sairam antes
+# e os cantos SUPERIORES ficam vazios de proposito — a nao compete com o
+# cenario.
 
-var lbl_pontos_val: Label
 var bar_escudo: Control
 # ultimo valor de vidas recebido. Os icones do canto da tela sairam, mas
 # o main.gd continua mandando esse numero e o game over depende dele.
 var _vidas_atual := 3
+# idem para os pontos: o contador saiu da tela, mas a pontuacao continua
+# sendo calculada e mostrada no fim da fase.
+var _pontos_atual := 0
 var lbl_boss: Label
 var bar_boss: Control
 var retrato_boss: Sprite2D
@@ -26,41 +29,11 @@ func _ready() -> void:
 	# com cantos redondos, filete verde na esquerda, rotulo pequeno com
 	# espacamento entre letras e o numero grande alinhado a direita.
 	# ---------------------------------------------------------------
-	var painel := Panel.new()
-	painel.position = Vector2(348, 890)
-	painel.size = Vector2(176, 56)
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.02, 0.06, 0.04, 0.62)
-	sb.set_corner_radius_all(10)
-	sb.set_border_width_all(1)
-	sb.border_color = Color(0.25, 1.0, 0.45, 0.22)
-	# filete de cor a esquerda: da o acento de "painel ativo"
-	sb.border_width_left = 3
-	sb.border_color = Color(0.25, 1.0, 0.45, 0.75)
-	painel.add_theme_stylebox_override("panel", sb)
-	add_child(painel)
-
-	var lbl_pontos := Label.new()
-	lbl_pontos.text = "P O N T O S"
-	lbl_pontos.position = Vector2(362, 897)
-	lbl_pontos.size = Vector2(150, 16)
-	lbl_pontos.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	lbl_pontos.add_theme_font_size_override("font_size", 11)
-	lbl_pontos.add_theme_color_override("font_color", Color(0.45, 0.85, 0.55, 0.85))
-	add_child(lbl_pontos)
-
-	lbl_pontos_val = Label.new()
-	lbl_pontos_val.text = "000000"
-	lbl_pontos_val.position = Vector2(352, 913)
-	lbl_pontos_val.size = Vector2(160, 30)
-	lbl_pontos_val.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	lbl_pontos_val.add_theme_font_size_override("font_size", 28)
-	lbl_pontos_val.add_theme_color_override("font_color", verde)
-	# SEM a horror.ttf aqui de proposito: a fonte de pingos e o que
-	# deixava o HUD com cara de coisa antiga.
-	add_child(lbl_pontos_val)
-
-	# CANTO SUPERIOR DIREITO VAZIO DE PROPOSITO.
+	# CONTADOR DE PONTOS REMOVIDO a pedido do jogador. O painel da direita
+	# (348,884) e o label do numero sairam juntos. A pontuacao continua
+	# sendo calculada e salva no fim da fase — so nao e mais mostrado.
+	# Para voltar, basta recriar o painel + labels aqui.
+	# ---------------------------------------------------------------
 	# Antes ficava aqui a palavra "VIDAS" e embaixo dela as 3 mini-naves
 	# de vida. Os dois foram removidos: o jogador pediu a area limpa, e
 	# o canto competia com o portal, que e a cena mais importante da
@@ -69,26 +42,15 @@ func _ready() -> void:
 
 	# PAINEL DO RODAPE ESQUERDO: mesmo visual do painel de PONTOS, para os
 	# dois blocos de status lerem como um sistema so.
-	var painel_esc := Panel.new()
-	painel_esc.position = Vector2(8, 886)
-	painel_esc.size = Vector2(204, 60)
-	var sb2 := StyleBoxFlat.new()
-	sb2.bg_color = Color(0.02, 0.06, 0.04, 0.62)
-	sb2.set_corner_radius_all(10)
-	sb2.set_border_width_all(1)
-	sb2.border_color = Color(0.25, 1.0, 0.45, 0.22)
-	sb2.border_width_left = 3
-	sb2.border_color = Color(0.25, 1.0, 0.45, 0.75)
-	painel_esc.add_theme_stylebox_override("panel", sb2)
+	var painel_esc = preload("res://scripts/hud_painel.gd").new()
+	painel_esc.position = Vector2(16, 884)
+	painel_esc.size = Vector2(208, 64)
 	add_child(painel_esc)
+	painel_esc.call("configurar", verde, Color(0.015, 0.045, 0.030, 0.70))
 
-	# ESCUDO: icone + barra (sem texto). Fica na faixa de cima da rodape, pra
-	# deixar espaco logo abaixo pro liquido do super tiro.
-	var ico_esc = preload("res://scripts/hud_icon.gd").new()
-	ico_esc.set("modo", "escudo")
-	ico_esc.position = Vector2(18, 892)
-	ico_esc.size = Vector2(22, 22)
-	add_child(ico_esc)
+	# SEM O ICONE DE ESCUDO: era aquele hexagono verde a esquerda da barra.
+	# O jogador pediu pra remover — a barra liquida sozinha ja comunica o
+	# estado do escudo. (o script hud_icon.gd continua no projeto, sem uso)
 
 	bar_escudo = preload("res://scripts/hud_bar.gd").new()
 	bar_escudo.set("cor", verde)
@@ -98,8 +60,11 @@ func _ready() -> void:
 	# daria uma barra lisa sem a animacao do liquido.
 	bar_escudo.set("moderno", false)
 	bar_escudo.set("liquido", true)
-	bar_escudo.position = Vector2(48, 897)
-	bar_escudo.size = Vector2(152, 14)
+	bar_escudo.set("trilho", true)
+	# GRADE DO RODAPE: painel em (16,884) 208x64. As duas barras ocupam
+	# x=28..204 (176px) e ficam centradas verticalmente com 8px de gap.
+	bar_escudo.position = Vector2(28, 898)
+	bar_escudo.size = Vector2(176, 16)
 	bar_escudo.set("liquido", true)
 	bar_escudo.set("valor", 1.0)
 	bar_escudo.set("alvo", 1.0)
@@ -158,11 +123,11 @@ func _ready() -> void:
 	add_child(retrato_boss)
 
 func atualizar(pontos: int, vidas: int, escudo: float) -> void:
-	lbl_pontos_val.text = "%06d" % pontos
-	# `vidas` chegou a ser usado so pelos icones de vida, que foram
-	# removidos do canto da tela. O parametro continua na assinatura
-	# porque o main.gd chama assim; dar valor a ele evita o aviso de
-	# parametro sem uso.
+	# `pontos` e `vidas` nao sao mais exibidos (contador removido e icones
+	# de vida sairam antes). Os parametros continuam na assinatura porque
+	# o main.gd chama assim; dar valor a eles evita o aviso de parametro
+	# sem uso.
+	_pontos_atual = pontos
 	_vidas_atual = vidas
 	bar_escudo.call("definir", escudo, 100.0)
 

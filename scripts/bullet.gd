@@ -16,6 +16,12 @@ var fx: Sprite2D = null
 var fx_base := Vector2.ONE
 var fx_fase := 0.0
 var plasma: Sprite2D = null
+# Rastro de plasma por SHADER (tiro_plasma.gdshader). Sprite2D separado,
+# rotacionado para a velocidade do projetil, com UV.y = cauda..ponta.
+# Se o shader nao carregar, _rastro_plasma fica null e o desenho antigo
+# em _draw() assume sem erro.
+var fx_plasma: Sprite2D = null
+var _plasma_mat: ShaderMaterial = null
 
 func setup_disparo(p: Vector2, v: Vector2, qual: int = 0) -> void:
 	# tiro normal desenhado a mao: raio de energia (sem imagem)
@@ -81,6 +87,51 @@ func setup(p: Vector2, v: Vector2, e_amigo: bool, p_dano: int = 1, p_super: bool
 		add_child(fx)
 	else:
 		raio = 8.0
+		_criar_rastro_plasma()
+
+
+# Cria o rastro procedural do tiro normal do jogador. O Sprite2D fica
+# com a origem no CENTRO e e rotacionado toda frame para a velocidade,
+# de modo que o UV.y do shader corre da cauda (0) ate a ponta (1).
+func _criar_rastro_plasma() -> void:
+	if not ResourceLoader.exists("res://assets/tiro_plasma.gdshader"):
+		return
+	var img := Image.create(4, 8, false, Image.FORMAT_RGBA8)
+	img.fill(Color(1, 1, 1, 1))
+	fx_plasma = Sprite2D.new()
+	fx_plasma.texture = ImageTexture.create_from_image(img)
+	fx_plasma.centered = true
+	fx_plasma.z_index = -1
+	_plasma_mat = ShaderMaterial.new()
+	_plasma_mat.shader = load("res://assets/tiro_plasma.gdshader") as Shader
+	if _plasma_mat.shader == null:
+		_plasma_mat = null
+		fx_plasma.queue_free()
+		fx_plasma = null
+		return
+	_plasma_mat.set_shader_parameter("semente", randf() * 30.0)
+	_plasma_mat.set_shader_parameter("comprimento", 0.82)
+	_plasma_mat.set_shader_parameter("largura", 0.42)
+	fx_plasma.material = _plasma_mat
+	add_child(fx_plasma)
+
+
+func _atualiza_rastro_plasma() -> void:
+	if fx_plasma == null or _plasma_mat == null:
+		return
+	var v := vel
+	var comp: float = 74.0
+	var larg: float = 15.0
+	if v.length() > 0.01:
+		# rotaciona para que o eixo Y local (UV.y) aponte no sentido da
+		# velocidade: local +Y == vel.normalizado() -> r = atan2(-x, y)
+		fx_plasma.rotation = atan2(-v.x, v.y)
+	# o quad e centrado: desloca metade pra tras, pra ponta ficar na
+	# posicao do projetil
+	var d := v.normalized()
+	fx_plasma.position = -d * comp * 0.42
+	fx_plasma.scale = Vector2(larg / 4.0, comp / 8.0)
+	_plasma_mat.set_shader_parameter("tempo", fmod(tempo, 100.0))
 
 func _aplicar_shader_inimigo(sp: Sprite2D, carga: float, vel: float) -> void:
 	if ResourceLoader.exists("res://assets/enemy_ball.gdshader"):
@@ -135,6 +186,7 @@ func setup_gigante(p: Vector2, v: Vector2) -> void:
 func _process(delta: float) -> void:
 	tempo += delta
 	position += vel * delta
+	_atualiza_rastro_plasma()
 	if e_triplo and fx != null:
 		# rajada viva: pulso + tremor + cintilacao (nada congelado)
 		var t := tempo + fx_fase
@@ -253,17 +305,27 @@ func _draw() -> void:
 			_rastro(tras, 42.0, 4.5, Color(1.0, 0.45, 0.20))
 		return
 	if amigo:
-		# Tiro do player: rastro longo, 3 camadas e nucleo branco.
-		# Antes sumia contra a nebulosa roxa — agr tem halo, corpo e nucleo.
+		# Tiro do player.
+		if fx_plasma != null:
+			# COM shader: o rastro vem do tiro_plasma.gdshader. Aqui so
+			# o nucleo incandescente, pra marcar o ponto de luz na frente.
+			var pl := 1.0 + 0.10 * sin(tempo * 18.0)
+			draw_circle(Vector2.ZERO, 7.0 * pl, Color(0.55, 1.0, 0.70, 0.75))
+			draw_circle(Vector2.ZERO, 4.0 * pl, Color(0.90, 1.0, 0.95, 0.95))
+			draw_circle(Vector2.ZERO, 1.8, Color(1, 1, 1))
+			# bico brilhante
+			draw_rect(Rect2(-1.6, -22, 3.2, 15), Color(0.80, 1.0, 0.85, 0.85))
+			draw_rect(Rect2(-0.7, -24, 1.4, 18), Color(1, 1.0, 0.95, 0.9))
+			return
+		# SEM shader: o desenho antigo em codigo (fallback)
 		_rastro(-vel.normalized(), 62.0, 4.6, Color(0.25, 1.0, 0.45))
-		var pl := 1.0 + 0.10 * sin(tempo * 18.0)
-		draw_circle(Vector2.ZERO, 14.0 * pl, Color(0.08, 1.0, 0.38, 0.26))
-		draw_circle(Vector2.ZERO, 8.5 * pl, Color(0.18, 1.0, 0.45, 0.60))
-		draw_circle(Vector2.ZERO, 4.2 * pl, Color(0.80, 1.0, 0.88, 0.95))
+		var pl2 := 1.0 + 0.10 * sin(tempo * 18.0)
+		draw_circle(Vector2.ZERO, 14.0 * pl2, Color(0.08, 1.0, 0.38, 0.26))
+		draw_circle(Vector2.ZERO, 8.5 * pl2, Color(0.18, 1.0, 0.45, 0.60))
+		draw_circle(Vector2.ZERO, 4.2 * pl2, Color(0.80, 1.0, 0.88, 0.95))
 		draw_circle(Vector2.ZERO, 2.0, Color(1, 1, 1))
-		# bico brilhante na frente
 		draw_rect(Rect2(-2.0, -24, 4, 17), Color(0.75, 1.0, 0.80, 0.85))
-		draw_rect(Rect2(-0.8, -26, 1.6, 20), Color(1, 1, 0.95, 0.9))
+		draw_rect(Rect2(-0.8, -26, 1.6, 20), Color(1, 1.0, 0.95, 0.9))
 	else:
 		# fallback sem shader (nunca deve aparecer)
 		_rastro(-vel.normalized(), 52.0, 6.0, Color(1.0, 0.35, 0.15))

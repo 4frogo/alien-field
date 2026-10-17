@@ -46,7 +46,7 @@ void fragment() {
 	}
 
 	// --- pulso geral (a bolha "respira")
-	var pulso = 1.0 + 0.05 * sin(tempo * pulsos * 6.2831);
+	float pulso = 1.0 + 0.05 * sin(tempo * pulsos * 6.2831);
 	float pulso_local = 0.92 + 0.08 * sin(tempo * pulsos * 6.2831 - r * 5.0);
 
 	// --- TRACO mais forte na borda externa

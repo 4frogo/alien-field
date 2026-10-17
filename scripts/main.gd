@@ -95,7 +95,7 @@ var aviso_mat: ShaderMaterial = null
 var aviso_tempo := 0.0
 var aviso_dragao := false
 var power_timer := 0.0
-var bonus_timer := 20.0
+var bonus_timer := 15.0   # primeira caixa verde aos 15s; depois a cada 30s
 var power_label: Label = null
 var gameover_layer: CanvasLayer = null
 var gameover_anim := 0.0
@@ -798,6 +798,8 @@ func _equipar_power() -> void:
 	if player != null and is_instance_valid(player):
 		_fx_bonus(player.position)
 		player.call("set_equipado", true)
+		# aura de chama envolvendo a nave enquanto a arma esta ativa
+		player.call("ligar_aura_arma", 15.0)
 	# SEM SOM ao pegar o item das caixas.
 	# Para reativar:
 	# if sfx != null:
@@ -1292,6 +1294,8 @@ func _process(delta: float) -> void:
 	bonus_timer -= delta
 	if bonus_timer <= 0:
 		bonus_timer = 30.0
+		# a PRIMEIRA caixa verde vem aos 15s, antes do portal (18s):
+		# e ela que da a bolha de escudo de 5s logo no comeco da fase.
 		if not _protetor_vivo() and not fase_livre:
 			_spawn_bonus()
 
@@ -1321,6 +1325,7 @@ func _process(delta: float) -> void:
 				power_label.visible = false
 			if player != null and is_instance_valid(player):
 				player.call("set_equipado", false)
+				player.call("desligar_aura_arma")
 
 	# barrinha de carga do super + bipes de perigo
 	if player != null and is_instance_valid(player) and charge_bar != null:
@@ -1526,6 +1531,10 @@ func _colisoes() -> void:
 				if te == "bonus":
 					_equipar_power()
 					_fx_bonus(e.position)
+					# bolha de escudo por 5s (colmeia de octogonos).
+					# so visual: o escudo de verdade e o contador do HUD.
+					if player != null and is_instance_valid(player):
+						player.call("ligar_escudo_temporario", 5.0)
 					e.set("vivo", false)
 					e.queue_free()
 				elif te == "bonus2":
@@ -1748,11 +1757,12 @@ func _reiniciar() -> void:
 	boss_ja_entrou = false
 	aviso_dragao = false
 	power_timer = 0.0
-	bonus_timer = 20.0
+	bonus_timer = 15.0
 	boss = null
 	em_menu = false
 	if player != null and is_instance_valid(player):
 		player.call("set_equipado", false)
+		player.call("desligar_aura_arma")
 	for a in armas:
 		if is_instance_valid(a):
 			a.queue_free()
@@ -1821,6 +1831,7 @@ func _ir_para_menu() -> void:
 		portal_label.visible = false
 	if player != null and is_instance_valid(player):
 		player.call("set_equipado", false)
+		player.call("desligar_aura_arma")
 	for a in armas:
 		if is_instance_valid(a):
 			a.queue_free()

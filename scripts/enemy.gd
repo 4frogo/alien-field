@@ -147,10 +147,11 @@ func setup(p_tipo: String, p_pos: Vector2, p_dir: Vector2 = Vector2(0, 1)) -> vo
 		vel_base = 32.0
 		_criar_sprite_bonus()
 	elif tipo == "bonus2":
-		# caixa vermelha do missil (so depois do chefe) - desenho procedural
+		# caixa vermelha do missil (so depois do chefe)
 		hp = 6
 		hp_max = 6
 		vel_base = 36.0
+		_criar_sprite_bonus2()
 	if sprite != null:
 		escala0 = sprite.scale
 
@@ -213,27 +214,38 @@ func _fazer_brilho() -> ImageTexture:
 	return ImageTexture.create_from_image(img)
 
 func _criar_sprite_bonus() -> void:
-	# caixa flutuante vermelha (emblema recortado exato + mascara)
-	for bp in ["res://assets/missil_vermelho.png"]:
-		if ResourceLoader.exists(bp):
-			var tex := load(bp) as Texture2D
-			if tex == null:
-				continue
-			var atlas := AtlasTexture.new()
-			atlas.atlas = tex
-			atlas.region = Rect2(100, 560, 1270, 1510)
-			sprite = Sprite2D.new()
-			sprite.texture = atlas
-			var s := 74.0 / 1270.0
-			sprite.scale = Vector2(s, s)
-			if ResourceLoader.exists("res://assets/bonus_ring.gdshader"):
-				var sh := load("res://assets/bonus_ring.gdshader") as Shader
-				var mat := ShaderMaterial.new()
-				mat.shader = sh
-				sprite.material = mat
-			add_child(sprite)
-			tem_sprite = true
-			break
+	# CAIXA VERDE (tipo "bonus"): arte propria (caixaGREN.png, 1254x1254).
+	_prite_bonus("res://assets/caixaGREN.png", Rect2(0, 0, 1254, 1254), 78.0)
+
+
+func _criar_sprite_bonus2() -> void:
+	# CAIXA VERMELHA (tipo "bonus2"): da missil teleguiado, entao mostra
+	# o icone do missil vermelho.
+	_prite_bonus("res://assets/missil_vermelho.png", Rect2(100, 560, 1270, 1510), 74.0)
+
+
+# helper: monta a caixa a partir de uma textura (com recorte opcional) e
+# aplica o bonus_ring (recorte circular que remove os cantos do JPG)
+func _prite_bonus(caminho: String, region: Rect2, largura_alvo: float) -> void:
+	if not ResourceLoader.exists(caminho):
+		return
+	var tex := load(caminho) as Texture2D
+	if tex == null:
+		return
+	var atlas := AtlasTexture.new()
+	atlas.atlas = tex
+	atlas.region = region
+	sprite = Sprite2D.new()
+	sprite.texture = atlas
+	var rw := maxf(region.size.x, 1.0)
+	sprite.scale = Vector2(largura_alvo / rw, largura_alvo / rw)
+	if ResourceLoader.exists("res://assets/bonus_ring.gdshader"):
+		var sh := load("res://assets/bonus_ring.gdshader") as Shader
+		var mat := ShaderMaterial.new()
+		mat.shader = sh
+		sprite.material = mat
+	add_child(sprite)
+	tem_sprite = true
 
 func _process(delta: float) -> void:
 	tempo += delta

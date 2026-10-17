@@ -36,6 +36,32 @@ var aura: Node2D = null
 var danger_mat: ShaderMaterial = null
 var arma_equip: Sprite2D = null
 var escudo_sprite: Sprite2D = null
+# Bolha de escudo TEMPORARIA (colmeia de octogonos). Diferente do
+# escudo_sprite acima, que esta desligado: esta dura 5s ao coletar a
+# caixa verde e some sozinha.
+var _bolha_escudo = null
+# Aura de chama enquanto a arma (Gunn) esta equipada (mesma duracao do
+# tiro triplo). Fica atras do casco, como a chama de motor.
+var _aura_arma = null
+
+
+func ligar_escudo_temporario(duracao: float = 5.0) -> void:
+	if _bolha_escudo == null or not is_instance_valid(_bolha_escudo):
+		return
+	_bolha_escudo.call("configurar", 300.0)
+	_bolha_escudo.call("ligar", duracao)
+
+
+func ligar_aura_arma(duracao: float = 15.0) -> void:
+	if _aura_arma == null or not is_instance_valid(_aura_arma):
+		return
+	_aura_arma.call("configurar", 340.0)
+	_aura_arma.call("ligar", duracao)
+
+
+func desligar_aura_arma() -> void:
+	if _aura_arma != null and is_instance_valid(_aura_arma):
+		_aura_arma.call("desligar")
 var escudo_base := 0.30
 var escudo_val := 100.0
 var escudo_flash := 0.0
@@ -190,6 +216,15 @@ func _ready() -> void:
 				escudo_sprite.visible = false
 				add_child(escudo_sprite)
 				break
+		# BOLHA TEMPORARIA: escudo de 5s ao coletar a caixa verde, desenhado
+		# como colmeia de octogonos (escudo_colmeia.gdshader). Separate do
+		# escudo_sprite acima, que continua desligado de proposito.
+		_bolha_escudo = preload("res://scripts/escudo_bolha.gd").new()
+		add_child(_bolha_escudo)
+		# AURA DE CHAMA: envolve a nave enquanto a arma (Gunn) esta equipada.
+		# Diferente da bolha, que dura 5s no maximo.
+		_aura_arma = preload("res://scripts/aura_chama.gd").new()
+		add_child(_aura_arma)
 # escudo sem efeito visual: a nave ficou limpa para receber o novo modelo.
 # O no 'aura' e a funcao _draw_escudo_particulas foram desligados de proposito.
 	# escudo dissolvido: 110 microparticulas no anel 58-92 + 4 nos de energia

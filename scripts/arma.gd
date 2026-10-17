@@ -14,16 +14,30 @@ func setup(p: Vector2, p_alvo: Node2D) -> void:
 	alvo = p_alvo
 
 func _ready() -> void:
-	for bp in ["res://assets/arma_plasma.png"]:
+	# Arte da arma: Gunn.png (a arte que o jogador pediu). Falls back para
+	# arma_plasma.png se o arquivo nao estiver no export.
+	for bp in ["res://assets/Gunn.png", "res://assets/arma_plasma.png"]:
 		if ResourceLoader.exists(bp):
 			var tex := load(bp) as Texture2D
 			if tex != null:
 				var sp := Sprite2D.new()
 				sp.texture = tex
+				# Gunn e uma arte horizontal (1672x941): enquadra numa caixa
+				# quadrada pra nao ficar distorcida na nave.
+				var alvo_px := 96.0
 				var w := float(tex.get_width())
-				if w > 0:
-					var s := 80.0 / w
+				var h := float(tex.get_height())
+				if w > 0 and h > 0:
+					var s: float = minf(alvo_px / w, alvo_px / h)
 					sp.scale = Vector2(s, s)
+				# recorte circular: some com o fundo retangular do PNG
+				if ResourceLoader.exists("res://assets/bonus_ring.gdshader"):
+					var sh := load("res://assets/bonus_ring.gdshader") as Shader
+					var mat := ShaderMaterial.new()
+					mat.shader = sh
+					mat.set_shader_parameter("raio", 0.95)
+					mat.set_shader_parameter("pena", 0.12)
+					sp.material = mat
 				sp.name = "Gun"
 				add_child(sp)
 				break

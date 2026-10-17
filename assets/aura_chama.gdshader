@@ -1,6 +1,6 @@
 shader_type canvas_item;
 
-// AURA DE CHAMA — envolve a nave enquanto a arma (Gunn) esta ativa.
+// AURA DE CHAMA  envolve a nave enquanto a arma (Gunn) esta ativa.
 //
 // Nao e um escudo: e "a nave pegando fogo" de arma equipada. Camadas:
 //   1. CHAMA: ruido que rola para cima, recortado numa elipse ao redor
@@ -93,7 +93,7 @@ void fragment() {
 	col = mix(col, cor_fogo.rgb, smoothstep(0.2, 0.7, calor));
 	col = mix(col, cor_quente.rgb, pow(calor, 2.5) * 0.8);
 
-	// --- NUCLEO: um clarão quente bem dentro da nave
+	// --- NUCLEO: um claro quente bem dentro da nave
 	float nucleo = pow(max(0.0, 1.0 - ell * 1.5), 3.0) * (0.5 - p.y * 0.5);
 	col += cor_quente.rgb * nucleo * 0.7;
 

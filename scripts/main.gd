@@ -80,7 +80,7 @@ var armas: Array = []
 var feixes: Array = []
 var feixe_tick := 0.0
 var misseis: Array = []
-var bonus2_timer := 12.0   # vermelha (dim 1): primeira ~12s depois de limpar a protetora
+var bonus2_timer := 10.0   # vermelha (dim 1): aparece 10s depois do inicio
 
 var pontos := 2350
 var vidas := 1
@@ -96,7 +96,7 @@ var aviso_mat: ShaderMaterial = null
 var aviso_tempo := 0.0
 var aviso_dragao := false
 var power_timer := 0.0
-var bonus_timer := 15.0   # primeira caixa verde aos 15s; depois a cada 30s
+var bonus_timer := 8.0    # com o chefe: primeira caixa verde ~8s depois de entrar
 var power_label: Label = null
 var gameover_layer: CanvasLayer = null
 var gameover_anim := 0.0
@@ -575,12 +575,6 @@ func _fim_transicao() -> void:
 	# mundo novo perigoso (imagem ainda se desfazendo por cima)
 	dimensao = 2
 	tempo_fase = 0.0
-	# a caixa VERDE so existe na dimensao 2: reinicia aqui para que a
-	# primeira apareca ~8s depois de chegar no chefe
-	bonus_timer = 8.0
-	# a VERMELHA nao sai mais na dimensao 2: zera o timer pra nao disparar
-	# de imediato caso volte (e evitar acumulo)
-	bonus2_timer = 99.0
 	boss_ja_entrou = false
 	aviso_dragao = false
 	if bg_no != null and is_instance_valid(bg_no):
@@ -801,6 +795,35 @@ func _spawn_arma(pos: Vector2) -> void:
 	a.connect("coletada", _equipar_power)
 	armas.append(a)
 
+
+func _on_shuriken_tiro(pos: Vector2) -> void:
+	_disparar_shuriken()
+
+
+func _disparar_shuriken() -> void:
+	# SHURIKEN DE ENERGIA - recompensa da CAIXA VERMELHA.
+	# E energia girando (shader shuriken_energia.gdshader) com VFX de faisca
+	# e anel. Persegue suavemente o inimigo mais proximo e PERFURA ate 3.
+	var alvo_melhor: Node2D = null
+	var melhor: float = 1e9
+	for e in inimigos:
+		if not is_instance_valid(e) or not e.get("vivo"):
+			continue
+		var te := str(e.get("tipo"))
+		if te == "bonus" or te == "bonus2" or te == "turret":
+			continue
+		var d: float = player.position.distance_to((e as Node2D).position)
+		if d < melhor:
+			melhor = d
+			alvo_melhor = e
+	var s := Node2D.new()
+	s.set_script(ShurikenScript)
+	add_child(s)
+	s.call("setup", player.position + Vector2(0, -60), -PI / 2.0, alvo_melhor)
+	misseis.append(s)
+	_fx_explosao(player.position + Vector2(0, -60), false, false)
+	_num(player.position + Vector2(0, -110), "SHURIKEN!", 26, Color(1.0, 0.55, 0.20))
+
 func _equipar_power() -> void:
 	if vidas <= 0:
 		return
@@ -820,23 +843,28 @@ func _equipar_power() -> void:
 func _on_player_atirar(pos: Vector2) -> void:
 	if vidas <= 0:
 		return
-	# SEMPRE os 3 cristais. A caixa VERDE nao abre mais leque nem muda o
-	# padrao: ela so AUMENTA o tamanho deles (area de impacto maior).
-	var esc: float = 1.9 if power_timer > 0 else 1.0
-	var noffs := [Vector2(-12, 8), Vector2(0, 0), Vector2(12, 8)]
-	var nvels := [Vector2(-35, -615), Vector2(0, -630), Vector2(35, -615)]
-	for i in 3:
+	if power_timer > 0:
+		# melhorado 15s: leque triplo unico saindo do bico (bocas na base do sprite)
 		var b := Node2D.new()
 		b.set_script(BulletScript)
 		add_child(b)
-		b.call("setup_disparo", pos + noffs[i], nvels[i], i, esc)
+		b.call("setup_triplotiro", pos + Vector2(0, -26), Vector2(0, -640), 6)
 		tiros.append(b)
-		if power_timer > 0:
-			# clarão verde no cano a cada rajada (so visual)
-			var flash := Node2D.new()
-			flash.set_script(ExplosaoScript)
-			add_child(flash)
-			flash.call("setup", pos, Color(0.45, 1.0, 0.6), 40.0)
+		# clarÃ£o verde no cano a cada rajada (sÃ³ visual)
+		var flash := Node2D.new()
+		flash.set_script(ExplosaoScript)
+		add_child(flash)
+		flash.call("setup", pos, Color(0.45, 1.0, 0.6), 30.0)
+	else:
+		# tiro normal novo: 3 cristais da imagem disparo.png
+		var noffs := [Vector2(-12, 8), Vector2(0, 0), Vector2(12, 8)]
+		var nvels := [Vector2(-35, -615), Vector2(0, -630), Vector2(35, -615)]
+		for i in 3:
+			var b := Node2D.new()
+			b.set_script(BulletScript)
+			add_child(b)
+			b.call("setup_disparo", pos + noffs[i], nvels[i], i)
+			tiros.append(b)
 	_fx_tiro(pos)
 	# som do tiro do player mutado por enquanto
 
@@ -961,35 +989,6 @@ func _on_super_tiro(pos: Vector2) -> void:
 	# Para reativar o som:
 	# if sfx != null:
 	# 	sfx.call("explosao")
-
-
-func _on_shuriken_tiro(pos: Vector2) -> void:
-	_disparar_shuriken()
-
-
-func _disparar_shuriken() -> void:
-	# SHURIKEN DE ENERGIA — recompensa da CAIXA VERMELHA.
-	# E energia girando (shader shuriken_energia.gdshader) com VFX de faisca
-	# e anel. Persegue suavemente o inimigo mais proximo e PERFURA ate 3.
-	var alvo_melhor: Node2D = null
-	var melhor: float = 1e9
-	for e in inimigos:
-		if not is_instance_valid(e) or not e.get("vivo"):
-			continue
-		var te := str(e.get("tipo"))
-		if te == "bonus" or te == "bonus2" or te == "turret":
-			continue
-		var d: float = player.position.distance_to((e as Node2D).position)
-		if d < melhor:
-			melhor = d
-			alvo_melhor = e
-	var s := Node2D.new()
-	s.set_script(ShurikenScript)
-	add_child(s)
-	s.call("setup", player.position + Vector2(0, -60), -PI / 2.0, alvo_melhor)
-	misseis.append(s)
-	_fx_explosao(player.position + Vector2(0, -60), false, false)
-	_num(player.position + Vector2(0, -110), "SHURIKEN!", 26, Color(1.0, 0.55, 0.20))
 
 func _on_enemy_atirar(pos: Vector2, grande: bool = false) -> void:
 	var b := Node2D.new()
@@ -1323,6 +1322,7 @@ func _process(delta: float) -> void:
 
 	# torres desativadas por enquanto
 
+	# bonus a cada 30s
 	# caixa VERDE: so aparece na DIMENSAO 2 (com o chefe). Na primeira parte
 	# da fase ela nao sai de jeito nenhum — sem o poder de triplo, o
 	# jogador encara a protetora com o tiro normal.
@@ -1332,11 +1332,12 @@ func _process(delta: float) -> void:
 			bonus_timer = 30.0
 			_spawn_bonus()
 
-	# caixa VERMELHA a cada 25s: so na DIMENSAO 1 (ver _spawn_bonus2)
-	bonus2_timer -= delta
-	if bonus2_timer <= 0:
-		bonus2_timer = 25.0
-		_spawn_bonus2()
+	# caixa VERMELHA: so na DIMENSAO 1, a cada 25s (so 1 vez)
+	if dimensao == 1:
+		bonus2_timer -= delta
+		if bonus2_timer <= 0:
+			bonus2_timer = 10.0    # vermelha (dim 1): reinicia para 10s
+			_spawn_bonus2()
 
 	# combo some sem matar por 2.5s
 	if combo_timer > 0:
@@ -1349,7 +1350,7 @@ func _process(delta: float) -> void:
 		power_timer -= delta
 		if power_label != null:
 			power_label.visible = true
-			power_label.text = "TIRO MAIOR x%d" % int(ceil(power_timer))
+			power_label.text = "POWER x%d" % int(ceil(power_timer))
 			power_label.modulate.a = 0.7 + 0.3 * sin(Time.get_ticks_msec() / 150.0)
 		if power_timer <= 0:
 			power_timer = 0.0
@@ -1486,9 +1487,8 @@ func _colisoes() -> void:
 					elif e.get("tipo") == "bonus2":
 						pontos += 200
 						_fx_explosao(e.position, false, false)
-						if player != null and is_instance_valid(player):
-							player.set("shuriken_cargas", 3)
-							_num(player.position + Vector2(0, -90), "SHURIKEN x3", 30, Color(1.0, 0.55, 0.20))
+						_disparar_missil()
+					else:
 						pontos += 100
 						_registrar_abate()
 						_kill_confirm(e.position, 100, Color(0.5, 1.0, 0.55))
@@ -1573,11 +1573,7 @@ func _colisoes() -> void:
 				elif te == "bonus2":
 					pontos += 200
 					_fx_explosao(e.position, false, false)
-					# SHURIKEN: a caixa vermelha da MUNICAO (3 cargas). O
-					# jogador segura L para carregar, solta para lançar.
-					if player != null and is_instance_valid(player):
-						player.set("shuriken_cargas", 3)
-						_num(player.position + Vector2(0, -90), "SHURIKEN x3", 30, Color(1.0, 0.55, 0.20))
+					_disparar_missil()
 					e.set("vivo", false)
 					e.queue_free()
 				else:
@@ -1585,14 +1581,10 @@ func _colisoes() -> void:
 				break
 
 func _colisoes_misseis() -> void:
-	# Dois comportamentos aqui, na mesma lista:
-	#   - MISSIL: causa 36 e some no primeiro impacto
-	#   - SHURIKEN: causa 8 e PERFURA ate 3 inimigos antes de se dissolver
+	# missil causa 36 (30% do chefe) e some no impacto
 	for m in misseis:
 		if not is_instance_valid(m) or not m.get("vivo"):
 			continue
-		# shuriken guarda em "hits" quais inimigos ja furou (nao conta 2x)
-		var ja_furou: Array = m.get("hits") if "hits" in m else []
 		for e in inimigos:
 			if not is_instance_valid(e) or not e.get("vivo"):
 				continue
@@ -1601,21 +1593,11 @@ func _colisoes_misseis() -> void:
 			var te := str(e.get("tipo"))
 			if te == "bonus" or te == "bonus2" or te == "turret":
 				continue
-			if ja_furou.has(e):
-				continue
 			var raio_e := 115.0 if te == "boss" else (85.0 if te == "guard" else 30.0)
-			if (m as Node2D).position.distance_to((e as Node2D).position) < raio_e + 12.0:
-				ja_furou.append(e)
-				m.set("hits", ja_furou)
-				var e_shuriken: bool = m.has_method("registrar_hit")
-				# perfurante: continua; explosivo: some no impacto
-				if e_shuriken and bool(m.call("registrar_hit")):
-					pass
-				else:
-					m.set("vivo", false)
-					m.queue_free()
-				var dano_m := 8 if e_shuriken else 36
-				var morreu: bool = e.call("levar_dano", dano_m)
+			if (m as Node2D).position.distance_to((e as Node2D).position) < raio_e + 10.0:
+				m.set("vivo", false)
+				m.queue_free()
+				var morreu: bool = e.call("levar_dano", 36)
 				if morreu:
 					if te == "boss":
 						pontos += 2000
@@ -1626,6 +1608,7 @@ func _colisoes_misseis() -> void:
 						_killcam_boss((e as Node2D).position)
 						add_trauma(0.7)
 						boss = null
+						_respawn_boss_apos(5.0)
 					else:
 						pontos += 100
 						_registrar_abate()
@@ -1635,11 +1618,8 @@ func _colisoes_misseis() -> void:
 						add_trauma(0.22)
 				else:
 					if te == "boss":
-						pontos += dano_m * 10
+						pontos += 360
 					_fx_tiro((e as Node2D).position)
-				# shuriken atravessa e segue para o proximo
-				if e_shuriken:
-					continue
 				break
 
 func _dano_no_player(qtd: float) -> void:
@@ -1810,8 +1790,7 @@ func _reiniciar() -> void:
 	boss_ja_entrou = false
 	aviso_dragao = false
 	power_timer = 0.0
-	bonus_timer = 8.0
-	bonus2_timer = 12.0
+	bonus_timer = 15.0
 	boss = null
 	em_menu = false
 	if player != null and is_instance_valid(player):
@@ -1830,7 +1809,7 @@ func _reiniciar() -> void:
 		if is_instance_valid(mm):
 			mm.queue_free()
 	misseis.clear()
-	bonus2_timer = 25.0
+	bonus2_timer = 10.0    # vermelha (dim 1): reinicia para 10s
 	if menu_layer != null:
 		menu_layer.queue_free()
 		menu_layer = null

@@ -1,11 +1,11 @@
 shader_type canvas_item;
 
-// COLMEIA DE OCTOGONOS — escudo temporario (5s) ao coletar a caixa verde.
+// COLMEIA DE OCTOGONOS  escudo temporario (5s) ao coletar a caixa verde.
 //
 // 5 camadas, de fora pra dentro:
 //   1. CELULA: grade de octogonos concentricos (cada anel tem raio e giro
 //      proprios). O angulo de 45 graus e o que faz o octogono.
-//   2. TRACO: a borda de cada celula acende — e o "vidro" da colmeia.
+//   2. TRACO: a borda de cada celula acende  e o "vidro" da colmeia.
 //   3. GLOW: halo suave no miolo de cada celula, para nao ficar seco.
 //   4. VARREDURA: uma onda de brilho desce atravessando a bolha.
 //   5. BORDA: um aro forte na circunferencia externa, marcando o limite.
@@ -53,7 +53,7 @@ void fragment() {
 	float aro_ext = smoothstep(0.80, 0.99, r / rb) * (1.0 - smoothstep(0.99, 1.0, r / rb));
 
 	// --- COLMEIA: cada anel usa um raio e um giro proprios, para os
-	//octogonos nao ficarem alinhados (vira "pano de效果图", nao colmeia)
+	//octogonos nao ficarem alinhados (vira "pano de", nao colmeia)
 	vec3 col = vec3(0.0);
 	float traco = 0.0;
 	float miolo = 0.0;

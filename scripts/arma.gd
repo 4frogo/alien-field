@@ -22,15 +22,12 @@ func _ready() -> void:
 			if tex != null:
 				var sp := Sprite2D.new()
 				sp.texture = tex
-				# Gunn e uma arte horizontal (1672x941): enquadra numa caixa
-				# quadrada pra nao ficar distorcida na nave.
 				var alvo_px := 96.0
 				var w := float(tex.get_width())
 				var h := float(tex.get_height())
 				if w > 0 and h > 0:
 					var s: float = minf(alvo_px / w, alvo_px / h)
 					sp.scale = Vector2(s, s)
-				# recorte circular: some com o fundo retangular do PNG
 				if ResourceLoader.exists("res://assets/bonus_ring.gdshader"):
 					var sh := load("res://assets/bonus_ring.gdshader") as Shader
 					var mat := ShaderMaterial.new()

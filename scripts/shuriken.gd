@@ -11,9 +11,9 @@ extends Node2D
 
 const PERFURAR := 3
 const VIDA := 3.6
-const DANO := 8
+const DANO := 15             # dano aumentado de 8 para 15
 const GIRO := 19.0
-const HOMING := 2.6          # forca do rastreamento (0 = reto)
+# HOMING = 0: a shuriken vai reto, sem rastreamento de alvo
 
 var vel := Vector2(0, -1)
 var velocidade := 480.0
@@ -91,12 +91,7 @@ func _process(delta: float) -> void:
 	# gira o no (o shader tambem gira o rastro, entao nao fica parado)
 	rotation += GIRO * delta + sin(tempo * 9.0 + fase) * 2.2 * delta
 
-	# homing suave: curva devagar para o alvo mais proximo
-	if alvo != null and is_instance_valid(alvo):
-		var quer := ((alvo as Node2D).position - position).normalized()
-		var novo := vel.normalized().lerp(quer, minf(1.0, HOMING * delta)).normalized()
-		vel = novo
-
+	# shuriken vai reto (sem homing/rastreamento)
 	# perde velocidade no fim da vida (gastando energia)
 	var k: float = clampf(vida / VIDA, 0.0, 1.0)
 	position += vel * velocidade * (0.45 + 0.55 * k) * delta

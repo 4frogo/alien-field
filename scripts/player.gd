@@ -54,6 +54,9 @@ var _bolha_escudo = null
 # Aura de chama enquanto a arma (Gunn) esta equipada (mesma duracao do
 # tiro triplo). Fica atras do casco, como a chama de motor.
 var _aura_arma = null
+var _bbc: BackBufferCopy = null
+# Distorcao de calor (heat haze) atras dos propulsores quando a nave se move
+var heat_haze: Sprite2D = null
 
 
 func ligar_escudo_temporario(duracao: float = 5.0) -> void:
@@ -244,6 +247,24 @@ func _ready() -> void:
 		# Diferente da bolha, que dura 5s no maximo.
 		_aura_arma = preload("res://scripts/aura_chama.gd").new()
 		add_child(_aura_arma)
+	# distorcao de calor (heat haze) atras dos propulsores, visivel so quando se move
+	_bbc = BackBufferCopy.new()
+	add_child(_bbc)
+	heat_haze = Sprite2D.new()
+	if ResourceLoader.exists("res://assets/heat_haze.gdshader"):
+		var hh := load("res://assets/heat_haze.gdshader") as Shader
+		var hm := ShaderMaterial.new()
+		hm.shader = hh
+		hm.set_shader_parameter("intensity", 0.0)
+		heat_haze.material = hm
+	# textura vazia pequena (apenas pra ter algo para renderizar o shader)
+	var img := Image.create(64, 64, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))
+	heat_haze.texture = ImageTexture.create_from_image(img)
+	heat_haze.position = Vector2(0, 40)  # atras da boca dos propulsores
+	heat_haze.scale = Vector2(2.0, 2.0)
+	heat_haze.visible = false
+	add_child(heat_haze)
 # escudo sem efeito visual: a nave ficou limpa para receber o novo modelo.
 # O no 'aura' e a funcao _draw_escudo_particulas foram desligados de proposito.
 	# escudo dissolvido: 110 microparticulas no anel 58-92 + 4 nos de energia
@@ -314,6 +335,14 @@ func _process(delta: float) -> void:
 	dir_suave = dir_suave.lerp(dir.limit_length(1.0), minf(1.0, 9.0 * delta))
 	if trail != null:
 		trail.set("intensidade", impulso)
+
+	# distorcao de calor atras dos propulsores: so quando se move
+	if heat_haze != null:
+		heat_haze.visible = impulso > 0.05
+		if heat_haze.visible and heat_haze.material != null:
+			var mat := heat_haze.material as ShaderMaterial
+			mat.set_shader_parameter("time", Time.get_ticks_msec() / 1000.0)
+			mat.set_shader_parameter("intensity", clampf(impulso, 0.0, 1.0) * 1.5)
 
 	# ---- EFEITO 3D: banking (inclinar ao virar) + arfagem vertical
 	# Usa dir_suave (a direcao JA suavizada) em vez de dir crua: assim a

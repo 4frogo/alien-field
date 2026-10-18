@@ -31,7 +31,7 @@ func setup_disparo(p: Vector2, v: Vector2, qual: int = 0, p_escala: float = 1.0)
 	position = p
 	vel = v
 	amigo = true
-	dano = 1
+	dano = 2
 	e_disparo = true
 	escala = clampf(p_escala, 0.5, 4.0)
 	raio = 9.0 * escala

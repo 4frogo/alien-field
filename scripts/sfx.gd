@@ -21,7 +21,7 @@ func _ready() -> void:
 	for i in 8:
 		var p := AudioStreamPlayer.new()
 		p.bus = "Master"
-		p.volume_db = -6.0
+		p.volume_db = -14.0   # som dos efeitos (SFX) abaixado pra ~20%
 		add_child(p)
 		players.append(p)
 	# tenta arquivos custom, senao gera procedural

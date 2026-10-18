@@ -7,7 +7,7 @@ var player: AudioStreamPlayer
 func _ready() -> void:
 	player = AudioStreamPlayer.new()
 	player.bus = "Master"
-	player.volume_db = -10.0
+	player.volume_db = -14.0   # som da musica abaixado pra ~20%
 	add_child(player)
 	for p in ["res://assets/musica.ogg", "res://assets/musica.mp3", "res://assets/musica.wav"]:
 		if ResourceLoader.exists(p):

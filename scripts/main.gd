@@ -80,7 +80,7 @@ var armas: Array = []
 var feixes: Array = []
 var feixe_tick := 0.0
 var misseis: Array = []
-var bonus2_timer := 10.0   # vermelha (dim 1): aparece 10s depois do inicio
+
 
 var pontos := 2350
 var vidas := 1
@@ -225,8 +225,8 @@ func _ready() -> void:
 	player.set_script(PlayerScript)
 	add_child(player)
 	player.connect("atirar", _on_player_atirar)
-	player.connect("super_tiro", _on_super_tiro)
 	player.connect("shuriken_tiro", _on_shuriken_tiro)
+	player.connect("super_tiro", _disparar_super_raio)
 
 	hud = CanvasLayer.new()
 	hud.set_script(HudScript)
@@ -575,7 +575,6 @@ func _fim_transicao() -> void:
 	# mundo novo perigoso (imagem ainda se desfazendo por cima)
 	dimensao = 2
 	bonus_timer = 8.0
-	bonus2_timer = 9999.0
 	tempo_fase = 0.0
 	boss_ja_entrou = false
 	aviso_dragao = false
@@ -754,20 +753,6 @@ func _spawn_bonus() -> void:
 	e.call("setup", "bonus", Vector2(randf_range(140, 400), -40), Vector2(0, 1))
 	inimigos.append(e)
 
-func _spawn_bonus2() -> void:
-	# caixa VERMELHA (shuriken): so na DIMENSAO 1. Na fase do chefe ela
-	# nao sai — la o poder e o raio triplo da caixa verde.
-	if dimensao != 1:
-		return
-	for e in inimigos:
-		if is_instance_valid(e) and str(e.get("tipo")) == "bonus2":
-			return
-	var e := Node2D.new()
-	e.set_script(EnemyScript)
-	add_child(e)
-	e.call("setup", "bonus2", Vector2(randf_range(140, 400), -40), Vector2(0, 1))
-	inimigos.append(e)
-
 func _disparar_missil() -> void:
 	# missil teleguiado mira o chefao (ou o capanga mais proximo)
 	var alvo: Node2D = null
@@ -812,7 +797,7 @@ func _disparar_shuriken() -> void:
 		if not is_instance_valid(e) or not e.get("vivo"):
 			continue
 		var te := str(e.get("tipo"))
-		if te == "bonus" or te == "bonus2" or te == "turret":
+		if te == "bonus" or te == "turret":
 			continue
 		var d: float = player.position.distance_to((e as Node2D).position)
 		if d < melhor:
@@ -826,17 +811,40 @@ func _disparar_shuriken() -> void:
 	_fx_explosao(player.position + Vector2(0, -60), false, false)
 	_num(player.position + Vector2(0, -110), "SHURIKEN!", 26, Color(1.0, 0.55, 0.20))
 
+func _disparar_super_raio(pos: Vector2) -> void:
+	var f := Node2D.new()
+	f.set_script(FeixeScript)
+	add_child(f)
+	f.call("setup", player)
+	var melhor: Node2D = null
+	if _protetor_vivo():
+		melhor = protetor
+	elif boss != null and is_instance_valid(boss) and bool(boss.get("vivo")):
+		melhor = boss
+	else:
+		var melhor_d := 1.0e20
+		for e in inimigos:
+			if e == null or not is_instance_valid(e) or not bool(e.get("vivo")):
+				continue
+			var d: float = e.position.distance_to(player.position)
+			if d < melhor_d:
+				melhor_d = d
+				melhor = e
+	if melhor != null:
+		f.set("alvo", melhor.position)
+		f.set("alvo_nodo", melhor)
+		f.set("tem_alvo", true)
+	feixes.append(f)
+
 func _equipar_power() -> void:
 	if vidas <= 0:
 		return
 	pontos += 500
-	# A caixa VERMELHA (bonus2) da shuriken; a VERDE (bonus) da raio triplo.
-	# Aqui nao sabemos qual caixa foi, entao assumimos que quem chamou sabe o que faz.
+	# A caixa VERDE (bonus) da o poder de tiro triplo.
 	# A logica de qual poder dar eh feita no _colisoes().
 	power_timer = 15.0
 	_num(player.position + Vector2(0, -90), "POWER!", 30, Color(0.45, 1.0, 0.6))
 	if player != null and is_instance_valid(player):
-		_fx_bonus(player.position)
 		player.call("set_equipado", true)
 		# aura de chama envolvendo a nave enquanto a arma esta ativa
 		player.call("ligar_aura_arma", 15.0)
@@ -855,11 +863,6 @@ func _on_player_atirar(pos: Vector2) -> void:
 		add_child(b)
 		b.call("setup_triplotiro", pos + Vector2(0, -26), Vector2(0, -640), 6)
 		tiros.append(b)
-		# clarÃ£o verde no cano a cada rajada (sÃ³ visual)
-		var flash := Node2D.new()
-		flash.set_script(ExplosaoScript)
-		add_child(flash)
-		flash.call("setup", pos, Color(0.45, 1.0, 0.6), 30.0)
 	else:
 		# tiro normal novo: 3 cristais da imagem disparo.png
 		var noffs := [Vector2(-12, 8), Vector2(0, 0), Vector2(12, 8)]
@@ -949,51 +952,6 @@ func _dano_do_raio(delta: float) -> void:
 				e.call("atordoar", 2.0)
 
 
-func _on_super_tiro(pos: Vector2) -> void:
-	if vidas <= 0:
-		return
-	if power_timer > 0:
-		# com triplo: 3 raios verdes serpenteantes por 2s, mirando no inimigo
-		var f := Node2D.new()
-		f.set_script(FeixeScript)
-		add_child(f)
-		f.call("setup", player)
-		# alvo: o PROTETOR do portal e o CHEFE temem prioridade, nessa ordem.
-		# a proteora vem primeiro porque ate ela morrer o portal nao abre e
-		# ela e o unico alvo que o super consegue furar.
-			# sem nenhum dos dois, mira no inimigo vivo mais proximo.
-		var melhor: Node2D = null
-		if _protetor_vivo():
-			melhor = protetor
-		elif boss != null and is_instance_valid(boss) and bool(boss.get("vivo")):
-			melhor = boss
-		else:
-			var melhor_d := 1.0e20
-			for e in inimigos:
-				if e == null or not is_instance_valid(e) or not bool(e.get("vivo")):
-					continue
-				var d: float = e.position.distance_to(player.position)
-				if d < melhor_d:
-					melhor_d = d
-					melhor = e
-		if melhor != null:
-			f.set("alvo", melhor.position)
-			f.set("alvo_nodo", melhor)
-			f.set("tem_alvo", true)
-		feixes.append(f)
-	else:
-		var b := Node2D.new()
-		b.set_script(BulletScript)
-		add_child(b)
-		b.call("setup", pos, Vector2(0, -520), true, 10, true)
-		tiros.append(b)
-	# SEM SOM: o estrondo de explosao no super raio era alto demais. Antes
-	# ainda tocava DOIS estrondos juntos â€” um daqui e outro do
-	# sfx.call("explosao") logo abaixo.
-	_fx_explosao(pos, false, false)
-	# Para reativar o som:
-	# if sfx != null:
-	# 	sfx.call("explosao")
 
 func _on_enemy_atirar(pos: Vector2, grande: bool = false) -> void:
 	var b := Node2D.new()
@@ -1337,13 +1295,6 @@ func _process(delta: float) -> void:
 			bonus_timer = 30.0
 			_spawn_bonus()
 
-	# caixa VERMELHA: so na DIMENSAO 1, a cada 25s (so 1 vez)
-	if dimensao == 1:
-		bonus2_timer -= delta
-		if bonus2_timer <= 0:
-			bonus2_timer = 10.0    # vermelha (dim 1): reinicia para 10s
-			_spawn_bonus2()
-
 	# combo some sem matar por 2.5s
 	if combo_timer > 0:
 		combo_timer -= delta
@@ -1481,26 +1432,12 @@ func _colisoes() -> void:
 						# dragao. (pedido do jogador)
 						# _respawn_boss_apos(5.0) desativado
 					elif e.get("tipo") == "bonus":
-						# SEM SOM: a caixa verde estourava o estrondo DUAS
-						# vezes (uma dentro de _fx_bonus, outra aqui).
 						pontos += 200
-						_fx_bonus(e.position)
 						_spawn_arma(e.position)
 						# Para reativar:
 						# if sfx != null:
 						# 	sfx.call("explosao")
-					elif e.get("tipo") == "bonus2":
-						pontos += 200
-						_fx_explosao(e.position, false, false)
-						# Shuriken: da 3 cargas para o jogador carregar e lancar com L
-						if player != null and is_instance_valid(player):
-							player.set("shuriken_cargas", 3)
-							_num(player.position + Vector2(0, -90), "SHURIKEN x3", 30, Color(1.0, 0.55, 0.20))
-						e.set("vivo", false)
-						e.queue_free()
-													
-													
-						# A PROTETORA tambem pode cair por TIRO NORMAL (ela
+					# A PROTETORA tambem pode cair por TIRO NORMAL (ela
 						# nao e mais imune). Esse caminho precisa ligar a
 						# trava da tela limpa igual ao do super raio — sem
 						# isso os inimigos continuavam nascendo depois.
@@ -1512,6 +1449,16 @@ func _colisoes() -> void:
 							# caminho do super raio, linhas acima)
 							if portal_label != null:
 								portal_label.visible = false
+					elif e.get("tipo") == "small":
+						# Nave inimiga comum: explosao, pontos, kill confirm, hitstop, trauma
+						pontos += 100
+						_registrar_abate()
+						_kill_confirm(e.position, 100, Color(0.5, 1.0, 0.55))
+						_fx_explosao(e.position, false, false)
+						hitstop(0.06)
+						add_trauma(0.22)
+						e.set("vivo", false)
+						e.queue_free()
 				else:
 					if e.get("tipo") == "boss":
 						pontos += 10 * dano
@@ -1568,17 +1515,10 @@ func _colisoes() -> void:
 			if player.position.distance_to(e.position) < r:
 				if te == "bonus":
 					_equipar_power()
-					_fx_bonus(e.position)
 					# bolha de escudo por 5s (colmeia de octogonos).
 					# so visual: o escudo de verdade e o contador do HUD.
 					if player != null and is_instance_valid(player):
 						player.call("ligar_escudo_temporario", 5.0)
-					e.set("vivo", false)
-					e.queue_free()
-				elif te == "bonus2":
-					pontos += 200
-					_fx_explosao(e.position, false, false)
-					_disparar_missil()
 					e.set("vivo", false)
 					e.queue_free()
 				else:
@@ -1596,7 +1536,7 @@ func _colisoes_misseis() -> void:
 			if not is_instance_valid(m) or not m.get("vivo"):
 				break
 			var te := str(e.get("tipo"))
-			if te == "bonus" or te == "bonus2" or te == "turret":
+			if te == "bonus" or te == "turret":
 				continue
 			var raio_e := 115.0 if te == "boss" else (85.0 if te == "guard" else 30.0)
 			if (m as Node2D).position.distance_to((e as Node2D).position) < raio_e + 10.0:
@@ -1814,7 +1754,6 @@ func _reiniciar() -> void:
 		if is_instance_valid(mm):
 			mm.queue_free()
 	misseis.clear()
-	bonus2_timer = 10.0    # vermelha (dim 1): reinicia para 10s
 	if menu_layer != null:
 		menu_layer.queue_free()
 		menu_layer = null

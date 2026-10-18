@@ -15,7 +15,6 @@ var vida_perfurante := 99
 var fx: Sprite2D = null
 var fx_base := Vector2.ONE
 var fx_fase := 0.0
-var plasma: Sprite2D = null
 # Rastro de plasma por SHADER (tiro_plasma.gdshader). Sprite2D separado,
 # rotacionado para a velocidade do projetil, com UV.y = cauda..ponta.
 # Se o shader nao carregar, _rastro_plasma fica null e o desenho antigo
@@ -159,18 +158,6 @@ func setup_triplotiro(p: Vector2, v: Vector2, p_dano: int = 6) -> void:
 	raio = 40.0
 	fx = null
 	fx_fase = randf() * TAU
-	# base: orbe de plasma verde animado por tras dos raios
-	plasma = Sprite2D.new()
-	plasma.texture = _fazer_textura_radial()
-	plasma.scale = Vector2(1.55, 1.55)
-	if ResourceLoader.exists("res://assets/energy_ball.gdshader"):
-		var psh := load("res://assets/energy_ball.gdshader") as Shader
-		var pmat := ShaderMaterial.new()
-		pmat.shader = psh
-		pmat.set_shader_parameter("charge", 1.0)
-		pmat.set_shader_parameter("speed", 7.0)
-		plasma.material = pmat
-	add_child(plasma)
 
 func setup_gigante(p: Vector2, v: Vector2) -> void:
 	# bola do chefao - gigante, maior que a nave
@@ -198,10 +185,6 @@ func _process(delta: float) -> void:
 		fx.scale = fx_base * (1.0 + 0.07 * sin(t * 21.0))
 		fx.rotation += sin(t * 13.0) * 0.012
 		fx.modulate = Color(1.0, 1.0, 1.0, 0.9 + 0.1 * sin(t * 27.0))
-	if e_triplo and plasma != null:
-		plasma.rotation -= delta * 2.5
-		var ps := 1.55 * (1.0 + 0.09 * sin((tempo + fx_fase) * 17.0))
-		plasma.scale = Vector2(ps, ps)
 	if e_disparo and fx != null:
 		# cristal vivo: pulso suave + cintilacao (mantem o tom verde)
 		var td := tempo + fx_fase
@@ -296,7 +279,6 @@ func _draw() -> void:
 			var pp := Vector2(cos(a), sin(a)) * 62.0
 			var tw := 0.5 + 0.5 * sin(tempo * 11.0 + float(i) * 2.2)
 			draw_circle(pp, 3.2 * tw + 1.0, Color(0.5, 1.0, 0.6, 0.85))
-			draw_circle(pp, 1.4, Color(0.95, 1.0, 0.95, 0.95))
 		return
 	if fx != null:
 		# 100% shader (super verde, plasma vermelho, gigante), zero vetor
@@ -318,10 +300,8 @@ func _draw() -> void:
 			var pl := 1.0 + 0.10 * sin(tempo * 18.0)
 			draw_circle(Vector2.ZERO, 7.0 * pl, Color(0.55, 1.0, 0.70, 0.75))
 			draw_circle(Vector2.ZERO, 4.0 * pl, Color(0.90, 1.0, 0.95, 0.95))
-			draw_circle(Vector2.ZERO, 1.8, Color(1, 1, 1))
 			# bico brilhante
 			draw_rect(Rect2(-1.6, -22, 3.2, 15), Color(0.80, 1.0, 0.85, 0.85))
-			draw_rect(Rect2(-0.7, -24, 1.4, 18), Color(1, 1.0, 0.95, 0.9))
 			return
 		# SEM shader: o desenho antigo em codigo (fallback)
 		_rastro(-vel.normalized(), 62.0, 4.6, Color(0.25, 1.0, 0.45))
@@ -329,9 +309,7 @@ func _draw() -> void:
 		draw_circle(Vector2.ZERO, 14.0 * pl2, Color(0.08, 1.0, 0.38, 0.26))
 		draw_circle(Vector2.ZERO, 8.5 * pl2, Color(0.18, 1.0, 0.45, 0.60))
 		draw_circle(Vector2.ZERO, 4.2 * pl2, Color(0.80, 1.0, 0.88, 0.95))
-		draw_circle(Vector2.ZERO, 2.0, Color(1, 1, 1))
 		draw_rect(Rect2(-2.0, -24, 4, 17), Color(0.75, 1.0, 0.80, 0.85))
-		draw_rect(Rect2(-0.8, -26, 1.6, 20), Color(1, 1.0, 0.95, 0.9))
 	else:
 		# fallback sem shader (nunca deve aparecer)
 		_rastro(-vel.normalized(), 52.0, 6.0, Color(1.0, 0.35, 0.15))

@@ -208,19 +208,6 @@ func _draw() -> void:
 			draw_circle(p2, 7.0 * bal + 2.0, Color(0.20, 1.0, 0.34, 0.22 * bal))
 			draw_circle(p2, 3.0 * bal + 1.0, Color(0.85, 1.0, 0.85, 0.70 * bal))
 
-		# --- faiscas orbitando o raio
-		rng.seed = passo * 613 + 11
-		for s in 6:
-			var f3: float = rng.randf()
-			var idx3: int = clampi(int(f3 * float(SEG)), 0, SEG)
-			var p3: Vector2 = pts[idx3]
-			var ang2 := age * 6.0 + float(s) * 1.1 + float(i)
-			var off := Vector2(cos(ang2), sin(ang2)) * (10.0 + 6.0 * sin(age * 9.0 + float(s)))
-			var cc := Color(0.70, 1.0, 0.72, 0.75) if s % 2 == 0 else Color(0.20, 1.0, 0.36, 0.75)
-			var tam := 1.4 + 1.4 * sin(age * 12.0 + float(s))
-			draw_circle(p3 + off, tam * 2.4, Color(cc.r, cc.g, cc.b, 0.14))
-			draw_circle(p3 + off, tam, cc)
-
 		# --- a ponta sai do topo da tela: some em vez de "bater" em algo
 		var ponta: Vector2 = pts[SEG]
 		for e2 in 4:

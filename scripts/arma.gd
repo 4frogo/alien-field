@@ -16,7 +16,7 @@ func setup(p: Vector2, p_alvo: Node2D) -> void:
 func _ready() -> void:
 	# Arte da arma: Arma Shuriken.png (a arte que o jogador pediu). Falls back para
 	# arma_plasma.png se o arquivo nao estiver no export.
-	for bp in ["res://assets/Arma Shuriken.png", "res://assets/arma_plasma.png"]:
+	for bp in ["res://assets/Gunn.png", "res://assets/Arma Shuriken.png", "res://assets/arma_plasma.png"]:
 		if ResourceLoader.exists(bp):
 			var tex := load(bp) as Texture2D
 			if tex != null:

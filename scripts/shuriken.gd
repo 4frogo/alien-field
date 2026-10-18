@@ -128,6 +128,9 @@ func registrar_hit() -> bool:
 	perfurou += 1
 	return perfurou < PERFURAR
 
+func registrar_dano() -> int:
+	return DANO
+
 
 # --- FALLBACK: desenho em codigo, usado so se o shader falhar ---
 func _draw() -> void:

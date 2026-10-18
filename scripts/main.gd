@@ -807,6 +807,7 @@ func _disparar_shuriken() -> void:
 	s.set_script(ShurikenScript)
 	add_child(s)
 	s.call("setup", player.position + Vector2(0, -60), -PI / 2.0, alvo_melhor)
+	s.set("tipo_missil", "shuriken")   # identifica como shuriken nas colisoes
 	misseis.append(s)
 	_fx_explosao(player.position + Vector2(0, -60), false, false)
 	_num(player.position + Vector2(0, -110), "SHURIKEN!", 26, Color(1.0, 0.55, 0.20))
@@ -1527,9 +1528,11 @@ func _colisoes() -> void:
 
 func _colisoes_misseis() -> void:
 	# missil causa 36 (30% do chefe) e some no impacto
+	# shuriken causa DANO (15) e perfura ate 3 inimigos
 	for m in misseis:
 		if not is_instance_valid(m) or not m.get("vivo"):
 			continue
+		var eh_shuriken: bool = m.has_method("registrar_hit")
 		for e in inimigos:
 			if not is_instance_valid(e) or not e.get("vivo"):
 				continue
@@ -1540,32 +1543,60 @@ func _colisoes_misseis() -> void:
 				continue
 			var raio_e := 115.0 if te == "boss" else (85.0 if te == "guard" else 30.0)
 			if (m as Node2D).position.distance_to((e as Node2D).position) < raio_e + 10.0:
-				m.set("vivo", false)
-				m.queue_free()
-				var morreu: bool = e.call("levar_dano", 36)
-				if morreu:
-					if te == "boss":
-						pontos += 2000
-						_registrar_abate()
-						_kill_confirm((e as Node2D).position, 2000, Color(1, 0.85, 0.3))
-						_fx_explosao((e as Node2D).position, true, false)
-						_rank_chefe()
-						_killcam_boss((e as Node2D).position)
-						add_trauma(0.7)
-						boss = null
-						_respawn_boss_apos(5.0)
-					else:
-						pontos += 100
-						_registrar_abate()
-						_kill_confirm((e as Node2D).position, 100, Color(0.5, 1.0, 0.55))
-						_fx_explosao((e as Node2D).position, false, false)
-						hitstop(0.06)
-						add_trauma(0.22)
+				if eh_shuriken:
+					# shuriken: dano 15 e perfura ate 3 inimigos
+					var dano: int = m.call("registrar_dano")
+					var morreu: bool = e.call("levar_dano", dano)
+					if morreu:
+						if te == "boss":
+							pontos += 2000
+							_registrar_abate()
+							_kill_confirm((e as Node2D).position, 2000, Color(1, 0.85, 0.3))
+							_fx_explosao((e as Node2D).position, true, false)
+							_rank_chefe()
+							_killcam_boss((e as Node2D).position)
+							add_trauma(0.7)
+							boss = null
+							_respawn_boss_apos(5.0)
+						else:
+							pontos += 100
+							_registrar_abate()
+							_kill_confirm((e as Node2D).position, 100, Color(0.5, 1.0, 0.55))
+							_fx_explosao((e as Node2D).position, false, false)
+							hitstop(0.06)
+							add_trauma(0.22)
+					if not m.call("registrar_hit"):
+						m.set("vivo", false)
+						m.queue_free()
+						break
 				else:
-					if te == "boss":
-						pontos += 360
-					_fx_tiro((e as Node2D).position)
-				break
+					# missil normal: dano 36 e some no impacto
+					m.set("vivo", false)
+					m.queue_free()
+					var morreu: bool = e.call("levar_dano", 36)
+					if morreu:
+						if te == "boss":
+							pontos += 2000
+							_registrar_abate()
+							_kill_confirm((e as Node2D).position, 2000, Color(1, 0.85, 0.3))
+							_fx_explosao((e as Node2D).position, true, false)
+							_rank_chefe()
+							_killcam_boss((e as Node2D).position)
+							add_trauma(0.7)
+							boss = null
+							_respawn_boss_apos(5.0)
+						else:
+							pontos += 100
+							_registrar_abate()
+							_kill_confirm((e as Node2D).position, 100, Color(0.5, 1.0, 0.55))
+							_fx_explosao((e as Node2D).position, false, false)
+							hitstop(0.06)
+							add_trauma(0.22)
+					else:
+						if te == "boss":
+							pontos += 360
+						_fx_tiro((e as Node2D).position)
+					break
 
 func _dano_no_player(qtd: float) -> void:
 	if player.get("invencivel") > 0:

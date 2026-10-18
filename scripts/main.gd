@@ -857,23 +857,17 @@ func _equipar_power() -> void:
 func _on_player_atirar(pos: Vector2) -> void:
 	if vidas <= 0:
 		return
-	if power_timer > 0:
-		# melhorado 15s: leque triplo unico saindo do bico (bocas na base do sprite)
+	# Tiro normal: sempre os mesmos 3 cristais. Com a caixa verde ativa
+	# eles ficam MAIORES (1.9x) — e so isso, sem efeitos extras.
+	var esc: float = 1.9 if power_timer > 0 else 1.0
+	var noffs := [Vector2(-12, 8), Vector2(0, 0), Vector2(12, 8)]
+	var nvels := [Vector2(-35, -615), Vector2(0, -630), Vector2(35, -615)]
+	for i in 3:
 		var b := Node2D.new()
 		b.set_script(BulletScript)
 		add_child(b)
-		b.call("setup_triplotiro", pos + Vector2(0, -26), Vector2(0, -640), 6)
+		b.call("setup_disparo", pos + noffs[i], nvels[i], i, esc)
 		tiros.append(b)
-	else:
-		# tiro normal novo: 3 cristais da imagem disparo.png
-		var noffs := [Vector2(-12, 8), Vector2(0, 0), Vector2(12, 8)]
-		var nvels := [Vector2(-35, -615), Vector2(0, -630), Vector2(35, -615)]
-		for i in 3:
-			var b := Node2D.new()
-			b.set_script(BulletScript)
-			add_child(b)
-			b.call("setup_disparo", pos + noffs[i], nvels[i], i)
-			tiros.append(b)
 	_fx_tiro(pos)
 	# som do tiro do player mutado por enquanto
 

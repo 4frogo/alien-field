@@ -1542,7 +1542,8 @@ func _colisoes_misseis() -> void:
 			if te == "bonus" or te == "turret":
 				continue
 			var raio_e := 115.0 if te == "boss" else (85.0 if te == "guard" else 30.0)
-			if (m as Node2D).position.distance_to((e as Node2D).position) < raio_e + 10.0:
+			var raio_extra := 25.0 if eh_shuriken else 0.0
+			if (m as Node2D).position.distance_to((e as Node2D).position) < raio_e + 10.0 + raio_extra:
 				if eh_shuriken:
 					# shuriken: dano 15 e perfura ate 3 inimigos
 					var dano: int = m.call("registrar_dano")

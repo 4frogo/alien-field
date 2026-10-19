@@ -36,9 +36,16 @@ func _process(delta: float) -> void:
 	mat.set_shader_parameter("tempo", fmod(_t, 100.0))
 
 
-func configurar(cor_acento: Color, c_cor_fundo: Color = Color(0.015, 0.045, 0.030, 0.72)) -> void:
+func configurar(cor_acento: Color, c_cor_fundo: Color = Color(0.015, 0.045, 0.030, 0.72),
+		moldura: bool = true, fundo: bool = true) -> void:
 	if mat == null:
 		return
 	mat.set_shader_parameter("cor_acento", cor_acento)
 	mat.set_shader_parameter("cor_borda", Color(cor_acento.r, cor_acento.g, cor_acento.b, 0.55))
 	mat.set_shader_parameter("cor_fundo", c_cor_fundo)
+	# `moldura=false` tira a caixa verde em volta (borda + acento + brilho de
+	# canto) e `fundo=false` tira tambem o vidro atras. As barrinhas que sao
+	# filhas deste painel nao sao afetadas — elas continuam com o liquido, a
+	# superficie, as bolhas e o plasma intactos.
+	mat.set_shader_parameter("mostrar_borda", 1.0 if moldura else 0.0)
+	mat.set_shader_parameter("mostrar_fundo", 1.0 if fundo else 0.0)

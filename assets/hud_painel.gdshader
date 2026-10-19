@@ -19,6 +19,13 @@ uniform float velocidade_varredura : hint_range(0.0, 200.0) = 34.0;
 uniform float brilho_canto : hint_range(0.0, 3.0) = 1.1;
 uniform float grade : hint_range(0.0, 1.0) = 0.14;      // grade sutil
 uniform vec4 cor_acento_lateral : source_color = vec4(0.30, 1.0, 0.50, 0.0);
+// LIGA/DESLIGA a MOLDURA do painel (borda verde + acento lateral + brilho
+// de canto), sem mexer no vidro de fundo. 1 = moldura visivel (padrao),
+// 0 = sem caixa verde em volta — as barrinhas ficam soltas sobre o vidro.
+uniform float mostrar_borda : hint_range(0.0, 1.0) = 1.0;
+// LIGA/DESLIGA o VIDRO DE FUNDO. 0 = painel totalmente invisivel: so as
+// barrinhas aparecem, sem nenhuma caixa atras delas.
+uniform float mostrar_fundo : hint_range(0.0, 1.0) = 1.0;
 
 float hash21(vec2 p) {
 	p = fract(p * vec2(123.34, 456.21));
@@ -54,16 +61,16 @@ void fragment() {
 	col *= 1.0 - grade * 0.5 * step(0.5, fract(uv.x * 26.0));
 	col *= 1.0 - grade * 0.5 * step(0.5, fract(uv.y * 8.0));
 
-	// --- borda: onde d ~ 0 ---
-	float borda = 1.0 - smoothstep(0.0, espessura_borda * 2.2, abs(d));
+	// --- borda: onde d ~ 0 (some quando mostrar_borda = 0) ---
+	float borda = (1.0 - smoothstep(0.0, espessura_borda * 2.2, abs(d))) * mostrar_borda;
 	col = mix(col, cor_borda.rgb, borda * 0.85);
 
 	// --- acento lateral esquerdo (marca "painel ativo") ---
-	float lat = (1.0 - smoothstep(0.0, 0.09, abs(p.x + 1.0))) * dentro;
+	float lat = (1.0 - smoothstep(0.0, 0.09, abs(p.x + 1.0))) * dentro * mostrar_borda;
 	col = mix(col, cor_acento.rgb, lat * 0.55);
 
 	// --- brilho nos cantos chanfrados (pontos de luz) ---
-	float canto_brilho = (1.0 - smoothstep(0.0, 0.30, abs(d + 0.10)));
+	float canto_brilho = (1.0 - smoothstep(0.0, 0.30, abs(d + 0.10))) * mostrar_borda;
 	canto_brilho *= 0.5 + 0.5 * sin(tempo * 2.4);
 	col += cor_acento.rgb * canto_brilho * brilho_canto * 0.35;
 
@@ -76,7 +83,7 @@ void fragment() {
 	float n = hash21(floor(uv * vec2(120.0, 60.0)) + floor(tempo * 12.0));
 	col += (n - 0.5) * 0.020;
 
-	float alpha = dentro * cor_fundo.a;
+	float alpha = dentro * cor_fundo.a * mostrar_fundo;
 	alpha = max(alpha, borda * cor_borda.a);
 
 	COLOR = vec4(col, alpha);

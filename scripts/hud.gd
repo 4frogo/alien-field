@@ -42,11 +42,16 @@ func _ready() -> void:
 
 	# PAINEL DO RODAPE ESQUERDO: mesmo visual do painel de PONTOS, para os
 	# dois blocos de status lerem como um sistema so.
+	# MOLDURA DESLIGADA a pedido do jogador: antes o painel desenhava uma
+	# caixa verde em volta das duas barrinhas (borda + acento lateral +
+	# brilho de canto). Agora fica so o vidro escuro de fundo — sem a caixa.
+	# Para trazer a moldura de volta, troque o `false` por `true` abaixo;
+	# para sumir tambem com o vidro, troque o `true` final por `false`.
 	var painel_esc = preload("res://scripts/hud_painel.gd").new()
 	painel_esc.position = Vector2(16, 884)
 	painel_esc.size = Vector2(208, 64)
 	add_child(painel_esc)
-	painel_esc.call("configurar", verde, Color(0.015, 0.045, 0.030, 0.70))
+	painel_esc.call("configurar", verde, Color(0.015, 0.045, 0.030, 0.70), false, true)
 
 	# SEM O ICONE DE ESCUDO: era aquele hexagono verde a esquerda da barra.
 	# O jogador pediu pra remover — a barra liquida sozinha ja comunica o

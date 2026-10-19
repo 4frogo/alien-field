@@ -18,6 +18,9 @@ var escala0 := Vector2.ONE
 var t_entrada := 0.0
 # atordoamento pelo raio triplo: o chefe treme e nao atira
 var atordoado := 0.0
+# raios vermelho-e-preto saindo do chefe (procedural, regenera toda hora)
+var raio_tmp := 0.0
+var raios: Array = []
 var pe0 := Vector2.ZERO
 var pe1 := Vector2.ZERO
 var pec := Vector2.ZERO
@@ -121,6 +124,8 @@ func setup(p_tipo: String, p_pos: Vector2, p_dir: Vector2 = Vector2(0, 1)) -> vo
 		base_x = pos_cruzeiro.x
 		if ResourceLoader.exists("res://assets/protetor.png"):
 			_criar_sprite("res://assets/protetor.png", 210.0, "")
+			if sprite != null:
+				sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 			if sprite != null and sprite.material is ShaderMaterial:
 				var cm := sprite.material as ShaderMaterial
 				cm.set_shader_parameter("cor", Color(0.03, 0.03, 0.04, 1.0))
@@ -201,6 +206,7 @@ func _criar_sprite_boss() -> void:
 	# (handle em hud.gd via boss_vida). Aqui nao plantamos nada
 	# acima da nave.
 	barra_hp = null
+	_gerar_raios()
 
 func _fazer_brilho() -> ImageTexture:
 	var tam := 64
@@ -336,6 +342,11 @@ func _process(delta: float) -> void:
 			vivo = false
 			queue_free()
 	elif tipo == "boss":
+		# raios regeneram rapido: o piscar irregular da faísca
+		raio_tmp -= delta
+		if raio_tmp <= 0.0:
+			raio_tmp = 0.06 if hp < hp_max * 0.5 else 0.11
+			_gerar_raios()
 		if entrando:
 			queue_redraw()
 			return
@@ -431,7 +442,7 @@ func levar_dano_super(d: int) -> bool:
 func _draw() -> void:
 	if tem_sprite and sprite != null:
 		if tipo == "boss":
-			draw_circle(Vector2.ZERO, 100, Color(1.0, 0.15, 0.1, 0.12))
+			_draw_boss_raios()
 			return
 		elif tipo == "guard":
 			# SEM escudo verde: era um aro de energia com dois arcos
@@ -545,6 +556,57 @@ func _draw_small() -> void:
 	# luzes laterais
 	draw_circle(Vector2(-16, 4), 2.5, Color(0.4, 1.0, 0.55))
 	draw_circle(Vector2(16, 4), 2.5, Color(0.4, 1.0, 0.55))
+
+# ---- raios do chefe -------------------------------------------------
+# Cada raio e um polyline torto gerado por deslocamento lateral aleatorio.
+# Sao 3 passes: halo vermelho largo (0.30 alpha) -> miolo PRETO (contraste,
+# o "negro") -> filete quente fininho. Sem blend aditivo: o fundo ja e bem
+# escuro e o halo com alpha ja da a leitura de brilho.
+
+func _gerar_raios() -> void:
+	# comecam DENTRO do casco e terminam fora da silhueta: a parte escondida
+	# da o "saindo de dentro" e a visivel e a que assusta
+	var alvos := [
+		[Vector2(-95, -35), Vector2(-178, -88)],
+		[Vector2(95, -35), Vector2(178, -88)],
+		[Vector2(0, -120), Vector2(72, -198)],
+		[Vector2(-30, 70), Vector2(-112, 158)],
+		[Vector2(30, 70), Vector2(112, 158)],
+	]
+	# alem de 50% de dano: mais 2 arcos atravessando o corpo e piscar mais rapido
+	if hp < hp_max * 0.5:
+		alvos.append([Vector2(-110, 15), Vector2(125, -55)])
+		alvos.append([Vector2(110, 15), Vector2(-125, -55)])
+	raios.clear()
+	for p in alvos:
+		raios.append(_zigzag(p[0], p[1], 10, 17.0))
+
+
+func _zigzag(a: Vector2, b: Vector2, n: int, amp: float) -> PackedVector2Array:
+	var pts := PackedVector2Array([a])
+	var dir := (b - a).normalized()
+	var perp := Vector2(-dir.y, dir.x)
+	for i in range(1, n):
+		var t := float(i) / float(n)
+		pts.append(a.lerp(b, t) + perp * randf_range(-amp, amp))
+	pts.append(b)
+	return pts
+
+
+func _draw_boss_raios() -> void:
+	# glow pulsante atras do casco
+	var p := 0.7 + 0.3 * sin(tempo * 7.0)
+	draw_circle(Vector2.ZERO, 105.0 * p, Color(1.0, 0.10, 0.05, 0.11))
+	# quanto mais machucado, mais forte a faísca
+	var k := 1.0 - clampf(float(hp) / float(maxi(1, hp_max)), 0.0, 1.0)
+	var br := 0.55 + 0.45 * k
+	for pd in raios:
+		var pts: PackedVector2Array = pd
+		var a := randf_range(0.55, 1.0) * br  # rand por frame = flicker
+		draw_polyline(pts, Color(1.0, 0.10, 0.05, 0.30 * a), 9.0, true)
+		draw_polyline(pts, Color(0.02, 0.0, 0.0, 0.90 * a), 4.5, true)
+		draw_polyline(pts, Color(1.0, 0.62, 0.45, a), 1.6, true)
+
 
 func _draw_boss() -> void:
 	# glow

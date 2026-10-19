@@ -241,6 +241,11 @@ func _raio_plasma(base: Vector2, ang: float, comp: float, fase: float) -> void:
 	# lingua eletrica na ponta
 	var zig := ponta + Vector2(sin(tempo * 47.0 + fase * 3.0) * 5.0, -8.0)
 	draw_line(ponta, zig, Color(0.7, 1.0, 0.75, 0.8), 1.5)
+	# glow extra + faiscas
+	draw_circle(base, 6.0, Color(0.2, 1.0, 0.4, 0.25))
+	for i in 3:
+		var sp := base + dir * (c * (0.2 + 0.25 * i)) + Vector2(sin(tempo*31+i)*3, cos(tempo*23+i)*2)
+		draw_circle(sp, 1.5, Color(0.8, 1.0, 0.85, 0.7))
 
 func _draw() -> void:
 	if e_disparo:
@@ -265,6 +270,7 @@ func _draw() -> void:
 		draw_circle(Vector2(sin(t * 1.7) * 2.0 * s, tip), 2.0 * s, Color(0.9, 1.0, 0.9, 0.8))
 		return
 	if e_triplo:
+		_rastro(Vector2.DOWN, 40.0, 4.0, Color(0.3, 1.0, 0.5))
 		# brasa na boca
 		var brasa := 0.7 + 0.3 * sin(tempo * 23.0 + fx_fase)
 		draw_circle(Vector2(0, 20), 20.0 * brasa, Color(0.2, 1.0, 0.45, 0.35))

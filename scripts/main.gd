@@ -104,7 +104,7 @@ var menu_layer: CanvasLayer = null
 var em_menu := false
 var fonte_horror: Font = null
 var charge_bar: Control = null
-var charge_txt: Label = null
+var charge_txt: Control = null
 var flash_layer: CanvasLayer = null
 var flash_rect: ColorRect = null
 var flash_t := 0.0
@@ -305,12 +305,11 @@ func _ready() -> void:
 	charge_bar.visible = true
 	hud.add_child(charge_bar)
 
-	charge_txt = Label.new()
-	charge_txt.text = "SUPER"
-	charge_txt.add_theme_font_size_override("font_size", 13)
-	if _fonte() != null:
-		charge_txt.add_theme_font_override("font", _fonte())
-	charge_txt.add_theme_color_override("font_color", Color(0.5, 1.0, 0.6))
+	# texto de carga do super: canto INFERIOR DIREITO, fonte grande e com
+	# animacao (pulsa quando pronto; a ultima palavra explode no disparo)
+	charge_txt = preload("res://scripts/charge_txt.gd").new()
+	charge_txt.position = Vector2(224, 876)
+	charge_txt.size = Vector2(300, 60)
 	charge_txt.visible = false
 	hud.add_child(charge_txt)
 
@@ -813,6 +812,9 @@ func _disparar_shuriken() -> void:
 	_num(player.position + Vector2(0, -110), "SHURIKEN!", 26, Color(1.0, 0.55, 0.20))
 
 func _disparar_super_raio(pos: Vector2) -> void:
+	# a ULTIMA PALAVRA ("SOLTE!") estilhaça no instante do disparo
+	if charge_txt != null and is_instance_valid(charge_txt):
+		charge_txt.call("explodir")
 	var f := Node2D.new()
 	f.set_script(FeixeScript)
 	add_child(f)
@@ -1319,18 +1321,12 @@ func _process(delta: float) -> void:
 			charge_txt.visible = true
 			charge_bar.set("prog", prog)
 			charge_bar.set("pronta", pronta)
-			# posicao fixa no rodape (definida no _ready). O texto fica na
-			# ponta direita da barra, sem cobrir a nave.
-			charge_txt.position = Vector2(208, 923)
 			if pronta:
-				charge_txt.text = "SOLTE!"
-				charge_txt.add_theme_color_override("font_color", Color(1, 0.25, 0.15))
+				charge_txt.call("set_estado", "SOLTE!", Color(1, 0.25, 0.15), true)
 			elif prog > 0.6:
-				charge_txt.text = "PERIGO"
-				charge_txt.add_theme_color_override("font_color", Color(1, 0.45, 0.15))
+				charge_txt.call("set_estado", "PERIGO", Color(1, 0.45, 0.15), false)
 			else:
-				charge_txt.text = "SUPER"
-				charge_txt.add_theme_color_override("font_color", Color(0.5, 1.0, 0.6))
+				charge_txt.call("set_estado", "SUPER", Color(0.5, 1.0, 0.6), false)
 			# som de carga mutado por enquanto
 			var seg := int(player.get("carga"))
 			if seg > last_beep and prog < 1.0:
@@ -1341,7 +1337,9 @@ func _process(delta: float) -> void:
 			# a barra continua na tela, vazia, esperando carregar
 			charge_bar.set("prog", 0.0)
 			charge_bar.set("pronta", false)
-			charge_txt.visible = false
+			# nao esconde no meio da explosao da ultima palavra
+			if not bool(charge_txt.get("explodindo")):
+				charge_txt.visible = false
 			last_beep = 0
 
 	# feixe triplo: dano a cada 0.05s (ver _dano_do_raio)

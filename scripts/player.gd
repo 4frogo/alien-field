@@ -57,6 +57,7 @@ var _aura_arma = null
 var _bbc: BackBufferCopy = null
 # Distorcao de calor (heat haze) atras dos propulsores quando a nave se move
 var heat_haze: Sprite2D = null
+var thruster_particles: Array = []
 
 
 func ligar_escudo_temporario(duracao: float = 5.0) -> void:
@@ -265,6 +266,29 @@ func _ready() -> void:
 	heat_haze.scale = Vector2(2.0, 2.0)
 	heat_haze.visible = false
 	add_child(heat_haze)
+	# --- Particulas de propulsor (chama verde + fumaca) ---
+	thruster_particles = []
+	for bp in _bicos_motor():
+		var gp := GPUParticles2D.new()
+		var mat := ParticleProcessMaterial.new()
+		mat.direction = Vector3(0, 1, 0)
+		mat.spread = 18.0
+		mat.initial_velocity_min = 40.0
+		mat.initial_velocity_max = 90.0
+		mat.gravity = Vector3(0, 40, 0)
+		mat.scale_min = 0.6
+		mat.scale_max = 1.4
+		mat.color = Color(0.3, 1.0, 0.5, 0.9)
+		mat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_POINT
+		gp.process_material = mat
+		gp.amount = 24
+		gp.lifetime = 0.5
+		gp.explosiveness = 0.0
+		gp.randomness = 0.4
+		gp.position = bp
+		gp.emitting = true
+		add_child(gp)
+		thruster_particles.append(gp)
 # escudo sem efeito visual: a nave ficou limpa para receber o novo modelo.
 # O no 'aura' e a funcao _draw_escudo_particulas foram desligados de proposito.
 	# escudo dissolvido: 110 microparticulas no anel 58-92 + 4 nos de energia

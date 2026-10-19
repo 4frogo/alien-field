@@ -4,7 +4,7 @@ extends CanvasLayer
 # e os cantos SUPERIORES ficam vazios de proposito — a nao compete com o
 # cenario.
 
-var bar_escudo: Control
+var icone_escudo: Control
 # ultimo valor de vidas recebido. Os icones do canto da tela sairam, mas
 # o main.gd continua mandando esse numero e o game over depende dele.
 var _vidas_atual := 3
@@ -40,40 +40,21 @@ func _ready() -> void:
 	# fase. A quantidade de vidas agora so aparece quando acaba.
 	# (o script vidas_icons.gd continua no projeto, so nao e instanciado)
 
-	# PAINEL DO RODAPE ESQUERDO: mesmo visual do painel de PONTOS, para os
-	# dois blocos de status lerem como um sistema so.
-	# MOLDURA DESLIGADA a pedido do jogador: antes o painel desenhava uma
-	# caixa verde em volta das duas barrinhas (borda + acento lateral +
-	# brilho de canto). Agora fica so o vidro escuro de fundo — sem a caixa.
-	# Para trazer a moldura de volta, troque o `false` por `true` abaixo;
-	# para sumir tambem com o vidro, troque o `true` final por `false`.
-	var painel_esc = preload("res://scripts/hud_painel.gd").new()
-	painel_esc.position = Vector2(16, 884)
-	painel_esc.size = Vector2(208, 64)
-	add_child(painel_esc)
-	painel_esc.call("configurar", verde, Color(0.015, 0.045, 0.030, 0.70), false, true)
+	# PAINEL DO RODAPE ESQUERDO REMOVIDO: com a barra de escudo virando o
+	# icone da direita e a do super virando o icone SUPER da esquerda, o
+	# painel de vidro ficou vazio. (o script hud_painel.gd continua no
+	# projeto, sem uso)
 
-	# SEM O ICONE DE ESCUDO: era aquele hexagono verde a esquerda da barra.
-	# O jogador pediu pra remover — a barra liquida sozinha ja comunica o
-	# estado do escudo. (o script hud_icon.gd continua no projeto, sem uso)
-
-	bar_escudo = preload("res://scripts/hud_bar.gd").new()
-	bar_escudo.set("cor", verde)
-	bar_escudo.set("cor_fundo", Color(0.04, 0.14, 0.07))
-	# sem moderno: agora a barra de escudo usa o modo LIQUIDO igual ao
-	# super tiro (escudo = plasma/líquido), como o jogador pediu. 'moderne'
-	# daria uma barra lisa sem a animacao do liquido.
-	bar_escudo.set("moderno", false)
-	bar_escudo.set("liquido", true)
-	bar_escudo.set("trilho", true)
-	# GRADE DO RODAPE: painel em (16,884) 208x64. As duas barras ocupam
-	# x=28..204 (176px) e ficam centradas verticalmente com 8px de gap.
-	bar_escudo.position = Vector2(28, 898)
-	bar_escudo.size = Vector2(176, 16)
-	bar_escudo.set("liquido", true)
-	bar_escudo.set("valor", 1.0)
-	bar_escudo.set("alvo", 1.0)
-	add_child(bar_escudo)
+	# NOVO ICONE DE ESCUDO: escudoG.png no canto INFERIOR DIREITO, com
+	# liquido de plasma verde se movendo dentro (hud_escudo_icone.gd +
+	# escudo_icone.gdshader). Substituiu a barra liquida do rodape esquerdo
+	# e o texto de carga (as 3 frases SUPER/PERIGO/SOLTE!, que sairam do
+	# canto direito junto com a barra do escudo).
+	# (o script hud_bar.gd continua no projeto, usado pelo chefao e pelo super)
+	icone_escudo = preload("res://scripts/hud_escudo_icone.gd").new()
+	icone_escudo.position = Vector2(360, 866)
+	icone_escudo.size = Vector2(164, 82)
+	add_child(icone_escudo)
 
 	# SEM O ICONE DO LASER no rodape direito. Era aquele trio de setas
 	# verdes; removido a pedido do jogador. O estado do super tiro continua
@@ -134,7 +115,7 @@ func atualizar(pontos: int, vidas: int, escudo: float) -> void:
 	# sem uso.
 	_pontos_atual = pontos
 	_vidas_atual = vidas
-	bar_escudo.call("definir", escudo, 100.0)
+	icone_escudo.call("definir", escudo, 100.0)
 
 func boss_vida(hp: int, hp_max: int) -> void:
 	lbl_boss.visible = true

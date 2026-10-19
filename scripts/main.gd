@@ -104,7 +104,6 @@ var menu_layer: CanvasLayer = null
 var em_menu := false
 var fonte_horror: Font = null
 var charge_bar: Control = null
-var charge_txt: Control = null
 var flash_layer: CanvasLayer = null
 var flash_rect: ColorRect = null
 var flash_t := 0.0
@@ -292,26 +291,21 @@ func _ready() -> void:
 	portal_label.visible = false
 	hud.add_child(portal_label)
 
-	# barrinha de carga do super tiro â€” FIXA no rodape, logo abaixo da barra de
-	# escudo. Antes ela seguia a nave e cobria o casco.
-	charge_bar = preload("res://scripts/super_bar.gd").new()
-	# MESMA GRADE da barra de escudo (hud.gd): x=28, largura 176, 16px de
-	# altura, 8px de gap vertical. Antes cada barra tinha medidas proprias
-	# e o rodape ficava visivelmente torto.
-	charge_bar.custom_minimum_size = Vector2(176, 16)
-	charge_bar.size = Vector2(176, 16)
-	charge_bar.position = Vector2(28, 922)
-	# sempre visivel: vazia quando o tiro nao esta carregando
+	# ICONE DO SUPER: SUPER.png no canto INFERIOR ESQUERDO, espelhando o
+	# icone de escudo da direita (mesma grade: 164x82, base em y=948).
+	# O liquido de plasma enche da esquerda pra direita com a carga; cheio,
+	# o icone inteiro cicla em RGB ate o jogador soltar o super tiro.
+	# (o script super_bar.gd continua no projeto, sem uso)
+	charge_bar = preload("res://scripts/hud_super_icone.gd").new()
+	charge_bar.position = Vector2(16, 866)
+	charge_bar.size = Vector2(164, 82)
+	# sempre visivel: vazio quando o tiro nao esta carregando
 	charge_bar.visible = true
 	hud.add_child(charge_bar)
 
-	# texto de carga do super: canto INFERIOR DIREITO, fonte grande e com
-	# animacao (pulsa quando pronto; a ultima palavra explode no disparo)
-	charge_txt = preload("res://scripts/charge_txt.gd").new()
-	charge_txt.position = Vector2(224, 876)
-	charge_txt.size = Vector2(300, 60)
-	charge_txt.visible = false
-	hud.add_child(charge_txt)
+	# TEXTO DE CARGA (SUPER/PERIGO/SOLTE!) REMOVIDO: as 3 frases do canto
+	# direito sairam e o espaco agora e do icone de escudo (hud.gd).
+	# O script charge_txt.gd continua no projeto, sem uso.
 
 	# flash de tela (impactos/explosoes)
 	flash_layer = CanvasLayer.new()
@@ -812,9 +806,6 @@ func _disparar_shuriken() -> void:
 	_num(player.position + Vector2(0, -110), "SHURIKEN!", 26, Color(1.0, 0.55, 0.20))
 
 func _disparar_super_raio(pos: Vector2) -> void:
-	# a ULTIMA PALAVRA ("SOLTE!") estilhaça no instante do disparo
-	if charge_txt != null and is_instance_valid(charge_txt):
-		charge_txt.call("explodir")
 	var f := Node2D.new()
 	f.set_script(FeixeScript)
 	add_child(f)
@@ -1318,15 +1309,8 @@ func _process(delta: float) -> void:
 		var prog: float = player.call("carga_progress")
 		var pronta: bool = player.call("carga_pronta")
 		if prog > 0.0:
-			charge_txt.visible = true
 			charge_bar.set("prog", prog)
 			charge_bar.set("pronta", pronta)
-			if pronta:
-				charge_txt.call("set_estado", "SOLTE!", Color(1, 0.25, 0.15), true)
-			elif prog > 0.6:
-				charge_txt.call("set_estado", "PERIGO", Color(1, 0.45, 0.15), false)
-			else:
-				charge_txt.call("set_estado", "SUPER", Color(0.5, 1.0, 0.6), false)
 			# som de carga mutado por enquanto
 			var seg := int(player.get("carga"))
 			if seg > last_beep and prog < 1.0:
@@ -1337,9 +1321,6 @@ func _process(delta: float) -> void:
 			# a barra continua na tela, vazia, esperando carregar
 			charge_bar.set("prog", 0.0)
 			charge_bar.set("pronta", false)
-			# nao esconde no meio da explosao da ultima palavra
-			if not bool(charge_txt.get("explodindo")):
-				charge_txt.visible = false
 			last_beep = 0
 
 	# feixe triplo: dano a cada 0.05s (ver _dano_do_raio)

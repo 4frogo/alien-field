@@ -22,6 +22,11 @@ var fonte_horror: Font = null
 func _ready() -> void:
 	if ResourceLoader.exists("res://assets/horror.ttf"):
 		fonte_horror = load("res://assets/horror.ttf") as Font
+	# Com stretch "expand" o viewport alarga em telas largas, mas o mundo
+	# continua centralizado nos 540 px do design. O HUD se ancora na borda
+	# do viewport, entao sem isso os icones iam parar fora da area de jogo.
+	get_viewport().size_changed.connect(_alinhar_com_o_jogo)
+	_alinhar_com_o_jogo()
 	# ---------------------------------------------------------------
 	# PONTOS — canto INFERIOR DIREITO, num painel arredondado.
 	# Antes ficava no canto superior esquerdo com a horror.ttf (que tem
@@ -127,3 +132,9 @@ func boss_fora() -> void:
 	lbl_boss.visible = false
 	bar_boss.visible = false
 	retrato_boss.visible = false
+
+func _alinhar_com_o_jogo() -> void:
+	# Desloca o HUD pra ele ficar em cima da coluna de 540 px do jogo,
+	# em vez de colado na borda esquerda da janela.
+	var w: float = get_viewport().get_visible_rect().size.x
+	offset = Vector2(round((w - 540.0) * 0.5), 0.0)

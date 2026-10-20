@@ -1,8 +1,9 @@
 extends Control
 # Icone de ESCUDO no canto INFERIOR DIREITO: moldura escudoG.png com
-# liquido de plasma verde se movendo dentro (escudo_icone.gdshader).
-# definir(v, vmax) -> nivel 0..1 com lerp suave (drena/engarrafa).
-# Se o shader nao carregar, o icone aparece sem liquido (so a moldura).
+# liquido feito de PARTICULAS de plasma (verdes + vermelhas fervendo)
+# dentro (escudo_icone.gdshader). O dano drena o liquido da DIREITA
+# PRA ESQUERDA ate sumir. definir(v, vmax) -> nivel 0..1 com lerp
+# suave. Se o shader nao carregar, o icone aparece sem liquido.
 
 var valor := 1.0
 var alvo := 1.0

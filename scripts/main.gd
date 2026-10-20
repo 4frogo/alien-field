@@ -291,14 +291,15 @@ func _ready() -> void:
 	portal_label.visible = false
 	hud.add_child(portal_label)
 
-	# ICONE DO SUPER: SUPER.png no canto INFERIOR ESQUERDO, espelhando o
-	# icone de escudo da direita (mesma grade: 164x82, base em y=948).
-	# O liquido de plasma enche da esquerda pra direita com a carga; cheio,
-	# o icone inteiro cicla em RGB ate o jogador soltar o super tiro.
+	# ICONE DO SUPER: barrasuperhold.png (VERDE, sem o nome) no canto
+	# INFERIOR ESQUERDO, espelhando o icone de escudo da direita (arte:
+	# 164x82, base em y=948). O Control e 164x164: a metade de cima e
+	# o AR onde os raios REALISTAS (relampos) voam quando a carga chega
+	# no maximo com o L ainda segurado.
 	# (o script super_bar.gd continua no projeto, sem uso)
 	charge_bar = preload("res://scripts/hud_super_icone.gd").new()
-	charge_bar.position = Vector2(16, 866)
-	charge_bar.size = Vector2(164, 82)
+	charge_bar.position = Vector2(16, 784)
+	charge_bar.size = Vector2(164, 164)
 	# sempre visivel: vazio quando o tiro nao esta carregando
 	charge_bar.visible = true
 	hud.add_child(charge_bar)

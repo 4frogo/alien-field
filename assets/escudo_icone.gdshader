@@ -1,9 +1,11 @@
 shader_type canvas_item;
-// Icone de ESCUDO (escudoG.png) com liquido de plasma verde se movendo
-// dentro. O PNG vem com fundo preto OPUACO (0,0,0 exato) — key por
-// luminancia abre o fundo; o metal escuro (>0.05) e o verde ficam solidos.
-// O liquido vive dentro de uma elipse no buraco da moldura; a moldura e
-// desenhada POR CIMA do liquido.
+// Icone de ESCUDO (escudoG.png): o liquido dentro da moldura e feito de
+// PARTICULAS de plasma — verdes + vermelhas, 2 escalas fervendo no
+// lugar. Ele drena da DIREITA PRA ESQUERDA quando a nave sofre dano
+// (nivel = escudo/escudo_max; cheio = camara cheia; dano = a camara
+// esvazia da direita pra esquerda ate sumir). O PNG vem com fundo preto
+// OPUACO — key por CANAL MAXIMO abre o fundo; qualquer tom colorido
+// (metal verde sombreado inclusive) fica solido. Moldura POR CIMA.
 
 uniform sampler2D tex : source_color, filter_linear;
 uniform float nivel : hint_range(0.0, 1.0) = 1.0;
@@ -11,42 +13,77 @@ uniform float tempo = 0.0;
 
 const vec3 VERDE = vec3(0.24, 1.0, 0.44);
 const vec3 VERDE_FUND = vec3(0.03, 0.30, 0.11);
+const vec3 VERMELHA = vec3(1.0, 0.30, 0.24);
+const vec3 BRANCO_PART = vec3(0.80, 1.0, 0.86);
+
+float hash(vec2 p) {
+	return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+}
 
 void fragment() {
 	vec4 orna = texture(tex, UV);
-	float lum = dot(orna.rgb, vec3(0.35, 0.5, 0.15));
-	float oa = smoothstep(0.012, 0.055, lum);
+	// key por CANAL MAXIMO (nao luminancia): preto puro = fundo; qualquer
+	// tom colorido (o verde sombreado do metal inclusive) fica SOLIDO
+	float chaves = max(orna.r, max(orna.g, orna.b));
+	float oa = smoothstep(0.015, 0.045, chaves);
 
 	// "vidro" interno: elipse no buraco da moldura
 	vec2 e = (UV - vec2(0.5)) / vec2(0.335, 0.180);
 	float d = length(e);
 	float dentro = 1.0 - smoothstep(0.88, 1.0, d);
 
-	// nivel do liquido + duas ondas na superficie
-	float ny = 1.0 - nivel;
-	float onda = sin(UV.x * 9.0 + tempo * 2.6) * 0.011
-		+ sin(UV.x * 19.0 - tempo * 3.9) * 0.006;
-	float sup = ny + onda;
-	float liq = smoothstep(sup - 0.004, sup + 0.006, UV.y);
+	// frente ondulante: liquido ancorado na ESQUERDA; o dano drena da
+	// direita pra esquerda (fx: 1.0 cheio -> 0.0 vazio)
+	float onda = sin(UV.y * 11.0 + tempo * 2.8) * 0.012
+		+ sin(UV.y * 23.0 - tempo * 4.1) * 0.006;
+	float fx = nivel + onda * (0.30 + 0.70 * (1.0 - nivel));
+	float liq = smoothstep(fx + 0.006, fx - 0.004, UV.x); // x < frente
 
-	// corpo: fundo escuro, perto da superficie mais vivo
-	vec3 cl = mix(VERDE_FUND, VERDE, clamp((UV.y - ny) * 2.4, 0.0, 1.0));
-	// menisco brilhando na superficie
-	float brilho = smoothstep(0.022, 0.0, abs(UV.y - sup)) * liq;
-	cl = mix(cl, vec3(0.78, 1.0, 0.82), brilho * 0.85);
-	// 2 bolhas subindo
-	for (int i = 0; i < 2; i++) {
-		float fi = float(i);
-		float by = 1.05 - fract(tempo * (0.20 + 0.11 * fi) + fi * 0.47) * 1.12;
-		vec2 bp = vec2(0.30 + 0.40 * fi + 0.04 * sin(tempo * (1.3 + fi)), by);
-		float bd = length((UV - bp) * vec2(1.0, 1.7)) / 0.010;
-		cl = mix(cl, vec3(0.85, 1.0, 0.9), (1.0 - smoothstep(0.4, 1.0, bd)) * 0.55 * liq);
+	// ---- PARTICULAS de plasma: 2 escalas fervendo dentro do liquido ----
+	float dens = 0.0;
+	vec3 cor_dens = vec3(0.0);
+	for (int camada = 0; camada < 2; camada++) {
+		float fc = float(camada);
+		vec2 grade = mix(vec2(30.0, 15.0), vec2(46.0, 23.0), fc);
+		vec2 p = UV * grade
+			+ vec2(tempo * (0.10 + 0.13 * fc), tempo * 0.045 * fc);
+		vec2 cid = floor(p);
+		vec2 lf = fract(p) - 0.5;
+		vec2 off = vec2(hash(cid + 7.0 + fc * 3.1),
+			hash(cid + 13.0 - fc * 2.3)) - 0.5;
+		// fervura: cada particula treme no lugar
+		vec2 tremer = vec2(sin(tempo * 5.3 + hash(cid) * 40.0),
+			cos(tempo * 4.7 + hash(cid + 3.0) * 40.0)) * 0.13;
+		float dd = length(lf - off * 0.72 - tremer);
+		float tam = 0.15 + 0.20 * hash(cid + 5.0);
+		float nucleo = smoothstep(tam, tam * 0.35, dd);
+		float halo = smoothstep(tam * 2.6, tam * 0.5, dd) * 0.42;
+		// verde ou vermelha (~26% vermelhas); nucleo clarinho
+		vec3 cp = mix(VERDE, VERMELHA, step(0.74, hash(cid + 9.0)));
+		cp = mix(cp, BRANCO_PART, nucleo * 0.5);
+		float brl = nucleo + halo;
+		// a particula mais viva da celula vence a mistura de cor
+		cor_dens = mix(cor_dens, cp, step(dens, brl));
+		dens = max(dens, brl);
 	}
+
+	// corpo: leito fraco do liquido, mais vivo perto da frente
+	float leito = liq * dentro;
+	float prof = clamp(1.0 - (fx - UV.x) * 3.0, 0.0, 1.0); // 1 = na frente
+	vec3 cl = mix(VERDE_FUND, VERDE, prof * 0.55);
+	// particulas por cima do leito
+	cl = mix(cl, cor_dens, clamp(dens, 0.0, 1.0));
+
+	// menisco na frente (nucleo + halo largo)
+	float m_core = smoothstep(0.008, 0.0, abs(UV.x - fx)) * dentro;
+	float m_halo = smoothstep(0.055, 0.0, abs(UV.x - fx)) * dentro;
+	cl = mix(cl, BRANCO_PART, m_core * 0.85);
 
 	// vidro escuro de fundo (container legivel com escudo vazio)
 	float a1 = 0.30 * dentro;
 	// liquido por cima do vidro
-	float a2 = liq * dentro;
+	float a2 = clamp(leito * 0.45 + dens * leito * 0.85
+		+ m_core * 0.85 + m_halo * 0.28, 0.0, 1.0);
 	vec3 c = cl * a2 + vec3(0.02, 0.09, 0.05) * a1 * (1.0 - a2);
 	float a = a2 + a1 * (1.0 - a2);
 	if (a > 0.001) {

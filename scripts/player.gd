@@ -367,6 +367,8 @@ func _process(delta: float) -> void:
 			var mat := heat_haze.material as ShaderMaterial
 			mat.set_shader_parameter("time", Time.get_ticks_msec() / 1000.0)
 			mat.set_shader_parameter("intensity", clampf(impulso, 0.0, 1.0) * 1.5)
+			# acompanha o eixo do jato: inclina contra o movimento lateral
+			heat_haze.rotation = atan2(dir_suave.x * 0.62, 1.0)
 
 	# ---- EFEITO 3D: banking (inclinar ao virar) + arfagem vertical
 	# Usa dir_suave (a direcao JA suavizada) em vez de dir crua: assim a
@@ -628,7 +630,7 @@ func _draw_propulsores() -> void:
 	# Plasma verde vivo e REATIVO:
 	#  - o motor do lado pra onde a nave inclina queima mais forte
 	#  - subindo a chama se espalha, descendo ela se alonga
-	#  - a labareda e empurrada pro lado contrario a curvatura
+	#  - o eixo da chama INCLINA contra o movimento lateral (empuxo real)
 	var t := float(Time.get_ticks_msec()) / 1000.0
 	# forca base: parado quase nao queima, acelerando ate o dash
 	var base := 0.42 + impulso * 1.15
@@ -637,6 +639,9 @@ func _draw_propulsores() -> void:
 	var vis := _fade_hud()                     # some perto das barras do HUD
 	if vis <= 0.01:
 		return
+	# eixo do jato: inclina CONTRA o movimento lateral (empuxo real) —
+	# indo pra direita a chama aponta pra baixo-esquerda, e vice-versa
+	var eixo := Vector2(-dx * 0.62, 1.0).normalized()
 	var bicos := _bicos_motor()
 	for i in bicos.size():
 		var bico: Vector2 = bicos[i]
@@ -655,8 +660,6 @@ func _draw_propulsores() -> void:
 		var comp := (30.0 + 34.0 * base) * cintila * ganho * (1.0 + dy * 0.34)
 		var larg := (7.5 + 5.0 * impulso) * ganho * (1.0 - dy * 0.26)
 		var vib := Vector2(sin(t * 37.0 + fase) * 1.6, 0)
-		# jato e um pouco jogado pro lado oposto a curvatura
-		var jato := Vector2(-dx * 6.5, 0)
 		# perto do HUD a labareda encolhe e apaga
 		comp *= vis
 		larg *= vis
@@ -665,13 +668,13 @@ func _draw_propulsores() -> void:
 		# decrescente. Antes eram 2 draw_circle com alpha fixo, o que
 		# aparecia como um disco chapado em volta de cada motor.
 		var halo_r: float = larg * 2.4
-		var halo_c: Vector2 = bico + jato * 0.5 + Vector2(0, comp * 0.18)
+		var halo_c: Vector2 = bico + eixo * (comp * 0.18)
 		for anel in 5:
 			var fr := 1.0 - float(anel) / 5.0          # 1.0 -> 0.2
 			var a_h: float = (0.030 + 0.022 * fr) * cintila * ganho * vis
 			draw_circle(halo_c, halo_r * fr, Color(0.10, 0.95, 0.45, a_h))
 		var halo2_r: float = larg * 1.5
-		var halo2_c: Vector2 = bico + jato * 0.3 + Vector2(0, comp * 0.10)
+		var halo2_c: Vector2 = bico + eixo * (comp * 0.10)
 		for anel2 in 4:
 			var fr2 := 1.0 - float(anel2) / 4.0
 			var a_h2: float = (0.040 + 0.030 * fr2) * cintila * ganho * vis
@@ -689,7 +692,7 @@ func _draw_propulsores() -> void:
 			var cy: float = float(perfil[c][1])
 			var cor: Color = perfil[c][2]
 			cor.a *= vis
-			var ponta := bico + jato * cy + vib * (1.0 - cx * 0.5) + Vector2(0, comp * cy)
+			var ponta := bico + eixo * (comp * cy) + vib * (1.0 - cx * 0.5)
 			draw_colored_polygon(PackedVector2Array([
 				bico + Vector2(-larg * cx, -2.0),
 				bico + Vector2(larg * cx, -2.0),
@@ -701,7 +704,7 @@ func _draw_propulsores() -> void:
 			var dyq := comp * (0.30 + 0.28 * float(d))
 			var pulso := 0.55 + 0.45 * sin(t * 16.0 - dyq * 0.22 + fase)
 			var dw := larg * (0.60 - 0.13 * float(d)) * (0.8 + 0.2 * pulso)
-			var dc := bico + jato * (dyq / maxf(comp, 1.0)) + vib * 0.5 + Vector2(0, dyq)
+			var dc := bico + eixo * dyq + vib * 0.5
 			draw_colored_polygon(PackedVector2Array([
 				dc + Vector2(-dw, 0), dc + Vector2(0, -dw * 0.42),
 				dc + Vector2(dw, 0), dc + Vector2(0, dw * 0.42),
@@ -710,10 +713,11 @@ func _draw_propulsores() -> void:
 		# --- faiscas subindo e se apagando ---
 		for s in 4:
 			var ciclo := fmod(t * 1.7 + float(s) * 0.25 + fase * 0.15, 1.0)
-			var sy := bico.y + jato.y + ciclo * comp * 1.35
 			var sa := (1.0 - ciclo) * 0.85 * vis
-			var sx := bico.x + jato.x * ciclo + sin(float(s) * 2.1 + fase) * larg * 0.9 + ciclo * ciclo * 5.0 * sin(fase + t)
-			draw_circle(Vector2(sx, sy), 1.9 * (1.0 - ciclo * 0.5), Color(0.55, 1.0, 0.70, sa))
+			var lateral := sin(float(s) * 2.1 + fase) * larg * 0.9 + ciclo * ciclo * 5.0 * sin(fase + t)
+			# sobem pelo eixo inclinado do jato, espalhando na perpendicular
+			var pos_s := bico + eixo * (ciclo * comp * 1.35) + Vector2(-eixo.y, eixo.x) * lateral
+			draw_circle(pos_s, 1.9 * (1.0 - ciclo * 0.5), Color(0.55, 1.0, 0.70, sa))
 
 		# --- boca do motor acesa (mais quente quanto mais ganho) ---
 		draw_circle(bico, 4.4 * vis, Color(0.10, 0.55, 0.22, 0.9 * vis))

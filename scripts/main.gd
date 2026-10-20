@@ -983,14 +983,19 @@ func _slowmo_morte() -> void:
 		Engine.time_scale = 1.0
 
 func _killcam_boss(pos: Vector2) -> void:
-	# camera cola no chefao em slow-mo
+	# camera cola no chefao: GOLPE SECO primeiro (0.12s quase parado =
+	# o peso do abate) e so DEPOIS o slow-mo da camera
 	morto_id += 1
 	var meu := morto_id
-	Engine.time_scale = 0.3
+	Engine.time_scale = 0.02
 	if cam != null and is_instance_valid(cam):
 		var tw := create_tween().set_parallel(true)
 		tw.tween_property(cam, "zoom", Vector2(CAM_ZOOM * 1.5, CAM_ZOOM * 1.5), 0.5).set_trans(Tween.TRANS_SINE)
 		tw.tween_property(cam, "position", Vector2(270, clampf(pos.y, 200.0, 480.0)), 0.5).set_trans(Tween.TRANS_SINE)
+	await get_tree().create_timer(0.12, true, false, true).timeout
+	if meu != morto_id:
+		return
+	Engine.time_scale = 0.3
 	await get_tree().create_timer(1.4, true, false, true).timeout
 	if meu != morto_id:
 		return
@@ -1418,6 +1423,9 @@ func _colisoes() -> void:
 						# isso os inimigos continuavam nascendo depois.
 						if e.get("tipo") == "guard":
 							protetor = null
+							# golpe seco: a protetora caindo a tiro
+							# pesa igual a cair pelo super raio (0.10)
+							hitstop(0.08)
 							fase_livre = true
 							_limpar_inimigos_ao_vivo()
 							# sem texto apos a protetora cair (ver o

@@ -52,8 +52,8 @@ func _ready() -> void:
 	# canto direito junto com a barra do escudo).
 	# (o script hud_bar.gd continua no projeto, usado pelo chefao e pelo super)
 	icone_escudo = preload("res://scripts/hud_escudo_icone.gd").new()
-	icone_escudo.position = Vector2(360, 866)
-	icone_escudo.size = Vector2(164, 82)
+	icone_escudo.position = Vector2(360, 784)
+	icone_escudo.size = Vector2(164, 164)
 	add_child(icone_escudo)
 
 	# SEM O ICONE DO LASER no rodape direito. Era aquele trio de setas

@@ -628,7 +628,8 @@ func _fade_hud() -> float:
 
 func _draw_propulsores() -> void:
 	# Plasma verde vivo e REATIVO:
-	#  - o motor do lado pra onde a nave inclina queima mais forte
+	#  - o motor do lado OPSTO ao movimento queima mais forte (empuxo:
+	#    indo pra direita, os propulsores da esquerda grudam no gas)
 	#  - subindo a chama se espalha, descendo ela se alonga
 	#  - o eixo da chama INCLINA contra o movimento lateral (empuxo real)
 	var t := float(Time.get_ticks_msec()) / 1000.0
@@ -647,11 +648,13 @@ func _draw_propulsores() -> void:
 		var bico: Vector2 = bicos[i]
 		var fase := float(i) * 1.7
 
-		# --- quanto este motor trabalha: lado que a nave vira carrega mais ---
+		# --- quanto este motor trabalha: o lado OPSTO ao movimento grava
+		# (pra ir PA DIREITA os propulsores da ESQUERDA empurram, e
+		# vice-versa — empuxo de verdade)
 		var lado := signf(bico.x) if absf(bico.x) > 0.01 else 0.0
 		var ganho := 1.0
 		if lado != 0.0:
-			ganho += dx * lado * 0.85          # motor do lado da curva grava
+			ganho -= dx * lado * 0.85          # lado oposto ao movimento queima mais
 		ganho -= dy * 0.30                     # descendo forca, subindo alivia
 		ganho = clampf(ganho, 0.30, 2.10)
 

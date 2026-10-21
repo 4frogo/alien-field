@@ -205,17 +205,20 @@ func _gerar_pickup() -> AudioStreamWAV:
 	w.data = data
 	return w
 
-func _tocar(s: AudioStream, pitch: float = 1.0) -> void:
+func _tocar(s: AudioStream, pitch: float = 1.0, vol_db: float = -14.0) -> void:
 	if s == null:
 		return
 	var p: AudioStreamPlayer = players[idx]
 	idx = (idx + 1) % players.size()
 	p.stream = s
 	p.pitch_scale = pitch * randf_range(0.95, 1.05)
+	p.volume_db = vol_db
 	p.play()
 
 func tiro() -> void:
-	_tocar(s_tiro, 1.0)
+	# -20 dB = metade da amplitude do padrao (-14): o tiro do player e
+	# rapido e se repete, entao precisa ficar abaixo dos outros efeitos
+	_tocar(s_tiro, 1.0, -20.0)
 
 func tiro_inimigo() -> void:
 	_tocar(s_tiro_ini, 1.0)

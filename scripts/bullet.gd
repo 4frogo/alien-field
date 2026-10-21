@@ -25,6 +25,8 @@ var _plasma_mat: ShaderMaterial = null
 # escala do projetil: a caixa VERDE aumenta os disparos normais, entao
 # o raio de colisao e o tamanho desenhado crescem junto (area maior).
 var escala := 1.0
+# tiro ROSA (nave VIOLET): corpo, brilho e rastro em tons de rosa
+var roxo := false
 
 func setup_disparo(p: Vector2, v: Vector2, qual: int = 0, p_escala: float = 1.0) -> void:
 	# tiro normal desenhado a mao: raio de energia (sem imagem)
@@ -37,6 +39,11 @@ func setup_disparo(p: Vector2, v: Vector2, qual: int = 0, p_escala: float = 1.0)
 	raio = 9.0 * escala
 	fx = null
 	fx_fase = float(qual) * 2.1 + randf() * 0.6
+	roxo = Escolha.e_roxa()
+	if roxo:
+		# nave roxa: o disparo ganha o RASTRO DE PLASMA (shader), que a
+		# nave verde nao tem. E o que da o visual rosa chique.
+		_criar_rastro_plasma()
 
 func _fazer_textura_feixe(w: int = 64, h: int = 256) -> ImageTexture:
 	var img := Image.create(w, h, false, Image.FORMAT_RGBA8)
@@ -258,21 +265,37 @@ func _draw() -> void:
 		var t := tempo * 25.0 + fx_fase
 		var pul := 1.0 + 0.12 * sin(t)
 		var s := escala     # caixa verde deixa o tiro maior (area maior)
+		# COR: verde (nave padrao) ou ROSA (nave roxa)
+		var c_glow := Color(0.15, 0.9, 0.35, 0.25)
+		var c_glow2 := Color(0.4, 1.0, 0.5, 0.4)
+		var c_tracer := Color(0.3, 1.0, 0.5)
+		var c_body := Color(0.15, 0.85, 0.32, 0.55)
+		var c_body2 := Color(0.4, 1.0, 0.55, 0.9)
+		var c_core := Color(0.93, 1.0, 0.94, 0.95)
+		var c_faisca := Color(0.9, 1.0, 0.9, 0.8)
+		if roxo:
+			c_glow = Color(1.0, 0.25, 0.75, 0.30)
+			c_glow2 = Color(1.0, 0.55, 0.92, 0.45)
+			c_tracer = Color(1.0, 0.30, 0.85)
+			c_body = Color(0.95, 0.25, 0.70, 0.60)
+			c_body2 = Color(1.0, 0.55, 0.92, 0.92)
+			c_core = Color(1.0, 0.93, 0.99, 0.97)
+			c_faisca = Color(1.0, 0.80, 0.97, 0.85)
 		# rastro: glow na base + tracer atras
-		draw_circle(Vector2(0, 12 * s), 5.0 * s, Color(0.15, 0.9, 0.35, 0.25))
-		draw_circle(Vector2(0, 8 * s), 3.0 * s, Color(0.4, 1.0, 0.5, 0.4))
-		_rastro(Vector2.DOWN, 34.0 * s, 3.6 * s, Color(0.3, 1.0, 0.5))
+		draw_circle(Vector2(0, 12 * s), 5.0 * s, c_glow)
+		draw_circle(Vector2(0, 8 * s), 3.0 * s, c_glow2)
+		_rastro(Vector2.DOWN, 34.0 * s, 3.6 * s, c_tracer)
 		# corpo: losango alongado em 3 camadas
 		var w := 6.5 * pul * s
 		var tip := -24.0 * pul * s
-		draw_colored_polygon(PackedVector2Array([Vector2(0, tip), Vector2(w, -4 * s), Vector2(0, 12 * s), Vector2(-w, -4 * s)]), Color(0.15, 0.85, 0.32, 0.55))
+		draw_colored_polygon(PackedVector2Array([Vector2(0, tip), Vector2(w, -4 * s), Vector2(0, 12 * s), Vector2(-w, -4 * s)]), c_body)
 		var w2 := w * 0.55
 		var tip2 := -19.0 * pul * s
-		draw_colored_polygon(PackedVector2Array([Vector2(0, tip2), Vector2(w2, -3 * s), Vector2(0, 9 * s), Vector2(-w2, -3 * s)]), Color(0.4, 1.0, 0.55, 0.9))
+		draw_colored_polygon(PackedVector2Array([Vector2(0, tip2), Vector2(w2, -3 * s), Vector2(0, 9 * s), Vector2(-w2, -3 * s)]), c_body2)
 		var w3 := w * 0.25
-		draw_colored_polygon(PackedVector2Array([Vector2(0, tip2 + 3.0 * s), Vector2(w3, -2 * s), Vector2(0, 7 * s), Vector2(-w3, -2 * s)]), Color(0.93, 1.0, 0.94, 0.95))
+		draw_colored_polygon(PackedVector2Array([Vector2(0, tip2 + 3.0 * s), Vector2(w3, -2 * s), Vector2(0, 7 * s), Vector2(-w3, -2 * s)]), c_core)
 		# faisca na ponta
-		draw_circle(Vector2(sin(t * 1.7) * 2.0 * s, tip), 2.0 * s, Color(0.9, 1.0, 0.9, 0.8))
+		draw_circle(Vector2(sin(t * 1.7) * 2.0 * s, tip), 2.0 * s, c_faisca)
 		return
 	if e_triplo:
 		_rastro(Vector2.DOWN, 40.0, 4.0, Color(0.3, 1.0, 0.5))

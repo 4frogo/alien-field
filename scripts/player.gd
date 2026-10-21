@@ -215,6 +215,16 @@ func iniciar_entrada() -> void:
 		charge_mat.shader = sh
 		charge_mat.set_shader_parameter("charge", 0.0)
 		charge_mat.set_shader_parameter("speed", 3.5)
+		# a bola de carga do super usa a COR DA NAVE: verde na padrao,
+		# rosa na roxa (senao fica um globulo branco sobre a nave)
+		if Escolha.e_roxa():
+			charge_mat.set_shader_parameter("core_color", Vector3(1.0, 0.92, 0.99))
+			charge_mat.set_shader_parameter("mid_color", Vector3(1.0, 0.30, 0.85))
+			charge_mat.set_shader_parameter("outer_color", Vector3(0.45, 0.10, 0.60))
+		else:
+			charge_mat.set_shader_parameter("core_color", Vector3(0.92, 1.0, 0.95))
+			charge_mat.set_shader_parameter("mid_color", Vector3(0.30, 1.0, 0.50))
+			charge_mat.set_shader_parameter("outer_color", Vector3(0.05, 0.42, 0.16))
 		charge_fx.material = charge_mat
 	add_child(charge_fx)
 	# aura vermelha de perigo (aparece nos 40% finais)
@@ -229,6 +239,16 @@ func iniciar_entrada() -> void:
 		danger_mat.shader = sh2
 		danger_mat.set_shader_parameter("charge", 1.0)
 		danger_mat.set_shader_parameter("speed", 7.0)
+		# a aura de perigo tambem segue a cor da nave (o shader ignora o
+		# modulate, entao a cor tem que vir do uniform)
+		if Escolha.e_roxa():
+			danger_mat.set_shader_parameter("core_color", Vector3(1.0, 0.90, 0.98))
+			danger_mat.set_shader_parameter("mid_color", Vector3(1.0, 0.22, 0.78))
+			danger_mat.set_shader_parameter("outer_color", Vector3(0.60, 0.06, 0.45))
+		else:
+			danger_mat.set_shader_parameter("core_color", Vector3(1.0, 0.95, 0.85))
+			danger_mat.set_shader_parameter("mid_color", Vector3(1.0, 0.30, 0.12))
+			danger_mat.set_shader_parameter("outer_color", Vector3(0.55, 0.08, 0.04))
 		danger_fx.material = danger_mat
 	add_child(danger_fx)
 	# rastro da nave (top_level: nao herda rotacao/escala da nave)

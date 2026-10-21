@@ -854,14 +854,26 @@ func _on_player_atirar(pos: Vector2) -> void:
 	# Tiro normal: sempre os mesmos 3 cristais. Com a caixa verde ativa
 	# eles ficam MAIORES (1.9x) — e so isso, sem efeitos extras.
 	var esc: float = 1.9 if power_timer > 0 else 1.0
-	var noffs := [Vector2(-12, 8), Vector2(0, 0), Vector2(12, 8)]
-	var nvels := [Vector2(-35, -615), Vector2(0, -630), Vector2(35, -615)]
-	for i in 3:
-		var b := Node2D.new()
-		b.set_script(BulletScript)
-		add_child(b)
-		b.call("setup_disparo", pos + noffs[i], nvels[i], i, esc)
-		tiros.append(b)
+	if Escolha.e_roxa():
+		# NAVE ROXA: disparo QUADRUPLE rosa - um par central apertado e
+		# dois externos abrindo em leque.
+		var noffs4 := [Vector2(-9, -2), Vector2(9, -2), Vector2(-23, 8), Vector2(23, 8)]
+		var nvels4 := [Vector2(-26, -640), Vector2(26, -640), Vector2(-92, -585), Vector2(92, -585)]
+		for i in 4:
+			var b4 := Node2D.new()
+			b4.set_script(BulletScript)
+			add_child(b4)
+			b4.call("setup_disparo", pos + noffs4[i], nvels4[i], i, esc)
+			tiros.append(b4)
+	else:
+		var noffs := [Vector2(-12, 8), Vector2(0, 0), Vector2(12, 8)]
+		var nvels := [Vector2(-35, -615), Vector2(0, -630), Vector2(35, -615)]
+		for i in 3:
+			var b := Node2D.new()
+			b.set_script(BulletScript)
+			add_child(b)
+			b.call("setup_disparo", pos + noffs[i], nvels[i], i, esc)
+			tiros.append(b)
 	_fx_tiro(pos)
 	# som do tiro do player (assets/tiro.wav, do pack FREE Retro Mecha SFX)
 	if sfx != null:
@@ -968,7 +980,13 @@ func _fx_tiro(pos: Vector2) -> void:
 	var e := Node2D.new()
 	e.set_script(ExplosaoScript)
 	add_child(e)
-	e.call("setup", pos, Color(0.3, 1.0, 0.5), 14.0)
+	if Escolha.e_roxa():
+		# nave roxa: brilho ROSA compacto na boca. UM flash so: o tiro sai
+		# a cada 0,18 s e o flash dura ~0,6 s, entao varios juntos viram
+		# uma bola branca enorme. O "quad" fica por conta dos 4 rastros.
+		e.call("setup", pos, Color(1.0, 0.30, 0.80), 10.0)
+	else:
+		e.call("setup", pos, Color(0.3, 1.0, 0.5), 14.0)
 
 func _fx_tiro_inimigo(pos: Vector2) -> void:
 	var e := Node2D.new()

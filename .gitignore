@@ -14,3 +14,4 @@ test_*.gd.uid
 _err.txt
 _out.txt
 dbg_*.txt
+*.tmp

@@ -6,7 +6,7 @@ extends Control
 # Enter (ou toque na nave) comeca o jogo.
 
 const CENA_JOGO := "res://scenes/Main.tscn"
-const BG := "res://assets/tela escolha nave.png"
+const BG := "res://assets/imagem do menu.png"
 const SETAS := "res://assets/botões esquerdo direito.png"
 const CENTRO := Vector2(270.0, 470.0)   # centro da nave
 const PAINEL := Vector2(430.0, 390.0)   # area de clique pra comecar (invisivel)
@@ -28,12 +28,15 @@ var _saindo := false
 
 
 func _ready() -> void:
-	# fundo: arte 941x1672 (~9:16), encaixa certinho nos 540x960
+	# fundo: arte nova (imagem do menu.png, 1024x1536 ~ 2:3). A tela e
+	# 540x960 (9:16), entao STRETCH_SCALE amassaria a arte; com
+	# KEEP_ASPECT_COVERED ela preenche a tela sem distorcer (corta so um
+	# pouquinho das laterais).
 	if ResourceLoader.exists(BG):
 		var bg := TextureRect.new()
 		bg.texture = load(BG) as Texture2D
 		bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		bg.stretch_mode = TextureRect.STRETCH_SCALE
+		bg.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 		bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 		bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		add_child(bg)

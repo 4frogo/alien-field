@@ -12,6 +12,12 @@ const PAINEL := Vector2(430.0, 390.0)   # area de clique pra comecar (invisivel)
 const Y_ICONE := 720.0                  # banner do nome, abaixo da nave
 const LARG_ICONE := 240.0                # largura de cada nome (lado a lado)
 const NOME_APAGADO := 0.42                # alfa do nome da nave NAO selecionada
+# tela de transicao antes da partida: arte da nave escolhida em tela cheia
+# com zoom lento (1.0 -> 1.28) e fade rapido no comeco
+const ZOOM_FINAL := 1.28
+const ZOOM_TEMPO := 1.6
+const FADE_TEMPO := 0.18
+const SEGURA_TEMPO := 0.15
 
 var _nave: Sprite2D = null
 var _icones: Array[TextureRect] = []
@@ -136,6 +142,8 @@ func _comecar() -> void:
 	if _saindo:
 		return
 	_saindo = true
+	# tela de transicao: arte da nave escolhida em tela cheia com zoom
+	await _transicao()
 	# a musica da intro veio da raiz junto com a gente: fade e some
 	# antes de a musica da partida assumir (sem sobrepor)
 	var mi := get_tree().root.get_node_or_null("MusicaIntro") as AudioStreamPlayer
@@ -146,3 +154,38 @@ func _comecar() -> void:
 		mi.stop()
 		mi.queue_free()
 	get_tree().change_scene_to_file(CENA_JOGO)
+
+
+func _transicao() -> void:
+	# arte em tela cheia com zoom lento; se o arquivo nao existir, pula
+	var caminho := Escolha.arte()
+	if caminho == "" or not ResourceLoader.exists(caminho):
+		return
+	var tex := load(caminho) as Texture2D
+	if tex == null:
+		return
+
+	var camada := CanvasLayer.new()
+	camada.layer = 200
+	add_child(camada)
+
+	var img := TextureRect.new()
+	img.texture = tex
+	img.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	img.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	img.set_anchors_preset(Control.PRESET_FULL_RECT)
+	img.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# zoom a partir do centro da tela
+	img.pivot_offset = Vector2(270.0, 480.0)
+	img.scale = Vector2.ONE
+	img.modulate.a = 0.0
+	camada.add_child(img)
+
+	# aparece rapido e ja comeca a aproximar
+	var tw := create_tween()
+	tw.tween_property(img, "modulate:a", 1.0, FADE_TEMPO)
+	var tz := create_tween()
+	tz.tween_property(img, "scale", Vector2(ZOOM_FINAL, ZOOM_FINAL), ZOOM_TEMPO)\
+			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	await tz.finished
+	await get_tree().create_timer(SEGURA_TEMPO).timeout

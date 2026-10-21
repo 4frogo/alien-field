@@ -15,6 +15,12 @@ const ICONES: Array[String] = [
 	"res://assets/violet.png",
 ]
 
+# arte de "nave escolhida": tela cheia com zoom antes da partida
+const ARTES: Array[String] = [
+	"res://assets/escolhida verde.png",
+	"res://assets/escolhida roxa.png",
+]
+
 var indice := 0
 
 
@@ -53,3 +59,11 @@ func icone(i: int = -1) -> Texture2D:
 		if t != null:
 			return t
 	return null
+
+
+# caminho da arte de transição da nave escolhida (vazio se nao existir)
+func arte(i: int = -1) -> String:
+	if ARTES.is_empty():
+		return ""
+	var idx := indice if i < 0 else clampi(i, 0, ARTES.size() - 1)
+	return ARTES[idx]

@@ -227,7 +227,11 @@ func _criar_sprite_bonus() -> void:
 func _criar_sprite_bonus2() -> void:
 	# CAIXA VERMELHA (tipo "bonus2"): da missil teleguiado, entao mostra
 	# o icone do missil vermelho.
-	_prite_bonus("res://assets/missil_vermelho.png", Rect2(100, 560, 1270, 1510), 74.0)
+	# CAIXA VERMELHA (tipo "bonus2"): da missil teleguiado, entao mostra
+	# o icone do missil vermelho. O recorte e da textura JA REDIMENSIONADA
+	# (import com size_limit=512: de 1472x2656 pra 284x512), entao as
+	# coordenadas sao as do arquivo reduzido.
+	_prite_bonus("res://assets/missil_vermelho.png", Rect2(19, 108, 245, 291), 74.0)
 
 
 # helper: monta a caixa a partir de uma textura (com recorte opcional) e

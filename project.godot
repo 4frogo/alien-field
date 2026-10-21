@@ -18,6 +18,10 @@ config/name="Alien field"
 run/main_scene="res://scenes/Intro.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 
+[autoload]
+
+Escolha="*res://scripts/escolha.gd"
+
 [display]
 
 window/size/viewport_width=540

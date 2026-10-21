@@ -116,6 +116,11 @@ func _criar_rastro_plasma() -> void:
 	_plasma_mat.set_shader_parameter("semente", randf() * 30.0)
 	_plasma_mat.set_shader_parameter("comprimento", 0.82)
 	_plasma_mat.set_shader_parameter("largura", 0.42)
+	if Escolha.e_roxa():
+		# rosa eletrico: frente quente -> violeta -> azul-violeta na cauda
+		_plasma_mat.set_shader_parameter("cor_viva", Vector3(1.0, 0.30, 0.95))
+		_plasma_mat.set_shader_parameter("cor_meia", Vector3(0.80, 0.25, 1.0))
+		_plasma_mat.set_shader_parameter("cor_fria", Vector3(0.30, 0.15, 0.85))
 	fx_plasma.material = _plasma_mat
 	add_child(fx_plasma)
 
@@ -300,22 +305,23 @@ func _draw() -> void:
 		return
 	if amigo:
 		# Tiro do player.
+		var rosa := Escolha.e_roxa()   # nave roxa: tiros normais rosa eletrico
 		if fx_plasma != null:
 			# COM shader: o rastro vem do tiro_plasma.gdshader. Aqui so
 			# o nucleo incandescente, pra marcar o ponto de luz na frente.
 			var pl := 1.0 + 0.10 * sin(tempo * 18.0)
-			draw_circle(Vector2.ZERO, 7.0 * pl, Color(0.55, 1.0, 0.70, 0.75))
-			draw_circle(Vector2.ZERO, 4.0 * pl, Color(0.90, 1.0, 0.95, 0.95))
+			draw_circle(Vector2.ZERO, 7.0 * pl, Color(1.0, 0.45, 0.93, 0.75) if rosa else Color(0.55, 1.0, 0.70, 0.75))
+			draw_circle(Vector2.ZERO, 4.0 * pl, Color(1.0, 0.82, 0.97, 0.95) if rosa else Color(0.90, 1.0, 0.95, 0.95))
 			# bico brilhante
-			draw_rect(Rect2(-1.6, -22, 3.2, 15), Color(0.80, 1.0, 0.85, 0.85))
+			draw_rect(Rect2(-1.6, -22, 3.2, 15), Color(1.0, 0.70, 0.95, 0.85) if rosa else Color(0.80, 1.0, 0.85, 0.85))
 			return
 		# SEM shader: o desenho antigo em codigo (fallback)
-		_rastro(-vel.normalized(), 62.0, 4.6, Color(0.25, 1.0, 0.45))
+		_rastro(-vel.normalized(), 62.0, 4.6, Color(1.0, 0.30, 0.92) if rosa else Color(0.25, 1.0, 0.45))
 		var pl2 := 1.0 + 0.10 * sin(tempo * 18.0)
-		draw_circle(Vector2.ZERO, 14.0 * pl2, Color(0.08, 1.0, 0.38, 0.26))
-		draw_circle(Vector2.ZERO, 8.5 * pl2, Color(0.18, 1.0, 0.45, 0.60))
-		draw_circle(Vector2.ZERO, 4.2 * pl2, Color(0.80, 1.0, 0.88, 0.95))
-		draw_rect(Rect2(-2.0, -24, 4, 17), Color(0.75, 1.0, 0.80, 0.85))
+		draw_circle(Vector2.ZERO, 14.0 * pl2, Color(0.95, 0.12, 0.80, 0.26) if rosa else Color(0.08, 1.0, 0.38, 0.26))
+		draw_circle(Vector2.ZERO, 8.5 * pl2, Color(1.0, 0.25, 0.88, 0.60) if rosa else Color(0.18, 1.0, 0.45, 0.60))
+		draw_circle(Vector2.ZERO, 4.2 * pl2, Color(1.0, 0.72, 0.96, 0.95) if rosa else Color(0.80, 1.0, 0.88, 0.95))
+		draw_rect(Rect2(-2.0, -24, 4, 17), Color(1.0, 0.65, 0.94, 0.85) if rosa else Color(0.75, 1.0, 0.80, 0.85))
 	else:
 		# fallback sem shader (nunca deve aparecer)
 		_rastro(-vel.normalized(), 52.0, 6.0, Color(1.0, 0.35, 0.15))

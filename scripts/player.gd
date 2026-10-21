@@ -134,9 +134,13 @@ func _ready() -> void:
 	# proprios propulsores, entao nao usam o shader remove_black nem o
 	# _chama_motor desenhado a mao.
 	# (o que vier DEPOIS destas e imagem antiga, com fundo preto assado)
-	for pp in ["res://assets/nave_verde001.png", "res://assets/nave_duende.png",
+	var lista := ["res://assets/nave_verde001.png", "res://assets/nave_duende.png",
 			"res://assets/hulk_nave.png", "res://assets/player.png",
-			"res://assets/player.jpg"]:
+			"res://assets/player.jpg"]
+	# a nave escolhida no menu vem primeiro (a roxa e a nova do jogador)
+	if Escolha.e_roxa():
+		lista.push_front("res://assets/roxa sem fundo.png")
+	for pp in lista:
 		if ResourceLoader.exists(pp):
 			var tex := load(pp) as Texture2D
 			if tex != null:
@@ -153,11 +157,14 @@ func _ready() -> void:
 						alvo = 191.0
 					elif pp.contains("nave_verde001"):
 						alvo = 170.0
+					elif pp.contains("roxa"):
+						alvo = 165.0
 					sprite.scale = Vector2(alvo / h, alvo / h)
 				# shader so nas imagens antigas (fundo preto assado)
 				var ja_tem_alpha: bool = (pp.contains("hulk_nave")
 						or pp.contains("nave_duende")
-						or pp.contains("nave_verde001"))
+						or pp.contains("nave_verde001")
+						or pp.contains("roxa"))
 				if not ja_tem_alpha and ResourceLoader.exists("res://assets/remove_black.gdshader"):
 					var sh := load("res://assets/remove_black.gdshader") as Shader
 					var mat := ShaderMaterial.new()
@@ -170,7 +177,7 @@ func _ready() -> void:
 					cm.set_shader_parameter("cor", Color(0.01, 0.02, 0.03, 1.0))
 					cm.set_shader_parameter("espessura", 0.006)
 					cm.set_shader_parameter("brilho_borda", 0.55)
-					cm.set_shader_parameter("cor_brilho", Color(0.25, 1.0, 0.45, 1.0))
+					cm.set_shader_parameter("cor_brilho", Color(0.85, 0.30, 1.0, 1.0) if Escolha.e_roxa() else Color(0.25, 1.0, 0.45, 1.0))
 					sprite.material = cm
 				add_child(sprite)
 				tem_sprite = true
@@ -626,12 +633,26 @@ func _fade_hud() -> float:
 	return clampf(folga / 64.0, 0.0, 1.0)
 
 
+# Converte o tom da chama conforme a nave escolhida: na roxa o VERDE
+# vira ROSA ELETRICO mantendo o brilho relativo (camada clara continua
+# clara, escura continua escura — so muda o matiz).
+func _c_chama(c: Color) -> Color:
+	if not Escolha.e_roxa():
+		return c
+	return Color(
+			clampf(c.r + c.g, 0.0, 1.0),
+			clampf((c.r + c.b) * 0.5, 0.0, 1.0),
+			clampf(c.b + c.g * 0.55, 0.0, 1.0),
+			c.a)
+
+
 func _draw_propulsores() -> void:
-	# Plasma verde vivo e REATIVO:
+	# Plasma vivo e REATIVO:
 	#  - o motor do lado OPSTO ao movimento queima mais forte (empuxo:
 	#    indo pra direita, os propulsores da esquerda grudam no gas)
 	#  - subindo a chama se espalha, descendo ela se alonga
 	#  - o eixo da chama INCLINA contra o movimento lateral (empuxo real)
+	#  - a cor acompanha a nave escolhida (verde / rosa eletrico da roxa)
 	var t := float(Time.get_ticks_msec()) / 1000.0
 	# forca base: parado quase nao queima, acelerando ate o dash
 	var base := 0.42 + impulso * 1.15
@@ -675,13 +696,13 @@ func _draw_propulsores() -> void:
 		for anel in 5:
 			var fr := 1.0 - float(anel) / 5.0          # 1.0 -> 0.2
 			var a_h: float = (0.030 + 0.022 * fr) * cintila * ganho * vis
-			draw_circle(halo_c, halo_r * fr, Color(0.10, 0.95, 0.45, a_h))
+			draw_circle(halo_c, halo_r * fr, _c_chama(Color(0.10, 0.95, 0.45, a_h)))
 		var halo2_r: float = larg * 1.5
 		var halo2_c: Vector2 = bico + eixo * (comp * 0.10)
 		for anel2 in 4:
 			var fr2 := 1.0 - float(anel2) / 4.0
 			var a_h2: float = (0.040 + 0.030 * fr2) * cintila * ganho * vis
-			draw_circle(halo2_c, halo2_r * fr2, Color(0.25, 1.0, 0.55, a_h2))
+			draw_circle(halo2_c, halo2_r * fr2, _c_chama(Color(0.25, 1.0, 0.55, a_h2)))
 
 		# --- camadas da labareda, da mais larga pra mais brilhante ---
 		var perfil := [
@@ -693,7 +714,7 @@ func _draw_propulsores() -> void:
 		for c in perfil.size():
 			var cx: float = float(perfil[c][0])
 			var cy: float = float(perfil[c][1])
-			var cor: Color = perfil[c][2]
+			var cor: Color = _c_chama(perfil[c][2])
 			cor.a *= vis
 			var ponta := bico + eixo * (comp * cy) + vib * (1.0 - cx * 0.5)
 			draw_colored_polygon(PackedVector2Array([
@@ -711,7 +732,7 @@ func _draw_propulsores() -> void:
 			draw_colored_polygon(PackedVector2Array([
 				dc + Vector2(-dw, 0), dc + Vector2(0, -dw * 0.42),
 				dc + Vector2(dw, 0), dc + Vector2(0, dw * 0.42),
-			]), Color(0.75, 1.0, 0.85, 0.30 * pulso * vis))
+			]), _c_chama(Color(0.75, 1.0, 0.85, 0.30 * pulso * vis)))
 
 		# --- faiscas subindo e se apagando ---
 		for s in 4:
@@ -720,12 +741,12 @@ func _draw_propulsores() -> void:
 			var lateral := sin(float(s) * 2.1 + fase) * larg * 0.9 + ciclo * ciclo * 5.0 * sin(fase + t)
 			# sobem pelo eixo inclinado do jato, espalhando na perpendicular
 			var pos_s := bico + eixo * (ciclo * comp * 1.35) + Vector2(-eixo.y, eixo.x) * lateral
-			draw_circle(pos_s, 1.9 * (1.0 - ciclo * 0.5), Color(0.55, 1.0, 0.70, sa))
+			draw_circle(pos_s, 1.9 * (1.0 - ciclo * 0.5), _c_chama(Color(0.55, 1.0, 0.70, sa)))
 
 		# --- boca do motor acesa (mais quente quanto mais ganho) ---
-		draw_circle(bico, 4.4 * vis, Color(0.10, 0.55, 0.22, 0.9 * vis))
-		draw_circle(bico, 2.7 * vis, Color(0.45, 1.0, 0.60, 0.95 * vis))
-		draw_circle(bico, 1.4 * ganho * vis, Color(0.92, 1.0, 0.95, clampf(cintila * ganho * vis, 0.0, 1.0)))
+		draw_circle(bico, 4.4 * vis, _c_chama(Color(0.10, 0.55, 0.22, 0.9 * vis)))
+		draw_circle(bico, 2.7 * vis, _c_chama(Color(0.45, 1.0, 0.60, 0.95 * vis)))
+		draw_circle(bico, 1.4 * ganho * vis, _c_chama(Color(0.92, 1.0, 0.95, clampf(cintila * ganho * vis, 0.0, 1.0))))
 
 func _chama_motor(bico: Vector2) -> void:
 	# labareda do propulsor pra tras (+y) com tremor

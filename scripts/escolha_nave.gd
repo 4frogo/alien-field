@@ -1,8 +1,9 @@
 extends Control
-# Tela ESCOLHER NAVE: arte da tela ao fundo, a nave selecionada num painel
-# escuro no centro e as setas LATERAIS pulsando. Troca por clique/toque nas
-# setas ou pelas setas <- -> do teclado. Enter (ou toque na nave/painel)
-# comeca o jogo.
+# Tela ESCOLHER NAVE: arte da tela ao fundo, a nave selecionada no centro,
+# setas LATERAIS pulsando e os NOMES das naves lado a lado embaixo como
+# BOTOES de escolha direta (tocar em POISON = verde, VIOLET = roxa).
+# Troca por seta/clique/toque na seta, clique no nome ou <- -> do teclado.
+# Enter (ou toque na nave) comeca o jogo.
 
 const CENA_JOGO := "res://scenes/Main.tscn"
 const BG := "res://assets/tela escolha nave.png"
@@ -12,14 +13,15 @@ const PAINEL := Vector2(430.0, 390.0)   # area de clique pra comecar (invisivel)
 const Y_SETAS := 310.0                  # setas no alto, na linha do bico da nave
 const Y_ICONE := 720.0                  # banner do nome, abaixo da nave
 const TAM_SETA := 148.0
-const LARG_ICONE := 320.0
+const LARG_ICONE := 240.0                # largura de cada nome (lado a lado)
 const ZONA_SETA := 180.0                  # zona de toque generosa em volta da seta
+const NOME_APAGADO := 0.42                # alfa do nome da nave NAO selecionada
 const PULSO_VEL := 4.0                  # mesma respiracao do botao da intro
 const PULSO_ESCALA := 0.045
 const PULSO_ALFA_MIN := 0.8
 
 var _nave: Sprite2D = null
-var _icone: TextureRect = null
+var _icones: Array[TextureRect] = []
 var _setas: Array[TextureButton] = []
 var _t_pulso := 0.0
 var _saindo := false
@@ -42,14 +44,27 @@ func _ready() -> void:
 	_nave.position = CENTRO
 	add_child(_nave)
 
-	# banner com o nome da nave, abaixo dela (troca junto com a nave)
-	_icone = TextureRect.new()
-	_icone.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	_icone.stretch_mode = TextureRect.STRETCH_SCALE
-	# IGNORE: o clique/toque no nome NAO e engolido pelo GUI — cai no
-	# _unhandled_input e a zona do banner vira "troca de nave" no celular
-	_icone.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(_icone)
+	# nomes das naves lado a lado embaixo: sao BOTOES de escolha direta
+	# (clique/toque no nome = seleciona aquela nave)
+	var n := Escolha.total()
+	var larg := LARG_ICONE
+	var gap := 16.0
+	var x0 := (540.0 - (larg * n + gap * (n - 1))) * 0.5
+	for i in n:
+		var ic := TextureRect.new()
+		ic.texture = Escolha.icone(i)
+		ic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		ic.stretch_mode = TextureRect.STRETCH_SCALE
+		# IGNORE: o clique no nome NAO e engolido pelo GUI — cai no
+		# _unhandled_input e a zona do nome vira "escolher esta nave"
+		ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		if ic.texture != null and ic.texture.get_width() > 0:
+			var ih := larg * float(ic.texture.get_height()) / float(ic.texture.get_width())
+			ic.size = Vector2(larg, ih)
+			ic.pivot_offset = ic.size * 0.5
+			ic.position = Vector2(x0 + float(i) * (larg + gap), Y_ICONE - ih * 0.5)
+		_icones.append(ic)
+		add_child(ic)
 
 	_atualizar_nave(false)
 
@@ -86,8 +101,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			_trocar(1)
 		return
 	# clique/toque nas ZONAS da tela: seta esquerda e direita trocam a
-	# nave, o nome (banner) tambem troca (pediu do jogador: "clicar no
-	# nome icones das naves") e o painel da nave comeca o jogo.
+	# nave, o NOME da nave e botao de escolha direta (POISON = verde,
+	# VIOLET = roxa) e o painel da nave comeca o jogo.
 	# So MOUSE: no celular o toque ja chega EMULADO como mouse (mesmo
 	# canal do botao da intro, que la funciona) — tratar ScreenTouch
 	# junto trocava DUAS vezes por toque.
@@ -97,8 +112,12 @@ func _unhandled_input(event: InputEvent) -> void:
 			_trocar(-1)
 		elif _na_zona(Vector2(458.0, Y_SETAS), p):
 			_trocar(1)
-		elif _icone != null and Rect2(_icone.position, _icone.size).has_point(p):
-			_trocar(1)   # proxima nave (com 2 naves = alterna verde<->roxa)
+		elif _icone_em(p) >= 0:
+			# clique no NOME: escolha direta daquela nave (botao)
+			var alvo := _icone_em(p)
+			if alvo != Escolha.indice:
+				Escolha.escolher(alvo)
+				_atualizar_nave(true)
 		elif Rect2(CENTRO - PAINEL * 0.5, PAINEL).has_point(p):
 			_comecar()
 
@@ -110,6 +129,11 @@ func _criar_seta(src: Texture2D, reg: Rect2, centro: Vector2, dir: int) -> void:
 	var b := TextureButton.new()
 	b.texture_normal = at
 	b.ignore_texture_size = true
+	# FOCUS_NONE: sem isso o ENTER do teclado "aperta" a seta que estiver
+	# com foco (as setas <- -> do teclado andam o foco entre botoes) e o
+	# trocava a nave ENQUANTO o jogo ja estava comecando — a escolhida
+	# virava outra na hora de entrar na partida
+	b.focus_mode = Control.FOCUS_NONE
 	# sem isso o padrao STRETCH_KEEP desenha a textura no tamanho ORIGINAL
 	# (887px) saindo do botao — as setas viravam gigantes cortadas no rodape
 	b.stretch_mode = TextureButton.STRETCH_SCALE
@@ -127,7 +151,17 @@ func _na_zona(centro_seta: Vector2, p: Vector2) -> bool:
 			Vector2(ZONA_SETA, ZONA_SETA)).has_point(p)
 
 
+func _icone_em(p: Vector2) -> int:
+	for i in _icones.size():
+		var ic := _icones[i]
+		if ic.texture != null and Rect2(ic.position, ic.size).has_point(p):
+			return i
+	return -1
+
+
 func _trocar(passo: int) -> void:
+	if _saindo:
+		return   # partida ja comecando: sinal de botao nao pode mais trocar
 	Escolha.trocar(passo)
 	_atualizar_nave(true)
 
@@ -145,24 +179,24 @@ func _atualizar_nave(animar: bool) -> void:
 		_nave.scale = esc_v * 0.86
 		var tw := create_tween()
 		tw.tween_property(_nave, "scale", esc_v, 0.2).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	# banner do nome: troca junto, com o mesmo pop
-	_icone.texture = Escolha.icone()
-	if _icone.texture != null and _icone.texture.get_width() > 0:
-		var iw := LARG_ICONE
-		var ih := iw * float(_icone.texture.get_height()) / float(_icone.texture.get_width())
-		_icone.size = Vector2(iw, ih)
-		_icone.pivot_offset = Vector2(iw, ih) * 0.5
-		_icone.position = Vector2(270.0 - iw * 0.5, Y_ICONE - ih * 0.5)
-		if animar:
-			_icone.scale = Vector2(0.86, 0.86)
+	# nomes: o selecionado em cheio (com pop), os outros apagados
+	for i in _icones.size():
+		var ic := _icones[i]
+		if ic.texture == null:
+			continue
+		var sel := i == Escolha.indice
+		ic.modulate = Color(1, 1, 1, 1.0) if sel else Color(1, 1, 1, NOME_APAGADO)
+		if sel and animar:
+			ic.scale = Vector2(0.86, 0.86)
 			var tw2 := create_tween()
-			tw2.tween_property(_icone, "scale", Vector2.ONE, 0.2).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+			tw2.tween_property(ic, "scale", Vector2.ONE, 0.2).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 
 func _comecar() -> void:
 	if _saindo:
 		return
 	_saindo = true
+	Escolha.dbg("menu sai -> indice=%d" % Escolha.indice)
 	# a musica da intro veio da raiz junto com a gente: fade e some
 	# antes de a musica da partida assumir (sem sobrepor)
 	var mi := get_tree().root.get_node_or_null("MusicaIntro") as AudioStreamPlayer

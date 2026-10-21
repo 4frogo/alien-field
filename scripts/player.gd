@@ -130,6 +130,8 @@ func _fazer_textura_radial(tam: int = 128) -> ImageTexture:
 
 func _ready() -> void:
 	position = Vector2(270, 800)
+	print("DBG player._ready indice=", Escolha.indice, " e_roxa=", Escolha.e_roxa())
+	Escolha.dbg("player._ready -> indice=%d e_roxa=%s" % [Escolha.indice, Escolha.e_roxa()])
 	# tenta usar a imagem real da nave. Estas ja vem com alpha e com os
 	# proprios propulsores, entao nao usam o shader remove_black nem o
 	# _chama_motor desenhado a mao.

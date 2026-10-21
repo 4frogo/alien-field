@@ -18,12 +18,24 @@ const ICONES: Array[String] = [
 var indice := 0
 
 
+# log de depuracao em arquivo (o stdout do Godot e bufferizado e morre no kill)
+func dbg(txt: String) -> void:
+	var f := FileAccess.open("user://dbg_nave.txt", FileAccess.READ_WRITE)
+	if f == null:
+		f = FileAccess.open("user://dbg_nave.txt", FileAccess.WRITE)
+	if f != null:
+		f.seek_end()
+		f.store_line(txt)
+		f.close()
+
+
 func total() -> int:
 	return NAVES.size()
 
 
 func trocar(passo: int) -> void:
 	indice = wrapi(indice + passo, 0, NAVES.size())
+	dbg("trocar(%d) -> indice=%d" % [passo, indice])
 
 
 func textura(i: int = -1) -> Texture2D:
@@ -40,6 +52,11 @@ func textura(i: int = -1) -> Texture2D:
 
 func e_roxa() -> bool:
 	return indice == 1
+
+
+func escolher(i: int) -> void:
+	indice = clampi(i, 0, NAVES.size() - 1)
+	dbg("escolher(%d) -> indice=%d" % [i, indice])
 
 
 func icone(i: int = -1) -> Texture2D:

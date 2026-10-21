@@ -32,6 +32,12 @@ uniform vec3 cor_alta = vec3(1.0, 0.14, 0.09);    // carga cheia
 uniform vec3 cor_branco = vec3(1.0, 0.97, 0.86);
 uniform vec3 cor_azul = vec3(0.42, 0.76, 1.0);    // halo dos raios
 uniform vec3 cor_tanque = vec3(0.10, 0.035, 0.02);// tanque vazio
+// PREENCHIMENTO: tubo_larg = meia-altura do nucleo brilhante do plasma
+// (0.42 = so o miolo; 1.6 = o liquido ilumina o interior INTEIRO do vidro).
+// base_liq = alfa base do liquido (o quanto ele "aparece" no fundo).
+uniform float tubo_larg : hint_range(0.02, 2.0) = 0.42;
+uniform float base_liq : hint_range(0.0, 1.0) = 0.52;
+uniform float cor_escura : hint_range(0.0, 1.0) = 0.18; // quanto o plasma apaga nas bordas
 
 const vec3 VERMELHO = vec3(1.0, 0.14, 0.09);
 const vec3 LARANJA = vec3(1.0, 0.52, 0.07);
@@ -127,7 +133,7 @@ void fragment() {
 	cor_liq = mix(cor_liq, cor_alta, smoothstep(0.55, 1.0, carga));
 
 	// nucleo tubular (brilha no meio da altura)
-	float tubo = smoothstep(0.42, 0.02, abs(uva.y - 0.5));
+	float tubo = smoothstep(tubo_larg, 0.02, abs(uva.y - 0.5));
 
 	// turbulencia gaseosa
 	float w1 = sin(uva.x * 14.0 + tempo * 3.2) * sin(uva.y * 21.0 - tempo * 2.6);
@@ -175,13 +181,13 @@ void fragment() {
 	energia = max(energia, 0.0);
 
 	// corpo: bordas escuras -> cor viva -> branco quente
-	vec3 cl = mix(cor_liq * 0.18, cor_liq, clamp(energia, 0.0, 1.0));
+	vec3 cl = mix(cor_liq * cor_escura, cor_liq, clamp(energia, 0.0, 1.0));
 	cl = mix(cl, cor_branco, clamp(energia - 0.82, 0.0, 1.0) * 0.9);
 	// overbright: pontos quentes explodem de luz
 	cl *= 1.0 + 0.30 * clamp(energia - 1.0, 0.0, 1.0);
 
 	// alpha emissivo mais opaco (plasma e luz, nao tinta)
-	float a_liq = liq * dentro * clamp(0.52 + energia * 0.60, 0.0, 1.0);
+	float a_liq = liq * dentro * clamp(base_liq + energia * 0.60, 0.0, 1.0);
 
 	// menisco: nucleo branco + halo largo sangrando pra fora
 	float m_core = smoothstep(0.007, 0.0, abs(df)) * dentro;

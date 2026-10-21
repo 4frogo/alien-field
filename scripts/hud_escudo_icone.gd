@@ -45,10 +45,15 @@ func _ready() -> void:
 		# quad 164x164, encostado no rodape); buraco da moldura medido
 		_arte_rect = Vector4(0.5, 0.5, 0.5, 0.5)
 		_mat.set_shader_parameter("arte_rect", _arte_rect)
-		_mat.set_shader_parameter("vidro_eixo", Vector2(0.235, 0.202))
+		# o vidro e a elipse do buraco: 0.88 do raio (o smoothstep do
+		# shader), entao o eixo e um pouco maior pra ENCHER o buraco
+		_mat.set_shader_parameter("vidro_eixo", Vector2(0.267, 0.230))
 		_mat.set_shader_parameter("vidro_centro", Vector2(0.5, 0.487))
 		_mat.set_shader_parameter("key_alpha", 1.0)
 		_mat.set_shader_parameter("eletrico", 1.0)
+		# o plasma ilumina o interior TODO do vidro
+		_mat.set_shader_parameter("leito_cor", 1.0)
+		_mat.set_shader_parameter("leito_alfa", 0.85)
 		# plasma roxo com nucleo quase branco e critico magenta
 		_mat.set_shader_parameter("cor_liq", Color(0.62, 0.30, 1.0))
 		_mat.set_shader_parameter("cor_fund", Color(0.16, 0.05, 0.30))

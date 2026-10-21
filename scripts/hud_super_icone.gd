@@ -57,10 +57,15 @@ func _ready() -> void:
 		# arte 2,8:1 numa faixa de 164x59 encostada no rodape do quad
 		_arte_rect = Vector4(0.0, 0.64, 1.0, 0.36)
 		_mat.set_shader_parameter("arte_rect", _arte_rect)
-		# canal do liquido medido na arte (uv 0,40..0,61 na vertical)
-		_mat.set_shader_parameter("vidro_eixo", Vector2(0.30, 0.105))
+		# canal do liquido medido na arte (uv 0,40..0,61 na vertical);
+		# 0.88 do raio (smoothstep do shader) -> eixo um pouco maior
+		_mat.set_shader_parameter("vidro_eixo", Vector2(0.341, 0.119))
 		_mat.set_shader_parameter("vidro_centro", Vector2(0.5, 0.506))
 		_mat.set_shader_parameter("key_alpha", 1.0)
+		# o plasma preenche o interior INTEIRO da moldura
+		_mat.set_shader_parameter("tubo_larg", 1.6)
+		_mat.set_shader_parameter("base_liq", 0.85)
+		_mat.set_shader_parameter("cor_escura", 0.55)
 		# plasma roxo: violeta -> magenta -> violeta claro na carga cheia
 		_mat.set_shader_parameter("cor_baixa", Color(0.45, 0.20, 0.95))
 		_mat.set_shader_parameter("cor_media", Color(0.72, 0.35, 1.0))

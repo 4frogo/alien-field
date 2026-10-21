@@ -34,6 +34,10 @@ uniform vec3 cor_part = vec3(0.80, 1.0, 0.86);
 uniform vec3 cor_crit = vec3(1.0, 0.30, 0.24);
 uniform vec3 cor_vidro = vec3(0.02, 0.09, 0.05);
 uniform vec3 cor_onda = vec3(0.85, 1.0, 0.9);
+// PREENCHIMENTO: leito_cor = cor do plasma no fundo do liquido;
+// leito_alfa = opacidade base do leito (o quanto ele aparece).
+uniform float leito_cor : hint_range(0.0, 1.0) = 0.55;
+uniform float leito_alfa : hint_range(0.0, 1.0) = 0.45;
 
 const vec3 VERDE = vec3(0.24, 1.0, 0.44);
 const vec3 VERDE_FUND = vec3(0.03, 0.30, 0.11);
@@ -114,7 +118,7 @@ void fragment() {
 	// corpo: leito fraco do liquido, mais vivo perto da frente
 	float leito = liq * dentro;
 	float prof = clamp(1.0 - (fx - uva.x) * 3.0, 0.0, 1.0); // 1 = na frente
-	vec3 cl = mix(cor_fund, cor_liq, prof * 0.55);
+	vec3 cl = mix(cor_fund, cor_liq, prof * leito_cor);
 	// particulas por cima do leito
 	cl = mix(cl, cor_dens, clamp(dens, 0.0, 1.0));
 
@@ -147,7 +151,7 @@ void fragment() {
 	// vidro escuro de fundo (container legivel com escudo vazio)
 	float a1 = 0.30 * dentro * vidro;
 	// liquido por cima do vidro
-	float a2 = clamp(leito * 0.45 + dens * leito * 0.85
+	float a2 = clamp(leito * leito_alfa + dens * leito * 0.85
 		+ m_core * 0.85 + m_halo * 0.28, 0.0, 1.0) * liq_exp;
 	vec3 c = cl * a2 + cor_vidro * a1 * (1.0 - a2);
 	float a = a2 + a1 * (1.0 - a2);

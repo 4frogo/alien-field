@@ -18,6 +18,20 @@ uniform float tempo = 0.0;
 uniform float explosao : hint_range(0.0, 1.0) = 0.0;
 uniform float carga_exp : hint_range(0.0, 1.0) = 1.0;
 
+// ---- GEOMETRIA DA PELE (verde / roxa) ----
+uniform vec4 arte_rect = vec4(0.0, 0.0, 1.0, 0.5);
+uniform vec2 vidro_eixo = vec2(0.380, 0.215);
+uniform vec2 vidro_centro = vec2(0.5, 0.5);
+uniform float key_alpha : hint_range(0.0, 1.0) = 0.0;
+
+// ---- CORES DA PELE ----
+uniform vec3 cor_baixa = vec3(1.0, 0.90, 0.33);   // carga baixa
+uniform vec3 cor_media = vec3(1.0, 0.52, 0.07);   // carga media
+uniform vec3 cor_alta = vec3(1.0, 0.14, 0.09);    // carga cheia
+uniform vec3 cor_branco = vec3(1.0, 0.97, 0.86);
+uniform vec3 cor_azul = vec3(0.42, 0.76, 1.0);    // halo dos raios
+uniform vec3 cor_tanque = vec3(0.10, 0.035, 0.02);// tanque vazio
+
 const vec3 VERMELHO = vec3(1.0, 0.14, 0.09);
 const vec3 LARANJA = vec3(1.0, 0.52, 0.07);
 const vec3 AMARELO = vec3(1.0, 0.90, 0.33);
@@ -77,17 +91,24 @@ float faisca_halo(vec2 uv, vec2 dens, float vel, float lim, float t) {
 }
 
 void fragment() {
-	// espaco da arte: quad 2x alto, arte na metade de baixo (uva = 0..1)
-	vec2 uva = vec2(UV.x, (UV.y - 0.5) * 2.0);
-	float na_arte = step(0.0, uva.y) * step(uva.y, 1.0);
-	vec4 orna = texture(tex, clamp(uva, vec2(0.0), vec2(1.0)));
-	// key por CANAL MAXIMO (nao luminancia): preto puro = fundo; qualquer
-	// tom colorido (o verde sombreado do metal inclusive) fica SOLIDO
-	float chaves = max(orna.r, max(orna.g, orna.b));
-	float oa = smoothstep(0.015, 0.045, chaves) * na_arte;
+	// espaco da arte: o retangulo arte_rect dentro do quad (padrao: metade
+	// de baixo; metade de cima = AR onde os raios voam)
+	vec2 q = (UV - arte_rect.xy) / arte_rect.zw;
+	vec2 uva = clamp(q, vec2(0.0), vec2(1.0));
+	float na_arte = step(0.0, q.x) * step(q.x, 1.0)
+		* step(0.0, q.y) * step(q.y, 1.0);
+	vec4 orna = texture(tex, uva);
+	// chave: por ALPHA (arte com transparencia) ou por CANAL MAXIMO
+	float oa;
+	if (key_alpha > 0.5) {
+		oa = smoothstep(0.10, 0.55, orna.a) * na_arte;
+	} else {
+		float chaves = max(orna.r, max(orna.g, orna.b));
+		oa = smoothstep(0.015, 0.045, chaves) * na_arte;
+	}
 
 	// tanque: elipse na camara do ornamento
-	vec2 e = (uva - vec2(0.5)) / vec2(0.380, 0.215);
+	vec2 e = (uva - vidro_centro) / vidro_eixo;
 	float le = length(e);
 	float dentro = 1.0 - smoothstep(0.86, 1.0, le);
 
@@ -101,8 +122,8 @@ void fragment() {
 	float deep = clamp(df * 2.4, 0.0, 1.0); // 0 = frente, 1 = fundo
 
 	// cor base do plasma pela carga
-	vec3 cor_liq = mix(AMARELO, LARANJA, smoothstep(0.0, 0.55, carga));
-	cor_liq = mix(cor_liq, VERMELHO, smoothstep(0.55, 1.0, carga));
+	vec3 cor_liq = mix(cor_baixa, cor_media, smoothstep(0.0, 0.55, carga));
+	cor_liq = mix(cor_liq, cor_alta, smoothstep(0.55, 1.0, carga));
 
 	// nucleo tubular (brilha no meio da altura)
 	float tubo = smoothstep(0.42, 0.02, abs(uva.y - 0.5));
@@ -154,7 +175,7 @@ void fragment() {
 
 	// corpo: bordas escuras -> cor viva -> branco quente
 	vec3 cl = mix(cor_liq * 0.18, cor_liq, clamp(energia, 0.0, 1.0));
-	cl = mix(cl, BRANCO_QUENTE, clamp(energia - 0.82, 0.0, 1.0) * 0.9);
+	cl = mix(cl, cor_branco, clamp(energia - 0.82, 0.0, 1.0) * 0.9);
 	// overbright: pontos quentes explodem de luz
 	cl *= 1.0 + 0.30 * clamp(energia - 1.0, 0.0, 1.0);
 
@@ -164,7 +185,7 @@ void fragment() {
 	// menisco: nucleo branco + halo largo sangrando pra fora
 	float m_core = smoothstep(0.007, 0.0, abs(df)) * dentro;
 	float m_halo = smoothstep(0.065, 0.0, abs(df)) * dentro;
-	cl = mix(cl, BRANCO_QUENTE, m_core * 0.9);
+	cl = mix(cl, cor_branco, m_core * 0.9);
 	a_liq = max(a_liq, m_core * 0.95);
 	a_liq = max(a_liq, m_halo * 0.50);
 
@@ -174,7 +195,7 @@ void fragment() {
 		* (1.0 - smoothstep(0.80, 0.98, explosao));
 	// vidro escuro do tanque vazio (legivel sem carga)
 	float a1 = 0.28 * dentro * vidro;
-	vec3 c = cl * liq_ae + vec3(0.10, 0.035, 0.02) * a1 * (1.0 - liq_ae);
+	vec3 c = cl * liq_ae + cor_tanque * a1 * (1.0 - liq_ae);
 	float a = liq_ae + a1 * (1.0 - liq_ae);
 	if (a > 0.001) {
 		c /= a;
@@ -219,8 +240,8 @@ void fragment() {
 			d = min(d, raio_zig(UV, base, base + bdir * comp * 0.30, s + 91.0, 0.22));
 			float nuc = smoothstep(0.0042, 0.0, d);
 			float halo = smoothstep(0.052, 0.004, d) * 0.60;
-			vec3 cb = BRANCO_QUENTE * nuc
-				+ mix(BRANCO_QUENTE, AZUL_ELETRICO, 0.72) * halo;
+			vec3 cb = cor_branco * nuc
+				+ mix(cor_branco, cor_azul, 0.72) * halo;
 			cor_r = max(cor_r, cb);
 			alpha_r = max(alpha_r, clamp(nuc + halo, 0.0, 1.0));
 		}
@@ -276,9 +297,9 @@ void fragment() {
 		float part = smoothstep(tam, tam * 0.35, length(dp));
 		float vivas = step(hash(cid + 26.1), 0.72); // so 72% viram particula
 		part *= vivas * (1.0 - ex) * (1.0 - ex);
-		vec3 cor_part = mix(mix(AMARELO, LARANJA, smoothstep(0.0, 0.55, carga_exp)),
-			BRANCO_QUENTE, clamp(0.75 - ex, 0.0, 1.0));
-		c = cor_part * part + c * (1.0 - part);
+		vec3 cor_p = mix(mix(cor_baixa, cor_media, smoothstep(0.0, 0.55, carga_exp)),
+			cor_branco, clamp(0.75 - ex, 0.0, 1.0));
+		c = cor_p * part + c * (1.0 - part);
 		a = part + a * (1.0 - part);
 	}
 	COLOR = vec4(c, a);

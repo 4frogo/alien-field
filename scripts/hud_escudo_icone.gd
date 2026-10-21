@@ -1,5 +1,5 @@
-extends Control
-# Icone de ESCUDO no canto INFERIOR DIREITO: quad 164x164 — metade de
+﻿extends Control
+# Icone de ESCUDO no canto INFERIOR DIREITO: quad 164x164 â€” metade de
 # baixo = moldura escudoG.png com liquido de PARTICULAS de plasma
 # (verdes + vermelhas fervendo); metade de cima = AR onde as particulas
 # da EXPLOSAO voam. O dano drena o liquido da DIREITA PRA ESQUERDA ate
@@ -16,12 +16,20 @@ var _exp_t := -1.0 # >=0: tempo de explosao correndo; -1 = parado
 var _nivel_exp := 1.0
 var _mat: ShaderMaterial = null
 var _tex: Texture2D = null
+var _arte_rect := Vector4(0.0, 0.0, 1.0, 0.5)
+
+# PELE VERDE (nave padrao) e PELE ROXA (nave VIOLET). A roxa usa
+# moldura escudo roxo.png (1254x1254, quadrada, com ALPHA) no quadrado
+# de 82x82 do canto do icone, e o plasma roxo com arcos eletricos.
+const TEX_VERDE := "res://assets/escudoG.png"
+const TEX_ROXA := "res://assets/moldura escudo roxo.png"
 
 
 func _ready() -> void:
 	# sem isso o Control comeria os toques na area do canto
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_tex = load("res://assets/escudoG.png") as Texture2D
+	var roxa := _eh_roxa()
+	_tex = load(TEX_ROXA if roxa else TEX_VERDE) as Texture2D
 	if _tex == null:
 		return
 	if not ResourceLoader.exists("res://assets/escudo_icone.gdshader"):
@@ -32,7 +40,28 @@ func _ready() -> void:
 	_mat = ShaderMaterial.new()
 	_mat.shader = sh
 	_mat.set_shader_parameter("tex", _tex)
+	if roxa:
+		# arte quadrada no quadrado de 82x82 (metade direita da metade de
+		# baixo do quad 164x164); buraco da moldura medido na arte
+		_arte_rect = Vector4(0.5, 0.0, 0.5, 0.5)
+		_mat.set_shader_parameter("arte_rect", _arte_rect)
+		_mat.set_shader_parameter("vidro_eixo", Vector2(0.235, 0.202))
+		_mat.set_shader_parameter("vidro_centro", Vector2(0.5, 0.487))
+		_mat.set_shader_parameter("key_alpha", 1.0)
+		_mat.set_shader_parameter("eletrico", 1.0)
+		# plasma roxo com nucleo quase branco e critico magenta
+		_mat.set_shader_parameter("cor_liq", Color(0.62, 0.30, 1.0))
+		_mat.set_shader_parameter("cor_fund", Color(0.16, 0.05, 0.30))
+		_mat.set_shader_parameter("cor_part", Color(0.92, 0.80, 1.0))
+		_mat.set_shader_parameter("cor_crit", Color(1.0, 0.42, 0.95))
+		_mat.set_shader_parameter("cor_vidro", Color(0.08, 0.03, 0.14))
+		_mat.set_shader_parameter("cor_onda", Color(0.85, 0.70, 1.0))
 	material = _mat
+
+
+func _eh_roxa() -> bool:
+	# a nave escolhida no menu (autoload Escolha) define a pele do HUD
+	return Escolha.e_roxa()
 
 
 func definir(v: float, vmax: float) -> void:
@@ -77,10 +106,11 @@ func _draw() -> void:
 	if _tex == null:
 		return
 	if _mat == null:
-		# sem shader: so a moldura quieta na metade de baixo do quad
-		draw_texture_rect(_tex,
-			Rect2(Vector2(0.0, size.y * 0.5), Vector2(size.x, size.y * 0.5)),
-			false)
+		# sem shader: so a moldura quieta no retangulo da arte
+		var r := Rect2(
+			Vector2(_arte_rect.x, _arte_rect.y) * size,
+			Vector2(_arte_rect.z, _arte_rect.w) * size)
+		draw_texture_rect(_tex, r, false)
 		return
 	# quad INTEIRO: metade de cima = ar (a explosao voa pra fora da moldura)
 	draw_rect(Rect2(Vector2.ZERO, size), Color(0, 0, 0, 0.004))

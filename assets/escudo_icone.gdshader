@@ -15,6 +15,25 @@ uniform float explosao : hint_range(0.0, 1.0) = 0.0;
 uniform float nivel_exp : hint_range(0.0, 1.0) = 1.0;
 uniform float tempo = 0.0;
 
+// ---- GEOMETRIA DA PELE (verde / roxa) ----
+// onde a arte fica dentro do quad (x, y, largura, altura em UV do quad)
+uniform vec4 arte_rect = vec4(0.0, 0.0, 1.0, 0.5);
+// o "vidro" (buraco onde o liquido mora): semi-eixos e centro, na UV da arte
+uniform vec2 vidro_eixo = vec2(0.335, 0.180);
+uniform vec2 vidro_centro = vec2(0.5, 0.5);
+// 1 = a arte tem ALPHA (chave pelo alfa); 0 = chave pelo canal maximo
+uniform float key_alpha : hint_range(0.0, 1.0) = 0.0;
+// 1 = acresenta arcos eletricos no liquido (pele roxa)
+uniform float eletrico : hint_range(0.0, 1.0) = 0.0;
+
+// ---- CORES DA PELE ----
+uniform vec3 cor_liq = vec3(0.24, 1.0, 0.44);
+uniform vec3 cor_fund = vec3(0.03, 0.30, 0.11);
+uniform vec3 cor_part = vec3(0.80, 1.0, 0.86);
+uniform vec3 cor_crit = vec3(1.0, 0.30, 0.24);
+uniform vec3 cor_vidro = vec3(0.02, 0.09, 0.05);
+uniform vec3 cor_onda = vec3(0.85, 1.0, 0.9);
+
 const vec3 VERDE = vec3(0.24, 1.0, 0.44);
 const vec3 VERDE_FUND = vec3(0.03, 0.30, 0.11);
 const vec3 VERMELHA = vec3(1.0, 0.30, 0.24);
@@ -24,18 +43,34 @@ float hash(vec2 p) {
 	return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
 }
 
+// arco eletrico: trilho serpenteante + serrilhado ruidoso
+float arco(vec2 uv, float t, float seed) {
+	float trilho = 0.5 + 0.30 * sin(uv.x * (6.0 + seed * 5.0) + seed * 17.0
+		+ t * (4.5 + seed * 3.0));
+	float serril = (hash(vec2(floor(uv.x * 30.0 + t * 26.0), seed * 91.0)) - 0.5) * 0.16;
+	return abs(uv.y - trilho - serril);
+}
+
 void fragment() {
-	// espaco da arte: quad 2x alto, arte na metade de baixo (uva = 0..1)
-	vec2 uva = vec2(UV.x, (UV.y - 0.5) * 2.0);
-	float na_arte = step(0.0, uva.y) * step(uva.y, 1.0);
-	vec4 orna = texture(tex, clamp(uva, vec2(0.0), vec2(1.0)));
-	// key por CANAL MAXIMO (nao luminancia): preto puro = fundo; tom
-	// colorido (o verde sombreado do metal inclusive) fica SOLIDO
-	float chaves = max(orna.r, max(orna.g, orna.b));
-	float oa = smoothstep(0.015, 0.045, chaves) * na_arte;
+	// espaco da arte: o retangulo arte_rect dentro do quad (padrao: metade
+	// de baixo, 2x mais alto que a arte -> metade de cima = AR da explosao)
+	vec2 q = (UV - arte_rect.xy) / arte_rect.zw;
+	vec2 uva = clamp(q, vec2(0.0), vec2(1.0));
+	float na_arte = step(0.0, q.x) * step(q.x, 1.0)
+		* step(0.0, q.y) * step(q.y, 1.0);
+	vec4 orna = texture(tex, uva);
+	// chave: por ALPHA (arte com transparencia) ou por CANAL MAXIMO
+	// (preto puro = fundo; tom colorido do metal fica SOLIDO)
+	float oa;
+	if (key_alpha > 0.5) {
+		oa = smoothstep(0.10, 0.55, orna.a) * na_arte;
+	} else {
+		float chaves = max(orna.r, max(orna.g, orna.b));
+		oa = smoothstep(0.015, 0.045, chaves) * na_arte;
+	}
 
 	// "vidro" interno: elipse no buraco da moldura
-	vec2 e = (uva - vec2(0.5)) / vec2(0.335, 0.180);
+	vec2 e = (uva - vidro_centro) / vidro_eixo;
 	float d = length(e);
 	float dentro = 1.0 - smoothstep(0.88, 1.0, d);
 
@@ -66,9 +101,9 @@ void fragment() {
 		float nucleo = smoothstep(tam, tam * 0.35, dd);
 		float halo = smoothstep(tam * 2.6, tam * 0.5, dd) * 0.42;
 		// verde ou vermelha (~26%); CRITICO empurra a mistura pro vermelho
-		vec3 cp = mix(VERDE, VERMELHA,
+		vec3 cp = mix(cor_liq, cor_crit,
 			step(0.74 - 0.45 * critico, hash(cid + 9.0)));
-		cp = mix(cp, BRANCO_PART, nucleo * 0.5);
+		cp = mix(cp, cor_part, nucleo * 0.5);
 		float brl = nucleo + halo;
 		// a particula mais viva da celula vence a mistura de cor
 		cor_dens = mix(cor_dens, cp, step(dens, brl));
@@ -78,17 +113,31 @@ void fragment() {
 	// corpo: leito fraco do liquido, mais vivo perto da frente
 	float leito = liq * dentro;
 	float prof = clamp(1.0 - (fx - uva.x) * 3.0, 0.0, 1.0); // 1 = na frente
-	vec3 cl = mix(VERDE_FUND, VERDE, prof * 0.55);
+	vec3 cl = mix(cor_fund, cor_liq, prof * 0.55);
 	// particulas por cima do leito
 	cl = mix(cl, cor_dens, clamp(dens, 0.0, 1.0));
 
 	// menisco na frente (nucleo + halo); CRITICO esquenta a cor dele
-	vec3 cor_men = mix(BRANCO_PART, vec3(1.0, 0.62, 0.55), critico);
+	vec3 cor_men = mix(cor_part, vec3(1.0, 0.62, 0.55), critico);
 	float m_core = smoothstep(0.008, 0.0, abs(uva.x - fx)) * dentro;
 	float m_halo = smoothstep(0.055, 0.0, abs(uva.x - fx)) * dentro;
 	cl = mix(cl, cor_men, m_core * 0.85);
 	// CRITICO: liquido pulsa em brilho ate o escudo ser recomprado
 	cl *= 1.0 + 0.32 * critico * (0.5 + 0.5 * sin(tempo * 9.0));
+
+	// ARCOS ELETRICOS no liquido (pele roxa): 2 trilhos serrilhados
+	// atravessando o plasma, piscando em fatias de tempo
+	if (eletrico > 0.5) {
+		float da1 = arco(uva, tempo * 1.3, 0.0);
+		float da2 = arco(uva, tempo * 1.8, 1.7);
+		float arcos = smoothstep(0.030, 0.0, da1) * 0.70
+			+ smoothstep(0.011, 0.0, da1) * 1.05
+			+ smoothstep(0.026, 0.0, da2) * 0.55
+			+ smoothstep(0.010, 0.0, da2) * 0.90;
+		arcos *= liq * dentro
+			* (0.25 + 0.75 * hash(vec2(floor(tempo * 13.0), 5.0)));
+		cl = mix(cl, cor_part, clamp(arcos, 0.0, 1.0) * 0.85);
+	}
 
 	// EXPLOSAO: liquido some cedo e o vidro estoura (repara no fim)
 	float liq_exp = 1.0 - smoothstep(0.0, 0.18, explosao);
@@ -99,7 +148,7 @@ void fragment() {
 	// liquido por cima do vidro
 	float a2 = clamp(leito * 0.45 + dens * leito * 0.85
 		+ m_core * 0.85 + m_halo * 0.28, 0.0, 1.0) * liq_exp;
-	vec3 c = cl * a2 + vec3(0.02, 0.09, 0.05) * a1 * (1.0 - a2);
+	vec3 c = cl * a2 + cor_vidro * a1 * (1.0 - a2);
 	float a = a2 + a1 * (1.0 - a2);
 	if (a > 0.001) {
 		c /= a;
@@ -125,7 +174,7 @@ void fragment() {
 		// onda de choque expandindo pra fora (esverdeada)
 		float anel_e = smoothstep(0.025, 0.0, abs(rr - ex * 1.15))
 			* (1.0 - smoothstep(0.30, 0.65, ex));
-		c = mix(c, vec3(0.85, 1.0, 0.9), anel_e * 0.8);
+		c = mix(c, cor_onda, anel_e * 0.8);
 		a = max(a, anel_e * 0.8);
 
 		// trincas radiais serrilhadas (3 raios)
@@ -154,9 +203,9 @@ void fragment() {
 		float part = smoothstep(tam, tam * 0.35, length(dp));
 		float vivas = step(hash(cid + 26.1), 0.72); // so 72% viram particula
 		part *= vivas * (1.0 - ex) * (1.0 - ex);
-		vec3 cor_part = mix(VERDE, VERMELHA, step(0.6, hash(cid + 31.0)));
-		cor_part = mix(cor_part, BRANCO_PART, clamp(0.75 - ex, 0.0, 1.0));
-		c = cor_part * part + c * (1.0 - part);
+		vec3 cor_p = mix(cor_liq, cor_crit, step(0.6, hash(cid + 31.0)));
+		cor_p = mix(cor_p, cor_part, clamp(0.75 - ex, 0.0, 1.0));
+		c = cor_p * part + c * (1.0 - part);
 		a = part + a * (1.0 - part);
 	}
 	COLOR = vec4(c, a);

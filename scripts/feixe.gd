@@ -19,6 +19,16 @@ var tem_alvo := false
 var alvo_nodo: Node2D = null
 var glow: Sprite2D = null
 
+# na nave ROXA o raio serpentino e ROSA (o verde vira magenta). A troca
+# e por matiz: o brilho de cada camada continua o mesmo.
+var roxo := false
+
+
+func _t(c: Color) -> Color:
+	if not roxo:
+		return c
+	return Color(c.g, c.r * 0.92, minf(1.0, c.b * 1.5 + 0.22), c.a)
+
 # Os 3 raios saem do MESMO ponto (centro/nucleo da nave) e abrem em leque
 # conforme sobem. Depois eles serpenteiam e se cruzam (entrelacados).
 const ABERTURA := 52.0   # quanto o leque abre ate a largura final
@@ -32,6 +42,7 @@ var usar_shader := false
 
 func setup(p: Node2D) -> void:
 	player = p
+	roxo = Escolha.e_roxa()
 
 
 func _ready() -> void:
@@ -44,7 +55,7 @@ func _ready() -> void:
 	# halo aditivo na boca do canhao
 	glow = Sprite2D.new()
 	glow.texture = _textura_radial()
-	glow.modulate = Color(0.10, 0.95, 0.28, 0.30)
+	glow.modulate = _t(Color(0.10, 0.95, 0.28, 0.30))
 	var mat_add := CanvasItemMaterial.new()
 	mat_add.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
 	glow.material = mat_add
@@ -59,7 +70,7 @@ func _textura_radial(tam: int = 128) -> ImageTexture:
 			var d: float = Vector2(float(x) - c, float(y) - c).length() / c
 			var a: float = clampf(1.0 - d, 0.0, 1.0)
 			a = a * a
-			img.set_pixel(x, y, Color(0.20, 1.0, 0.40, a))
+			img.set_pixel(x, y, _t(Color(0.20, 1.0, 0.40, a)))
 	return ImageTexture.create_from_image(img)
 
 
@@ -176,11 +187,11 @@ func _draw() -> void:
 		var pulsa: float = 0.85 + 0.15 * sin(age * 13.0 + fase)
 
 		# --- 5 camadas: da mais larga/fraca pra mais fina/quente
-		draw_polyline(pts, Color(0.05, 0.60, 0.18, 0.12 * pulsa), 42.0, true)
-		draw_polyline(pts, Color(0.08, 0.90, 0.26, 0.24 * pulsa), 26.0, true)
-		draw_polyline(pts, Color(0.18, 1.00, 0.34, 0.55 * pulsa), 15.0, true)
-		draw_polyline(pts, Color(0.45, 1.00, 0.52, 0.85 * pulsa), 7.0, true)
-		draw_polyline(pts, Color(0.88, 1.00, 0.80, 0.95 * pulsa), 2.6, true)
+		draw_polyline(pts, _t(Color(0.05, 0.60, 0.18, 0.12 * pulsa)), 42.0, true)
+		draw_polyline(pts, _t(Color(0.08, 0.90, 0.26, 0.24 * pulsa)), 26.0, true)
+		draw_polyline(pts, _t(Color(0.18, 1.00, 0.34, 0.55 * pulsa)), 15.0, true)
+		draw_polyline(pts, _t(Color(0.45, 1.00, 0.52, 0.85 * pulsa)), 7.0, true)
+		draw_polyline(pts, _t(Color(0.88, 1.00, 0.80, 0.95 * pulsa)), 2.6, true)
 
 		# --- helicitos electricos saltando em volta do raio
 		var rng := RandomNumberGenerator.new()
@@ -197,7 +208,7 @@ func _draw() -> void:
 				var ang := rng.randf_range(0.0, TAU)
 				var rr := r * (0.4 + 0.6 * float(e) / 4.0)
 				nv.append(p + Vector2(cos(ang), sin(ang)) * rr)
-			draw_polyline(nv, Color(0.55, 1.0, 0.62, 0.55 * pulso2), 1.8, true)
+			draw_polyline(nv, _t(Color(0.55, 1.0, 0.62, 0.55 * pulso2)), 1.8, true)
 
 		# --- nos de energia correndo pelo raio ate o alvo
 		for n in 3:
@@ -205,8 +216,8 @@ func _draw() -> void:
 			var idx2: int = clampi(int(f2 * float(SEG)), 0, SEG)
 			var p2: Vector2 = pts[idx2]
 			var bal := sin(f2 * PI)
-			draw_circle(p2, 7.0 * bal + 2.0, Color(0.20, 1.0, 0.34, 0.22 * bal))
-			draw_circle(p2, 3.0 * bal + 1.0, Color(0.85, 1.0, 0.85, 0.70 * bal))
+			draw_circle(p2, 7.0 * bal + 2.0, _t(Color(0.20, 1.0, 0.34, 0.22 * bal)))
+			draw_circle(p2, 3.0 * bal + 1.0, _t(Color(0.85, 1.0, 0.85, 0.70 * bal)))
 
 		# --- a ponta sai do topo da tela: some em vez de "bater" em algo
 		var ponta: Vector2 = pts[SEG]
@@ -215,29 +226,29 @@ func _draw() -> void:
 			var idx: int = clampi(int((1.0 - t) * float(SEG)), 0, SEG)
 			var pp: Vector2 = pts[idx]
 			var ap: float = (1.0 - t) * 0.35 * pulsa
-			draw_circle(pp, (5.0 + 3.0 * t) * pulsa, Color(0.35, 1.0, 0.45, ap))
+			draw_circle(pp, (5.0 + 3.0 * t) * pulsa, _t(Color(0.35, 1.0, 0.45, ap)))
 		# faiscas se abrindo na saida
 		for r2 in 6:
 			var a3 := age * 2.4 + float(r2) * 1.05 + float(i)
 			var d3 := 14.0 + 10.0 * sin(age * 11.0 + float(r2))
 			draw_line(ponta, ponta + Vector2(cos(a3), sin(a3)) * d3,
-				Color(0.60, 1.0, 0.62, 0.28 * pulsa), 2.0, true)
+				_t(Color(0.60, 1.0, 0.62, 0.28 * pulsa)), 2.0, true)
 
 	# ---- boca do canhao: UM so ponto no nucleo da nave, de onde saem os 3
 	var b := Vector2(0, 0)
 	var fl: float = 0.7 + 0.3 * sin(age * 29.0)
-	draw_circle(b, 46.0 * fl, Color(0.06, 0.70, 0.20, 0.13))
-	draw_circle(b, 28.0 * fl, Color(0.12, 0.92, 0.28, 0.20))
-	draw_circle(b, 14.0 * fl, Color(0.35, 1.0, 0.42, 0.34))
-	draw_circle(b, 6.0 * fl, Color(0.90, 1.0, 0.88, 0.75))
+	draw_circle(b, 46.0 * fl, _t(Color(0.06, 0.70, 0.20, 0.13)))
+	draw_circle(b, 28.0 * fl, _t(Color(0.12, 0.92, 0.28, 0.20)))
+	draw_circle(b, 14.0 * fl, _t(Color(0.35, 1.0, 0.42, 0.34)))
+	draw_circle(b, 6.0 * fl, _t(Color(0.90, 1.0, 0.88, 0.75)))
 	# dois aneis girando em sentidos opostos
 	var r1 := age * 4.0
 	var r2 := -age * 3.1 + 1.4
-	draw_arc(b, 17.0, r1, r1 + 2.6, 18, Color(0.60, 1.0, 0.58, 0.60), 2.0, true)
-	draw_arc(b, 27.0, r2, r2 + 1.9, 16, Color(0.25, 1.0, 0.40, 0.45), 1.6, true)
+	draw_arc(b, 17.0, r1, r1 + 2.6, 18, _t(Color(0.60, 1.0, 0.58, 0.60)), 2.0, true)
+	draw_arc(b, 27.0, r2, r2 + 1.9, 16, _t(Color(0.25, 1.0, 0.40, 0.45)), 1.6, true)
 	# faiscas girando na boca
 	for k in 6:
 		var a := age * 5.0 + float(k) * 1.05
 		var d := 20.0 + 7.0 * sin(age * 8.0 + float(k))
 		draw_circle(b + Vector2(cos(a), sin(a)) * d, 2.0,
-			Color(0.70, 1.0, 0.72, 0.65))
+			_t(Color(0.70, 1.0, 0.72, 0.65)))

@@ -37,6 +37,10 @@ var power_ativo := false
 var super_tiros_restantes := 0
 var carga_alvo_atual := 0.0   # alvo de carga atual (2s shuriken)
 var trail: Node2D = null
+# EFEITO DO SUPER TIRO CARREGADO: so na nave ROXA (flipbook de 32
+# quadros de assets/raio roxo.png). top_level para nao herdar a
+# inclinacao da nave.
+var super_fx: Node2D = null
 # ---- ENTRADA EM CENA ------------------------------------------------
 # A nave nao simplesmente "aparece" no meio da tela: ela sobe de fora
 # do quadro e desacelera ate a posicao de combate, com os propulsores
@@ -258,6 +262,14 @@ func iniciar_entrada() -> void:
 	add_child(tr)
 	tr.top_level = true
 	trail = tr
+	# EFEITO DO SUPER CARREGADO: so na nave ROXA. O flipbook (vortice ->
+	# feixe -> dissipacao) substitui a bola lisa de carga.
+	if Escolha.e_roxa():
+		super_fx = Node2D.new()
+		super_fx.set_script(preload("res://scripts/super_raio_flip.gd"))
+		add_child(super_fx)
+		super_fx.top_level = true
+		super_fx.z_index = 2
 	# canhao plasma equipado (aparece nos 15s de triplo)
 	for ap in ["res://assets/arma_plasma.png"]:
 		if ResourceLoader.exists(ap):
@@ -430,6 +442,9 @@ func _process(delta: float) -> void:
 	dir_suave = dir_suave.lerp(dir.limit_length(1.0), minf(1.0, 9.0 * delta))
 	if trail != null:
 		trail.set("intensidade", impulso)
+	# o flipbook do super (nave roxa) e top_level: acompanha a boca da nave
+	if super_fx != null:
+		super_fx.position = position + Vector2(0, -70)
 
 	# distorcao de calor atras dos propulsores: so quando se move
 	if heat_haze != null:
@@ -485,6 +500,9 @@ func _process(delta: float) -> void:
 				if carga >= carga_alvo_atual:
 					super_tiro.emit(position + Vector2(0, offset_y))
 					super_tiros_restantes -= 1
+					# o feixe roxo sai com a arte da folha (so nave roxa)
+					if super_fx != null:
+						super_fx.call("tocar_feixe")
 			else:
 				# shuriken: sempre disponível ao segurar L (2s), sem precisar de caixa
 				if carga >= carga_alvo_atual:
@@ -492,6 +510,8 @@ func _process(delta: float) -> void:
 					shuriken_cargas = max(0, shuriken_cargas - 1)
 			carregando = false
 			carga = 0.0
+			if super_fx != null:
+				super_fx.call("parar_vortice")
 	# atualiza fx plasma + tremor de perigo
 	if charge_fx != null:
 		if carregando and carga >= 0.45:
@@ -506,6 +526,12 @@ func _process(delta: float) -> void:
 				if not usando_shuriken and power_ativo and super_tiros_restantes > 0:
 					charge_mat.set_shader_parameter("cor_a", Color(0.10, 0.95, 0.28))
 					charge_mat.set_shader_parameter("cor_b", Color(0.45, 1.0, 0.60))
+					# na nave roxa o VORTICE do flipbook e a bola de carga
+					if super_fx != null:
+						super_fx.call("tocar_vortice", k)
+						charge_fx.visible = false
+						if danger_fx != null:
+							danger_fx.visible = false
 				else:
 					charge_mat.set_shader_parameter("cor_a", Color(1.0, 0.45, 0.10))
 					charge_mat.set_shader_parameter("cor_b", Color(1.0, 0.92, 0.60))

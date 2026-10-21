@@ -12,12 +12,20 @@ const PAINEL := Vector2(430.0, 390.0)   # area de clique pra comecar (invisivel)
 const Y_ICONE := 720.0                  # banner do nome, abaixo da nave
 const LARG_ICONE := 240.0                # largura de cada nome (lado a lado)
 const NOME_APAGADO := 0.42                # alfa do nome da nave NAO selecionada
-# tela de transicao antes da partida: arte da nave escolhida em tela cheia
-# com zoom lento (1.0 -> 1.28) e fade rapido no comeco
-const ZOOM_FINAL := 1.28
-const ZOOM_TEMPO := 1.6
-const FADE_TEMPO := 0.18
-const SEGURA_TEMPO := 0.15
+# Tela de TRANSICAO antes da partida: arte da nave escolhida em tela cheia
+# com flash branco, glitch de RGB/scanlines, vinheta, barras de cinema e
+# zoom lento. Tudo com som de varredura.
+const SHADER := "res://assets/transicao.gdshader"
+const ZOOM_FINAL := 1.24
+const ZOOM_TEMPO := 1.25
+const FLASH_TEMPO := 0.30          # brilho branco apaga
+const GLITCH_TEMPO := 1.15         # o glitch decai pra zero
+const BARRA_H := 118.0             # altura da barra de cinema (12% de 960)
+const BARRA_TEMPO := 0.20
+const NOME_LARG := 330.0           # arte do nome da nave, embaixo
+const NOME_Y := 742.0
+const SAIDA_TEMPO := 0.28          # arte some no final
+const WHOOSH_VOL := -7.0
 
 var _nave: Sprite2D = null
 var _icones: Array[TextureRect] = []
@@ -157,7 +165,8 @@ func _comecar() -> void:
 
 
 func _transicao() -> void:
-	# arte em tela cheia com zoom lento; se o arquivo nao existir, pula
+	# arte em tela cheia com flash, glitch, vinheta, barras de cinema e
+	# zoom; se o arquivo nao existir, pula direto pro jogo
 	var caminho := Escolha.arte()
 	if caminho == "" or not ResourceLoader.exists(caminho):
 		return
@@ -169,23 +178,137 @@ func _transicao() -> void:
 	camada.layer = 200
 	add_child(camada)
 
+	# ---------- arte com shader de glitch ----------
 	var img := TextureRect.new()
 	img.texture = tex
 	img.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	img.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	img.set_anchors_preset(Control.PRESET_FULL_RECT)
 	img.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# zoom a partir do centro da tela
 	img.pivot_offset = Vector2(270.0, 480.0)
 	img.scale = Vector2.ONE
-	img.modulate.a = 0.0
+	var mat: ShaderMaterial = null
+	if ResourceLoader.exists(SHADER):
+		var sh := load(SHADER) as Shader
+		if sh != null:
+			mat = ShaderMaterial.new()
+			mat.shader = sh
+			mat.set_shader_parameter("glitch", 1.0)
+			mat.set_shader_parameter("sep", 0.022)
+			mat.set_shader_parameter("scan", 0.8)
+			mat.set_shader_parameter("vinheta", 0.45)
+			mat.set_shader_parameter("fade", 1.0)
+			img.material = mat
 	camada.add_child(img)
 
-	# aparece rapido e ja comeca a aproximar
+	# ---------- nome da nave (arte), embaixo ----------
+	var nome := TextureRect.new()
+	var tex_nome := Escolha.icone()
+	nome.texture = tex_nome
+	nome.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	nome.stretch_mode = TextureRect.STRETCH_SCALE
+	nome.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if tex_nome != null and tex_nome.get_width() > 0:
+		var nh := NOME_LARG * float(tex_nome.get_height()) / float(tex_nome.get_width())
+		nome.size = Vector2(NOME_LARG, nh)
+		nome.pivot_offset = nome.size * 0.5
+		nome.position = Vector2(270.0 - NOME_LARG * 0.5, NOME_Y - nh * 0.5)
+	nome.modulate.a = 0.0
+	nome.scale = Vector2(0.8, 0.8)
+	camada.add_child(nome)
+
+	# ---------- barras de cinema ----------
+	var topo := ColorRect.new()
+	topo.color = Color(0, 0, 0, 1)
+	topo.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	topo.size = Vector2(540.0, BARRA_H)
+	topo.position = Vector2(0.0, -BARRA_H)
+	topo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	camada.add_child(topo)
+	var baixo := ColorRect.new()
+	baixo.color = Color(0, 0, 0, 1)
+	baixo.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	baixo.size = Vector2(540.0, BARRA_H)
+	baixo.position = Vector2(0.0, 960.0)
+	baixo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	camada.add_child(baixo)
+
+	# ---------- flash branco (por cima de tudo) ----------
+	var flash := ColorRect.new()
+	flash.color = Color(1, 1, 1, 0.92)
+	flash.set_anchors_preset(Control.PRESET_FULL_RECT)
+	flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	camada.add_child(flash)
+
+	_tocar_whoosh()
+
+	# ---------- fase 1: flash, zoom, glitch, barras, nome ----------
 	var tw := create_tween()
-	tw.tween_property(img, "modulate:a", 1.0, FADE_TEMPO)
-	var tz := create_tween()
-	tz.tween_property(img, "scale", Vector2(ZOOM_FINAL, ZOOM_FINAL), ZOOM_TEMPO)\
-			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
-	await tz.finished
-	await get_tree().create_timer(SEGURA_TEMPO).timeout
+	tw.set_parallel(true)
+	tw.tween_property(flash, "color:a", 0.0, FLASH_TEMPO)
+	tw.tween_property(img, "scale", Vector2(ZOOM_FINAL, ZOOM_FINAL), ZOOM_TEMPO)\
+			.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tw.tween_property(topo, "position:y", 0.0, BARRA_TEMPO)\
+			.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tw.tween_property(baixo, "position:y", 960.0 - BARRA_H, BARRA_TEMPO)\
+			.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	if mat != null:
+		tw.tween_method(func(v: float): mat.set_shader_parameter("glitch", v), 1.0, 0.0, GLITCH_TEMPO)
+		tw.tween_method(func(v: float): mat.set_shader_parameter("sep", v), 0.022, 0.0, GLITCH_TEMPO)
+		tw.tween_method(func(v: float): mat.set_shader_parameter("scan", v), 0.8, 0.0, GLITCH_TEMPO)
+	# nome entra com um pouco de atraso e um "pop"
+	tw.tween_property(nome, "modulate:a", 1.0, 0.22).set_delay(0.32)
+	tw.tween_property(nome, "scale", Vector2.ONE, 0.28).set_delay(0.32)\
+			.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	await tw.finished
+
+	# ---------- fase 2: saida com flash e arte sumindo ----------
+	var tw2 := create_tween()
+	tw2.set_parallel(true)
+	tw2.tween_property(nome, "modulate:a", 0.0, 0.18)
+	if mat != null:
+		tw2.tween_method(func(v: float): mat.set_shader_parameter("fade", v), 1.0, 0.0, SAIDA_TEMPO)
+	tw2.tween_property(flash, "color:a", 0.85, 0.14)
+	tw2.tween_property(topo, "position:y", -BARRA_H, SAIDA_TEMPO)\
+			.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+	tw2.tween_property(baixo, "position:y", 960.0, SAIDA_TEMPO)\
+			.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+	await tw2.finished
+
+
+# som de varredura no comeco da transicao (gerado, sem arquivo)
+func _tocar_whoosh() -> void:
+	var s := _gerar_whoosh()
+	if s == null:
+		return
+	var p := AudioStreamPlayer.new()
+	p.stream = s
+	p.bus = "Master"
+	p.volume_db = WHOOSH_VOL
+	add_child(p)
+	p.play()
+
+
+func _gerar_whoosh() -> AudioStreamWAV:
+	# varredura subindo + ruido, com envelope de ataque e queda
+	var rate := 22050
+	var dur := 0.9
+	var n := int(rate * dur)
+	var data := PackedByteArray()
+	data.resize(n)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 20251021
+	for i in n:
+		var t := float(i) / float(rate)
+		var k := float(i) / float(n)
+		var f := lerpf(140.0, 1500.0, pow(k, 0.55))
+		var env := pow(1.0 - k, 1.25) * minf(1.0, k / 0.05)
+		var ruido := rng.randf_range(-1.0, 1.0) * 0.30
+		var v := (sin(TAU * f * t) * 0.55 + ruido) * env * 0.55
+		data[i] = int(clampf(v * 127.0 + 128.0, 0, 255))
+	var w := AudioStreamWAV.new()
+	w.format = AudioStreamWAV.FORMAT_8_BITS
+	w.mix_rate = rate
+	w.stereo = false
+	w.data = data
+	return w

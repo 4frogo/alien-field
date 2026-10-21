@@ -25,7 +25,6 @@ const BARRA_TEMPO := 0.20
 const NOME_LARG := 330.0           # arte do nome da nave, embaixo
 const NOME_Y := 742.0
 const SAIDA_TEMPO := 0.28          # arte some no final
-const WHOOSH_VOL := -7.0
 
 var _nave: Sprite2D = null
 var _icones: Array[TextureRect] = []
@@ -240,8 +239,6 @@ func _transicao() -> void:
 	flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	camada.add_child(flash)
 
-	_tocar_whoosh()
-
 	# ---------- fase 1: flash, zoom, glitch, barras, nome ----------
 	var tw := create_tween()
 	tw.set_parallel(true)
@@ -274,41 +271,3 @@ func _transicao() -> void:
 	tw2.tween_property(baixo, "position:y", 960.0, SAIDA_TEMPO)\
 			.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
 	await tw2.finished
-
-
-# som de varredura no comeco da transicao (gerado, sem arquivo)
-func _tocar_whoosh() -> void:
-	var s := _gerar_whoosh()
-	if s == null:
-		return
-	var p := AudioStreamPlayer.new()
-	p.stream = s
-	p.bus = "Master"
-	p.volume_db = WHOOSH_VOL
-	add_child(p)
-	p.play()
-
-
-func _gerar_whoosh() -> AudioStreamWAV:
-	# varredura subindo + ruido, com envelope de ataque e queda
-	var rate := 22050
-	var dur := 0.9
-	var n := int(rate * dur)
-	var data := PackedByteArray()
-	data.resize(n)
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 20251021
-	for i in n:
-		var t := float(i) / float(rate)
-		var k := float(i) / float(n)
-		var f := lerpf(140.0, 1500.0, pow(k, 0.55))
-		var env := pow(1.0 - k, 1.25) * minf(1.0, k / 0.05)
-		var ruido := rng.randf_range(-1.0, 1.0) * 0.30
-		var v := (sin(TAU * f * t) * 0.55 + ruido) * env * 0.55
-		data[i] = int(clampf(v * 127.0 + 128.0, 0, 255))
-	var w := AudioStreamWAV.new()
-	w.format = AudioStreamWAV.FORMAT_8_BITS
-	w.mix_rate = rate
-	w.stereo = false
-	w.data = data
-	return w

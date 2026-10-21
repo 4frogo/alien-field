@@ -863,7 +863,9 @@ func _on_player_atirar(pos: Vector2) -> void:
 		b.call("setup_disparo", pos + noffs[i], nvels[i], i, esc)
 		tiros.append(b)
 	_fx_tiro(pos)
-	# som do tiro do player mutado por enquanto
+	# som do tiro do player (assets/tiro.wav, do pack FREE Retro Mecha SFX)
+	if sfx != null:
+		sfx.call("tiro")
 
 
 # Dano do raio triplo. Fica numa funcao SEPARADA de proposito:

@@ -1793,6 +1793,9 @@ func _reiniciar() -> void:
 	player.set("scale", Vector2.ONE)
 	player.set("carga", 0.0)
 	player.set("carregando", false)
+	# a nave entra de novo voando, como no comeco da partida (depois de
+	# reposicionar ela, senao a entrada comeca de um lugar so)
+	player.call("iniciar_entrada")
 	if hud != null:
 		hud.call("atualizar", pontos, vidas, escudo)
 	if musica != null and musica.has_method("trocar_para_normal"):

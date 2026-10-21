@@ -37,6 +37,15 @@ var power_ativo := false
 var super_tiros_restantes := 0
 var carga_alvo_atual := 0.0   # alvo de carga atual (2s shuriken)
 var trail: Node2D = null
+# ---- ENTRADA EM CENA ------------------------------------------------
+# A nave nao simplesmente "aparece" no meio da tela: ela sobe de fora
+# do quadro e desacelera ate a posicao de combate, com os propulsores
+# a toda. Durante a entrada o comando do jogador e ignorado.
+const POS_COMBATE := Vector2(270.0, 800.0)
+const ENTRADA_Y := 1090.0        # fora da tela, embaixo
+const ENTRADA_TEMPO := 1.2       # duracao da entrada
+var entrando := false
+var _t_entrada := 0.0
 var dash_t := 0.0
 var dash_cd := 0.0
 var dash_dir := Vector2.ZERO
@@ -129,7 +138,17 @@ func _fazer_textura_radial(tam: int = 128) -> ImageTexture:
 	return ImageTexture.create_from_image(img)
 
 func _ready() -> void:
-	position = Vector2(270, 800)
+	position = Vector2(POS_COMBATE.x, ENTRADA_Y)
+	iniciar_entrada()
+
+
+# a nave entra de fora da tela e para na posicao de combate
+func iniciar_entrada() -> void:
+	entrando = true
+	_t_entrada = 0.0
+	position = Vector2(POS_COMBATE.x, ENTRADA_Y)
+	# invencivel durante a entrada (a nave nao pisca: ver _draw)
+	invencivel = maxf(invencivel, ENTRADA_TEMPO + 0.6)
 	# tenta usar a imagem real da nave. Estas ja vem com alpha e com os
 	# proprios propulsores, entao nao usam o shader remove_black nem o
 	# _chama_motor desenhado a mao.
@@ -324,6 +343,31 @@ func _process(delta: float) -> void:
 	for pt in pontos_energia:
 		pt["ang"] = float(pt["ang"]) + float(pt["vel"]) * delta
 		pt["raio"] = float(pt["base"]) + sin(tempo_escudo * 3.0 + float(pt["fase"])) * 4.0
+	# ---- ENTRADA EM CENA: sobe de fora da tela e desacelera na posicao
+	# de combate. O comando do jogador so vale DEPOIS que ela chega.
+	if entrando and not surgindo:
+		_t_entrada += delta
+		var k := minf(1.0, _t_entrada / ENTRADA_TEMPO)
+		# ease-out forte: entra rapido e chega suave
+		var e := 1.0 - pow(1.0 - k, 3.0)
+		position = Vector2(POS_COMBATE.x, lerpf(ENTRADA_Y, POS_COMBATE.y, e))
+		# propulsores a toda: a nave esta subindo
+		impulso = lerpf(impulso, 1.0, minf(1.0, 10.0 * delta))
+		dir_suave = dir_suave.lerp(Vector2(0.0, -0.55), minf(1.0, 8.0 * delta))
+		if trail != null:
+			trail.set("intensidade", impulso)
+		if heat_haze != null:
+			heat_haze.visible = true
+			if heat_haze.material != null:
+				var mat := heat_haze.material as ShaderMaterial
+				mat.set_shader_parameter("time", Time.get_ticks_msec() / 1000.0)
+				mat.set_shader_parameter("intensity", 1.5)
+		# leve arfagem (nariz pra cima) enquanto sobe
+		rotation = lerpf(rotation, 0.05, minf(1.0, 8.0 * delta))
+		if k >= 1.0:
+			entrando = false
+			position = POS_COMBATE
+		return
 	var dir := Vector2.ZERO
 	if Input.is_key_pressed(KEY_A) or Input.is_key_pressed(KEY_LEFT):
 		dir.x -= 1
@@ -494,7 +538,9 @@ func _draw() -> void:
 	# o anel verde antigo saiu de uso: o escudo agora e a aura cosmica
 	# (desenhada no no 'aura', com blend aditivo). Aqui ficam so as
 	# particulas estelares por cima.
-	if invencivel > 0 and int(Time.get_ticks_msec() / 100) % 2 == 0:
+	# piscando de invencivel — mas NAO durante a entrada: a nave sobe
+	# voando e piscar nesse momento ficaria estranho
+	if invencivel > 0 and not entrando and int(Time.get_ticks_msec() / 100) % 2 == 0:
 		if sprite != null:
 			sprite.visible = false
 		return # piscando

@@ -19,7 +19,8 @@ uniform float explosao : hint_range(0.0, 1.0) = 0.0;
 uniform float carga_exp : hint_range(0.0, 1.0) = 1.0;
 
 // ---- GEOMETRIA DA PELE (verde / roxa) ----
-uniform vec4 arte_rect = vec4(0.0, 0.0, 1.0, 0.5);
+// UV do Control comeca NO TOPO: y=0.5 e a metade de BAIXO (padrao verde)
+uniform vec4 arte_rect = vec4(0.0, 0.5, 1.0, 0.5);
 uniform vec2 vidro_eixo = vec2(0.380, 0.215);
 uniform vec2 vidro_centro = vec2(0.5, 0.5);
 uniform float key_alpha : hint_range(0.0, 1.0) = 0.0;

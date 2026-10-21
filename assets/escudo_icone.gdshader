@@ -16,8 +16,9 @@ uniform float nivel_exp : hint_range(0.0, 1.0) = 1.0;
 uniform float tempo = 0.0;
 
 // ---- GEOMETRIA DA PELE (verde / roxa) ----
-// onde a arte fica dentro do quad (x, y, largura, altura em UV do quad)
-uniform vec4 arte_rect = vec4(0.0, 0.0, 1.0, 0.5);
+// onde a arte fica dentro do quad (x, y, largura, altura em UV do quad).
+// O UV do Control comeca NO TOPO, entao y=0.5 e a metade de BAIXO.
+uniform vec4 arte_rect = vec4(0.0, 0.5, 1.0, 0.5);
 // o "vidro" (buraco onde o liquido mora): semi-eixos e centro, na UV da arte
 uniform vec2 vidro_eixo = vec2(0.335, 0.180);
 uniform vec2 vidro_centro = vec2(0.5, 0.5);

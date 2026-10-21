@@ -16,7 +16,7 @@ var _exp_t := -1.0 # >=0: tempo de explosao correndo; -1 = parado
 var _nivel_exp := 1.0
 var _mat: ShaderMaterial = null
 var _tex: Texture2D = null
-var _arte_rect := Vector4(0.0, 0.0, 1.0, 0.5)
+var _arte_rect := Vector4(0.0, 0.5, 1.0, 0.5)
 
 # PELE VERDE (nave padrao) e PELE ROXA (nave VIOLET). A roxa usa
 # moldura escudo roxo.png (1254x1254, quadrada, com ALPHA) no quadrado
@@ -41,9 +41,9 @@ func _ready() -> void:
 	_mat.shader = sh
 	_mat.set_shader_parameter("tex", _tex)
 	if roxa:
-		# arte quadrada no quadrado de 82x82 (metade direita da metade de
-		# baixo do quad 164x164); buraco da moldura medido na arte
-		_arte_rect = Vector4(0.5, 0.0, 0.5, 0.5)
+		# arte quadrada no quadrado de 82x82 (canto inferior DIREITO do
+		# quad 164x164, encostado no rodape); buraco da moldura medido
+		_arte_rect = Vector4(0.5, 0.5, 0.5, 0.5)
 		_mat.set_shader_parameter("arte_rect", _arte_rect)
 		_mat.set_shader_parameter("vidro_eixo", Vector2(0.235, 0.202))
 		_mat.set_shader_parameter("vidro_centro", Vector2(0.5, 0.487))

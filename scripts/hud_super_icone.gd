@@ -21,7 +21,7 @@ var _exp_t := -1.0 # >=0: tempo de explosao correndo; -1 = parado
 var _carga_exp := 1.0
 var _mat: ShaderMaterial = null
 var _tex: Texture2D = null
-var _arte_rect := Vector4(0.0, 0.0, 1.0, 0.5)
+var _arte_rect := Vector4(0.0, 0.5, 1.0, 0.5)
 
 # PELE VERDE (nave padrao) e PELE ROXA (nave VIOLET). A roxa usa
 # barra roxa super.png (2094x751, ~2,8:1, com ALPHA) numa faixa de
@@ -55,7 +55,7 @@ func _ready() -> void:
 	_mat.set_shader_parameter("tex", _tex)
 	if roxa:
 		# arte 2,8:1 numa faixa de 164x59 encostada no rodape do quad
-		_arte_rect = Vector4(0.0, 0.0, 1.0, 0.36)
+		_arte_rect = Vector4(0.0, 0.64, 1.0, 0.36)
 		_mat.set_shader_parameter("arte_rect", _arte_rect)
 		# canal do liquido medido na arte (uv 0,40..0,61 na vertical)
 		_mat.set_shader_parameter("vidro_eixo", Vector2(0.30, 0.105))

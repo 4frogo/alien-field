@@ -9,3 +9,8 @@ Thumbs.db
 # Temporarios do projeto
 test_*.gd
 test_*.gd.uid
+
+# Saidas de depuracao dos scripts
+_err.txt
+_out.txt
+dbg_*.txt

@@ -196,7 +196,6 @@ func _comecar() -> void:
 	if _saindo:
 		return
 	_saindo = true
-	Escolha.dbg("menu sai -> indice=%d" % Escolha.indice)
 	# a musica da intro veio da raiz junto com a gente: fade e some
 	# antes de a musica da partida assumir (sem sobrepor)
 	var mi := get_tree().root.get_node_or_null("MusicaIntro") as AudioStreamPlayer

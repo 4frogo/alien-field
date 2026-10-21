@@ -11,9 +11,7 @@ var _vidas_atual := 3
 # idem para os pontos: o contador saiu da tela, mas a pontuacao continua
 # sendo calculada e mostrada no fim da fase.
 var _pontos_atual := 0
-var lbl_boss: Label
 var bar_boss: Control
-var retrato_boss: Sprite2D
 
 var verde := Color(0.25, 1.0, 0.45)
 var verde_escuro := Color(0.1, 0.6, 0.25)
@@ -67,51 +65,23 @@ func _ready() -> void:
 	# importa na hora de disparar.
 	# (o modo "laser" do hud_icon.gd continua no script, so nao e usado)
 
-	# barra de vida do chefao (topo centro, escondida)
-	lbl_boss = Label.new()
-	lbl_boss.text = "DRAGAO DO VAZIO"
-	lbl_boss.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	lbl_boss.position = Vector2(8, 8)
-	lbl_boss.size = Vector2(220, 20)
-	lbl_boss.add_theme_font_size_override("font_size", 14)
-	if fonte_horror != null:
-		lbl_boss.add_theme_font_override("font", fonte_horror)
-	lbl_boss.add_theme_color_override("font_color", Color(1, 0.25, 0.15))
-	lbl_boss.visible = false
-	lbl_boss.name = "BossNome"
-	add_child(lbl_boss)
-
+	# barra de vida do chefe: a barra VERMELHA de sempre (hud_bar.gd com
+	# liquido + plasma), maior e centralizada no topo central. O nome
+	# (DRAGAO DO VAZIO) e o retrato pequeno sairam a pedido do jogador.
+	# DUAS ETAPAS: a barra e vermelha na primeira metade da vida e vira
+	# AMARELA na segunda (o fluido vai descendo ate zerar).
 	bar_boss = preload("res://scripts/hud_bar.gd").new()
-	bar_boss.set("cor", Color(1.0, 0.30, 0.12))
-	bar_boss.set("cor_fundo", Color(0.18, 0.04, 0.02))
+	bar_boss.set("cor", Color(1.0, 0.26, 0.10))
+	bar_boss.set("cor_fundo", Color(0.16, 0.03, 0.02))
 	bar_boss.set("liquido", true)
 	bar_boss.set("mostrar_segmentos", false)
-	bar_boss.size = Vector2(150, 12)
-	bar_boss.position = Vector2(8, 32)
+	bar_boss.size = Vector2(300, 16)
+	bar_boss.position = Vector2(120, 10)
 	bar_boss.set("valor", 1.0)
 	bar_boss.set("alvo", 1.0)
 	bar_boss.visible = false
 	bar_boss.name = "bar_boss"
 	add_child(bar_boss)
-
-	# retrato do chefão (recorte do rosto, escondido junto)
-	retrato_boss = Sprite2D.new()
-	for bp in ["res://assets/boss001_clean.png", "res://assets/boss1_clean.png"]:
-		if ResourceLoader.exists(bp):
-			var btex := load(bp) as Texture2D
-			if btex != null:
-				var bw := float(btex.get_width())
-				var bh := float(btex.get_height())
-				var batlas := AtlasTexture.new()
-				batlas.atlas = btex
-				batlas.region = Rect2(bw * 0.30, bh * 0.24, bw * 0.40, bh * 0.22)
-				retrato_boss.texture = batlas
-				var bsc := 64.0 / (bw * 0.40)
-				retrato_boss.scale = Vector2(bsc, bsc)
-				break
-	retrato_boss.position = Vector2(24, 14)
-	retrato_boss.visible = false
-	add_child(retrato_boss)
 
 func atualizar(pontos: int, vidas: int, escudo: float) -> void:
 	# `pontos` e `vidas` nao sao mais exibidos (contador removido e icones
@@ -123,15 +93,21 @@ func atualizar(pontos: int, vidas: int, escudo: float) -> void:
 	icone_escudo.call("definir", escudo, 100.0)
 
 func boss_vida(hp: int, hp_max: int) -> void:
-	lbl_boss.visible = true
 	bar_boss.visible = true
-	retrato_boss.visible = true
-	bar_boss.call("definir", maxf(0.0, float(hp)), float(hp_max))
+	var mx := maxf(1.0, float(hp_max))
+	var v := clampf(float(hp) / mx, 0.0, 1.0)
+	# etapa 1 (vermelha) ate a metade da vida; etapa 2 (amarela) depois
+	var cor := Color(1.0, 0.26, 0.10) if v > 0.5 else Color(1.0, 0.80, 0.18)
+	bar_boss.set("cor", cor)
+	# o plasma do shader tem cor propria: tem que acompanhar a da barra
+	var pm := bar_boss.get("material") as ShaderMaterial
+	if pm != null:
+		pm.set_shader_parameter("cor_plasma", cor)
+		pm.set_shader_parameter("cor_quente", cor.lerp(Color(1, 1, 1), 0.45))
+	bar_boss.call("definir", v, 1.0)
 
 func boss_fora() -> void:
-	lbl_boss.visible = false
 	bar_boss.visible = false
-	retrato_boss.visible = false
 
 func _alinhar_com_o_jogo() -> void:
 	# Desloca o HUD pra ele ficar em cima da coluna de 540 px do jogo,

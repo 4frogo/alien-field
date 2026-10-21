@@ -161,8 +161,8 @@ func setup(p_tipo: String, p_pos: Vector2, p_dir: Vector2 = Vector2(0, 1)) -> vo
 		escala0 = sprite.scale
 
 func _criar_sprite_boss() -> void:
-	# boss001_clean.png: fundo removido de verdade, alfa real
-	for bp in ["res://assets/boss001_clean.png", "res://assets/boss1_clean.png", "res://assets/boss1.png", "res://assets/boss1.jpg", "res://assets/naveguerreira.png", "res://assets/naveguerreira.jpg"]:
+	# BOSS01.png: novo chefe (roxo), fundo removido de verdade, alfa real
+	for bp in ["res://assets/BOSS01.png", "res://assets/boss001_clean.png", "res://assets/boss1_clean.png", "res://assets/boss1.png", "res://assets/boss1.jpg", "res://assets/naveguerreira.png", "res://assets/naveguerreira.jpg"]:
 		if ResourceLoader.exists(bp):
 			var tex := load(bp) as Texture2D
 			if tex == null:
@@ -597,15 +597,92 @@ func _draw_boss_raios() -> void:
 	# glow pulsante atras do casco
 	var p := 0.7 + 0.3 * sin(tempo * 7.0)
 	draw_circle(Vector2.ZERO, 105.0 * p, Color(1.0, 0.10, 0.05, 0.11))
-	# quanto mais machucado, mais forte a faísca
+	# quanto mais machucado, mais forte a faisca
 	var k := 1.0 - clampf(float(hp) / float(maxi(1, hp_max)), 0.0, 1.0)
 	var br := 0.55 + 0.45 * k
-	for pd in raios:
-		var pts: PackedVector2Array = pd
+	for ri in raios.size():
+		var pts: PackedVector2Array = raios[ri]
+		if pts.size() < 2:
+			continue
 		var a := randf_range(0.55, 1.0) * br  # rand por frame = flicker
-		draw_polyline(pts, Color(1.0, 0.10, 0.05, 0.30 * a), 9.0, true)
-		draw_polyline(pts, Color(0.02, 0.0, 0.0, 0.90 * a), 4.5, true)
-		draw_polyline(pts, Color(1.0, 0.62, 0.45, a), 1.6, true)
+		# 1) VAZIO: halo largo e escuro - o raio come a luz em volta
+		draw_polyline(pts, Color(0.012, 0.0, 0.0, 0.55 * a), 27.0, true)
+		# 2) borda quente externa
+		draw_polyline(pts, Color(1.0, 0.10, 0.05, 0.22 * a), 8.0, true)
+		# 3) miolo PRETO (o "negro" do raio)
+		draw_polyline(pts, Color(0.006, 0.0, 0.0, 0.97 * a), 7.0, true)
+		# 4) filete quente correndo por dentro do preto
+		draw_polyline(pts, Color(1.0, 0.62, 0.45, 0.75 * a), 1.4, true)
+		# 5) pulsos de energia do casco ate a ponta
+		_draw_pulsos_raio(pts, a)
+		# 6) craquelado: arcos eletricos saltando do raio
+		_draw_craquelado_raio(pts, a)
+		# 7) brilho onde o raio nasce (no casco) e na ponta
+		var raiz := pts[0]
+		var ponta := pts[pts.size() - 1]
+		draw_circle(raiz, 9.0 * a + 3.0, Color(1.0, 0.30, 0.10, 0.30 * a))
+		draw_circle(raiz, 4.0 * a + 1.0, Color(1.0, 0.85, 0.70, 0.75 * a))
+		draw_circle(ponta, 7.0 * a + 2.0, Color(1.0, 0.45, 0.18, 0.50 * a))
+		draw_circle(ponta, 2.6 * a + 1.0, Color(1.0, 0.92, 0.78, 0.85 * a))
+
+
+# Pulsos de energia correndo do casco ate a ponta do raio: dao a sensacao de
+# energia viva, e nao de um tracado estatico.
+func _draw_pulsos_raio(pts: PackedVector2Array, a: float) -> void:
+	for i in 3:
+		var vel := 0.42 + 0.16 * float(i)
+		var f := fmod(tempo * vel + float(i) * 0.37, 1.0)
+		var pos := _ponto_poly(pts, f)
+		var d := 4.0 + 2.5 * sin(tempo * 6.0 + float(i) * 2.0)
+		draw_circle(pos, d + 2.0, Color(1.0, 0.25, 0.08, 0.18 * a))
+		draw_circle(pos, d, Color(1.0, 0.45, 0.15, 0.55 * a))
+		draw_circle(pos, d * 0.4, Color(1.0, 0.95, 0.85, 0.85 * a))
+
+
+# Craquelado: arcos eletricos curtos saltando do raio pro lado, como
+# descarga estatica. O caminho muda a cada ciclo (flicker).
+func _draw_craquelado_raio(pts: PackedVector2Array, a: float) -> void:
+	for i in 2:
+		var semente := float(i) * 7.31 + float(pts.size()) * 1.7
+		var f := fmod(tempo * (0.55 + 0.25 * float(i)) + semente, 1.0)
+		var base := _ponto_poly(pts, f)
+		var dir := pts[pts.size() - 1] - pts[0]
+		if dir.length() < 0.01:
+			continue
+		dir = dir.normalized()
+		var perp := Vector2(-dir.y, dir.x)
+		var lado := 1.0 if (int(tempo * 9.0) + int(semente)) % 2 == 0 else -1.0
+		var comp := 12.0 + 20.0 * _hash_f(semente + floor(tempo * 6.0) * 3.7)
+		var ponta := base + perp * lado * comp + dir * 10.0
+		var anterior := base
+		for s in range(1, 5):
+			var t := float(s) / 4.0
+			var pt := base.lerp(ponta, t) + perp * lado * (_hash_f(semente * 2.3 + float(s) * 1.9 + floor(tempo * 15.0)) - 0.5) * 11.0
+			draw_line(anterior, pt, Color(1.0, 0.55, 0.18, 0.5 * a), 1.6, true)
+			anterior = pt
+
+
+# ponto ao longo do polyline (f = 0 na raiz, 1 na ponta)
+func _ponto_poly(pts: PackedVector2Array, f: float) -> Vector2:
+	if pts.size() < 2:
+		return pts[0] if pts.size() > 0 else Vector2.ZERO
+	var total := 0.0
+	for i in range(pts.size() - 1):
+		total += pts[i].distance_to(pts[i + 1])
+	if total <= 0.001:
+		return pts[0]
+	var alvo := total * clampf(f, 0.0, 1.0)
+	var acum := 0.0
+	for i in range(pts.size() - 1):
+		var d := pts[i].distance_to(pts[i + 1])
+		if acum + d >= alvo:
+			return pts[i].lerp(pts[i + 1], (alvo - acum) / maxf(d, 0.001))
+		acum += d
+	return pts[pts.size() - 1]
+
+
+func _hash_f(x: float) -> float:
+	return fposmod(sin(x * 127.1) * 43758.5453, 1.0)
 
 
 func _draw_boss() -> void:

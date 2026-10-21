@@ -527,7 +527,13 @@ func _mostrar_transicao() -> void:
 	var center := Vector2(270, 480) # fixo: nunca corta nem sai do centro
 	# cutscene primeiro (nave voando pro vortice), com a ancora do vortice
 	# em coordenadas normalizadas da imagem; depois cai pra imagem antiga
-	for p in ["res://assets/cutscene.jpg", "res://assets/transicao.jpg", "res://assets/transicao.png"]:
+	# a nave ROXA tem a cutscene dela (Roxa cutscene.png)
+	var lista := ["res://assets/cutscene.jpg", "res://assets/transicao.jpg",
+			"res://assets/transicao.png"]
+	if Escolha.e_roxa():
+		lista = ["res://assets/Roxa cutscene.png", "res://assets/cutscene.jpg",
+				"res://assets/transicao.jpg", "res://assets/transicao.png"]
+	for p in lista:
 		if ResourceLoader.exists(p):
 			var tex := load(p) as Texture2D
 			if tex != null:
@@ -539,7 +545,9 @@ func _mostrar_transicao() -> void:
 				sp.set_meta("fit", sc)
 				# ponto de interesse: onde esta o vortice na imagem
 				var ancora := Vector2(0.5, 0.5)
-				if p.contains("cutscene"):
+				if p.contains("Roxa cutscene"):
+					ancora = Vector2(0.755, 0.29)
+				elif p.contains("cutscene.jpg"):
 					ancora = Vector2(0.72, 0.34)
 				sp.set_meta("ancora", ancora)
 				sp.position = center
@@ -1371,7 +1379,7 @@ func _process(delta: float) -> void:
 	_limpar_listas()
 	hud.atualizar(pontos, vidas, escudo)
 	if boss != null and is_instance_valid(boss):
-		hud.call("boss_vida", int(boss.get("hp")), 120)
+		hud.call("boss_vida", int(boss.get("hp")), int(boss.get("hp_max")))
 	else:
 		hud.call("boss_fora")
 	# camera shake com decaimento

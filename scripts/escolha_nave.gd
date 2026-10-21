@@ -25,10 +25,16 @@ const BARRA_TEMPO := 0.20
 const NOME_LARG := 330.0           # arte do nome da nave, embaixo
 const NOME_Y := 742.0
 const SAIDA_TEMPO := 0.28          # arte some no final
+# som da turbina: entra junto com a imagem de transicao e continua
+# rodando na partida (fica na raiz, como a musica da intro)
+const SOM_MOTOR := "res://assets/NAVE SAINDO effect.mp3"
+const VOL_MOTOR := -10.0
+const VOL_MUSICA_NA_TRANSIÇÃO := -26.0
 
 var _nave: Sprite2D = null
 var _icones: Array[TextureRect] = []
 var _saindo := false
+var _motor: AudioStreamPlayer = null
 
 
 func _ready() -> void:
@@ -239,6 +245,15 @@ func _transicao() -> void:
 	flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	camada.add_child(flash)
 
+	# o motor da nave liga junto com a imagem de transicao
+	_tocar_motor()
+
+	# a musica da intro abaixa pra dar espaco pro motor
+	var mi := get_tree().root.get_node_or_null("MusicaIntro") as AudioStreamPlayer
+	if mi != null and mi.playing:
+		var twm := create_tween()
+		twm.tween_property(mi, "volume_db", VOL_MUSICA_NA_TRANSIÇÃO, 0.25)
+
 	# ---------- fase 1: flash, zoom, glitch, barras, nome ----------
 	var tw := create_tween()
 	tw.set_parallel(true)
@@ -271,3 +286,28 @@ func _transicao() -> void:
 	tw2.tween_property(baixo, "position:y", 960.0, SAIDA_TEMPO)\
 			.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
 	await tw2.finished
+
+
+func _tocar_motor() -> void:
+	# som da turbina saindo: entra com a imagem de transicao e continua
+	# na partida. Fica na RAIZ (como a musica) pra sobreviver a troca de
+	# cena; o player se libera sozinho quando o som acaba.
+	if not ResourceLoader.exists(SOM_MOTOR):
+		return
+	var s := load(SOM_MOTOR) as AudioStream
+	if s == null:
+		return
+	_motor = AudioStreamPlayer.new()
+	_motor.name = "MotorNave"
+	_motor.stream = s
+	_motor.bus = "Master"
+	_motor.volume_db = VOL_MOTOR
+	call_deferred("_ligar_motor")
+
+
+func _ligar_motor() -> void:
+	if _motor == null or not is_instance_valid(_motor):
+		return
+	get_tree().root.add_child(_motor)
+	_motor.finished.connect(_motor.queue_free)
+	_motor.play()

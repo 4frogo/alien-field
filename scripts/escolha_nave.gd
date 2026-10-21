@@ -13,6 +13,7 @@ const Y_SETAS := 310.0                  # setas no alto, na linha do bico da nav
 const Y_ICONE := 720.0                  # banner do nome, abaixo da nave
 const TAM_SETA := 148.0
 const LARG_ICONE := 320.0
+const ZONA_SETA := 180.0                  # zona de toque generosa em volta da seta
 const PULSO_VEL := 4.0                  # mesma respiracao do botao da intro
 const PULSO_ESCALA := 0.045
 const PULSO_ALFA_MIN := 0.8
@@ -45,8 +46,9 @@ func _ready() -> void:
 	_icone = TextureRect.new()
 	_icone.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_icone.stretch_mode = TextureRect.STRETCH_SCALE
-	# STOP: o clique no banner nao atravessa pro "comecar o jogo"
-	_icone.mouse_filter = Control.MOUSE_FILTER_STOP
+	# IGNORE: o clique/toque no nome NAO e engolido pelo GUI — cai no
+	# _unhandled_input e a zona do banner vira "troca de nave" no celular
+	_icone.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_icone)
 
 	_atualizar_nave(false)
@@ -83,15 +85,21 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif event.keycode == KEY_RIGHT:
 			_trocar(1)
 		return
-	# clique/toque fora das setas (na nave/painel) comeca o jogo —
-	# o clique NAS setas nao chega aqui, a propria seta consome
-	if event is InputEventMouseButton and event.pressed:
+	# clique/toque nas ZONAS da tela: seta esquerda e direita trocam a
+	# nave, o nome (banner) tambem troca (pediu do jogador: "clicar no
+	# nome icones das naves") e o painel da nave comeca o jogo.
+	# So MOUSE: no celular o toque ja chega EMULADO como mouse (mesmo
+	# canal do botao da intro, que la funciona) — tratar ScreenTouch
+	# junto trocava DUAS vezes por toque.
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		var p: Vector2 = (event as InputEventMouseButton).position
-		if Rect2(CENTRO - PAINEL * 0.5, PAINEL).has_point(p):
-			_comecar()
-	elif event is InputEventScreenTouch and event.pressed:
-		var pt: Vector2 = (event as InputEventScreenTouch).position
-		if Rect2(CENTRO - PAINEL * 0.5, PAINEL).has_point(pt):
+		if _na_zona(Vector2(82.0, Y_SETAS), p):
+			_trocar(-1)
+		elif _na_zona(Vector2(458.0, Y_SETAS), p):
+			_trocar(1)
+		elif _icone != null and Rect2(_icone.position, _icone.size).has_point(p):
+			_trocar(1)   # proxima nave (com 2 naves = alterna verde<->roxa)
+		elif Rect2(CENTRO - PAINEL * 0.5, PAINEL).has_point(p):
 			_comecar()
 
 
@@ -112,6 +120,11 @@ func _criar_seta(src: Texture2D, reg: Rect2, centro: Vector2, dir: int) -> void:
 	b.pressed.connect(_trocar.bind(dir))
 	_setas.append(b)
 	add_child(b)
+
+
+func _na_zona(centro_seta: Vector2, p: Vector2) -> bool:
+	return Rect2(centro_seta - Vector2(ZONA_SETA, ZONA_SETA) * 0.5,
+			Vector2(ZONA_SETA, ZONA_SETA)).has_point(p)
 
 
 func _trocar(passo: int) -> void:

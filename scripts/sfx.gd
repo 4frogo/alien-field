@@ -216,10 +216,10 @@ func _tocar(s: AudioStream, pitch: float = 1.0, vol_db: float = -14.0) -> void:
 	p.play()
 
 func tiro() -> void:
-	# -26 dB: 12 dB abaixo do padrao dos outros efeitos (-14), ou seja,
-	# 1/4 da amplitude deles. O tiro do player e rapido e se repete a cada
-	# ~0,45 s, entao precisa ficar bem abaixo das explosoes e do chefe.
-	_tocar(s_tiro, 1.0, -26.0)
+	# MUTADO a pedido do jogador (o tiro ta repetindo demais).
+	# Pra religar: descomenta a linha abaixo.
+	# _tocar(s_tiro, 1.0, -26.0)
+	pass
 
 func tiro_inimigo() -> void:
 	_tocar(s_tiro_ini, 1.0)

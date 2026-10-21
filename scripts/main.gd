@@ -811,7 +811,9 @@ func _disparar_shuriken() -> void:
 	s.call("setup", player.position + Vector2(0, -60), -PI / 2.0, alvo_melhor)
 	s.set("tipo_missil", "shuriken")   # identifica como shuriken nas colisoes
 	misseis.append(s)
-	_fx_explosao(player.position + Vector2(0, -60), false, false)
+	# SEM explosao no lancamento do shuriken: a explosao cobria a cara da
+	# nave. O tiro carregado normal (shuriken) sai limpo; so o super tiro
+	# (com a caixa verde) mantem o efeito visual dele.
 	_num(player.position + Vector2(0, -110), "SHURIKEN!", 26, Color(1.0, 0.55, 0.20))
 
 func _disparar_super_raio(pos: Vector2) -> void:

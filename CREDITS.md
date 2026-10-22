@@ -7,17 +7,20 @@ CC BY 4.0 exige. **Se entrar algum asset novo, anote aqui.**
 
 ## Sons
 
+### Interface SFX Pack 1 - "Cursor Tone 2" (click de navegacao de nave)
+- **Arquivo usado:** `assets/click nave.ogg` (corte de `cursor_style_2.ogg`)
+- **Autor:** ObsydianX
+- **Origem:** https://obsydianx.itch.io/interface-sfx-pack-1
+- **Licenca:** CC0 (dominio publico) - sem exigencia de credito, mas creditado aqui por graca
+- **Uso no jogo:** som de navegacao entre as naves na tela de escolha.
+
 ### FREE Retro Mecha SFX
-- **Arquivo usado:** `assets/tiro.wav` (corte de 0,26 s de *"Mecha LASER BEAM SHORT 4"*)
+- **Arquivo usado:** `assets/tiro.wav` (corte de *"Mecha LASER BEAM SHORT 4"*)
 - **Autor:** Helton Yan
 - **Origem:** https://heltonyan.itch.io/retro-mecha-sfx
-- **Licença:** Creative Commons Attribution 4.0 International (CC BY 4.0)
-  — https://creativecommons.org/licenses/by/4.0/
-- **Uso no jogo:** som do disparo da nave do jogador (`scripts/sfx.gd` → `s_tiro`).
-
-> A atribuição pode ser feita neste arquivo e/ou na tela de créditos do jogo.
-
----
+- **Licenca:** Creative Commons Attribution 4.0 International (CC BY 4.0)
+  - https://creativecommons.org/licenses/by/4.0/
+- **Uso no jogo:** som do tiro do player (`scripts/sfx.gd` -> `s_tiro`).
 
 ## Sons gerados pelo próprio projeto
 

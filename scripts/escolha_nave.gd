@@ -34,6 +34,7 @@ const VOL_MUSICA_NA_TRANSIÇÃO := -26.0
 var _nave: Sprite2D = null
 var _icones: Array[TextureRect] = []
 var _saindo := false
+var _ui: AudioStreamPlayer = null
 var _motor: AudioStreamPlayer = null
 
 
@@ -50,6 +51,13 @@ func _ready() -> void:
 		bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 		bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		add_child(bg)
+
+	# som de navegacao entre as naves: click curto e discreto
+	# (Interface SFX Pack 1, ObsydianX - CC0)
+	_ui = AudioStreamPlayer.new()
+	_ui.stream = load("res://assets/click nave.ogg") as AudioStream
+	_ui.volume_db = -10.0
+	add_child(_ui)
 
 	# nave selecionada (sem painel: a arte do fundo ja da contexto e o
 	# quadrado escuro atrapalhava — PAINEL so define a area de clique)
@@ -105,6 +113,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			var alvo := _icone_em(p)
 			if alvo != Escolha.indice:
 				Escolha.escolher(alvo)
+				_tocar_click()
 				_atualizar_nave(true)
 		elif Rect2(CENTRO - PAINEL * 0.5, PAINEL).has_point(p):
 			_comecar()
@@ -122,6 +131,7 @@ func _trocar(passo: int) -> void:
 	if _saindo:
 		return   # partida ja comecando: sinal de botao nao pode mais trocar
 	Escolha.trocar(passo)
+	_tocar_click()
 	_atualizar_nave(true)
 
 
@@ -311,3 +321,16 @@ func _ligar_motor() -> void:
 	get_tree().root.add_child(_motor)
 	_motor.finished.connect(_motor.queue_free)
 	_motor.play()
+
+
+
+
+func _tocar_click() -> void:
+	if _ui == null:
+		return
+	# pitch levemente varia: dois cliques nunca saem identicos
+	_ui.stop()   # o arquivo tem 6 s: corta a cauda antes de tocar de novo
+	_ui.pitch_scale = randf_range(0.97, 1.04)
+	_ui.play()
+
+

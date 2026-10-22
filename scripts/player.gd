@@ -2,6 +2,8 @@ extends Node2D
 # Nave do jogador - igual parte de baixo da imagem
 
 var speed := 300.0
+# tamanho da labareda: o DOBRO na nave roxa
+const ESCALA_CHAMA_ROXA := 2.0
 var shoot_cooldown := 0.0
 var invencivel := 0.0
 var fogo_touch := false
@@ -315,6 +317,10 @@ func iniciar_entrada() -> void:
 	heat_haze.visible = false
 	add_child(heat_haze)
 	# --- Particulas de propulsor (chama verde + fumaca) ---
+	# na nave ROXA as particulas sao VIOLETA e maiores (o rastro de
+	# particulas acompanha a labareda, que tambem e o dobro)
+	var esc_part: float = ESCALA_CHAMA_ROXA if Escolha.e_roxa() else 1.0
+	var cor_part: Color = Color(0.72, 0.36, 1.0, 0.9) if Escolha.e_roxa() else Color(0.3, 1.0, 0.5, 0.9)
 	thruster_particles = []
 	for bp in _bicos_motor():
 		var gp := GPUParticles2D.new()
@@ -324,12 +330,12 @@ func iniciar_entrada() -> void:
 		mat.initial_velocity_min = 40.0
 		mat.initial_velocity_max = 90.0
 		mat.gravity = Vector3(0, 40, 0)
-		mat.scale_min = 0.6
-		mat.scale_max = 1.4
-		mat.color = Color(0.3, 1.0, 0.5, 0.9)
+		mat.scale_min = 0.6 * esc_part
+		mat.scale_max = 1.4 * esc_part
+		mat.color = cor_part
 		mat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_POINT
 		gp.process_material = mat
-		gp.amount = 24
+		gp.amount = int(24 * esc_part)
 		gp.lifetime = 0.5
 		gp.explosiveness = 0.0
 		gp.randomness = 0.4
@@ -760,6 +766,10 @@ func _draw_propulsores() -> void:
 		# descendo -> chama longa e estreita; subindo -> curta e aberta
 		var comp := (30.0 + 34.0 * base) * cintila * ganho * (1.0 + dy * 0.34)
 		var larg := (7.5 + 5.0 * impulso) * ganho * (1.0 - dy * 0.26)
+		# a labareda da nave ROXA e o DOBRO do tamanho (pedido do jogador)
+		if Escolha.e_roxa():
+			comp *= ESCALA_CHAMA_ROXA
+			larg *= ESCALA_CHAMA_ROXA
 		var vib := Vector2(sin(t * 37.0 + fase) * 1.6, 0)
 		# perto do HUD a labareda encolhe e apaga
 		comp *= vis

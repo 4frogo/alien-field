@@ -255,6 +255,8 @@ func iniciar_entrada() -> void:
 	var tr := Node2D.new()
 	tr.set_script(preload("res://scripts/trail.gd"))
 	tr.set("alvo", self)
+	# o rastro usa a COR DA NAVE: verde na padrao, violeta na roxa
+	tr.set("cor", Color(0.72, 0.36, 1.0) if Escolha.e_roxa() else Color(0.30, 1.0, 0.72))
 	add_child(tr)
 	tr.top_level = true
 	trail = tr
@@ -703,13 +705,22 @@ func _fade_hud() -> float:
 # vira ROSA ELETRICO mantendo o brilho relativo (camada clara continua
 # clara, escura continua escura — so muda o matiz).
 func _c_chama(c: Color) -> Color:
+	# cor da labareda. Na nave padrao fica verde como sempre; na nave
+	# ROXA o verde vira VIOLETA, do fundo profundo ate o NUCLEO BRANCO.
+	# O canal R do verde diz a camada: 0.05 = externa, 0.88 = nucleo.
 	if not Escolha.e_roxa():
 		return c
-	return Color(
-			clampf(c.r + c.g, 0.0, 1.0),
-			clampf((c.r + c.b) * 0.5, 0.0, 1.0),
-			clampf(c.b + c.g * 0.55, 0.0, 1.0),
-			c.a)
+	var k: float = clampf(c.r, 0.0, 1.0)
+	var fundo := Color(0.26, 0.05, 0.62)      # violeta profundo (externo)
+	var meio := Color(0.50, 0.13, 0.95)        # violeta
+	var claro := Color(0.82, 0.48, 1.0)        # violeta claro
+	var nucleo := Color(1.0, 0.97, 1.0)        # nucleo branco
+	var r := fundo
+	if k > 0.60:
+		r = claro.lerp(nucleo, clampf((k - 0.60) / 0.32, 0.0, 1.0))
+	elif k > 0.12:
+		r = fundo.lerp(meio, clampf((k - 0.12) / 0.48, 0.0, 1.0))
+	return Color(r.r, r.g, r.b, c.a)
 
 
 func _draw_propulsores() -> void:

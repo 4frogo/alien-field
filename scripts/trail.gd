@@ -5,7 +5,9 @@ extends Node2D
 
 const MAX := 26            # segmentos guardados
 const VIDA := 0.42         # segundos ate apagar
-const COR := Color(0.30, 1.0, 0.72)
+# cor do rastro: verde na nave padrao, VIOLETA na nave roxa (o player
+# ajusta esse valor no _ready conforme a nave escolhida)
+var cor := Color(0.30, 1.0, 0.72)
 
 var alvo: Node2D = null
 var intensidade := 0.0     # 0 parado, 1 no maximo
@@ -64,9 +66,9 @@ func _draw() -> void:
 		draw_colored_polygon(PackedVector2Array([
 			a + n * (larg * 2.6), b + n * (larg * 2.6),
 			b - n * (larg * 2.6), a - n * (larg * 2.6),
-		]), Color(COR.r, COR.g, COR.b, 0.10 * t))
+		]), Color(cor.r, cor.g, cor.b, 0.10 * t))
 		# corpo
-		draw_colored_polygon(quad, Color(COR.r, COR.g, COR.b, 0.55 * t))
+		draw_colored_polygon(quad, Color(cor.r, cor.g, cor.b, 0.55 * t))
 		# nucleo claro
 		var ln: Vector2 = n * (larg * 0.35)
 		draw_colored_polygon(PackedVector2Array([

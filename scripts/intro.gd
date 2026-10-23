@@ -50,27 +50,9 @@ func _ready() -> void:
 	fundo.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(fundo)
 
-	_sprite = Sprite2D.new()
-	_sprite.position = CENTRO
-	_sprite.scale = Vector2(ESCALA, ESCALA)
-	_sprite.visible = false
-	add_child(_sprite)
-
-	for i in range(1, TOTAL + 1):
-		var caminho := PASTA % i
-		if not ResourceLoader.exists(caminho):
-			continue
-		var t := load(caminho) as Texture2D
-		if t != null:
-			_tex.append(t)
-
-	# sem os frames: nao trava o jogo, cai direto na cena principal
-	if _tex.is_empty():
-		_ir_para_o_jogo()
-		return
-
-	_sprite.texture = _tex[0]
-	_sprite.visible = true
+	# animacao de frames removida: vai direto ao botao ESCOLHER NAVE
+	_acabou = true
+	call_deferred("_mostrar_botao")
 
 
 func _process(delta: float) -> void:

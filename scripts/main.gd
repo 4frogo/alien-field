@@ -17,6 +17,8 @@ const MusicScript := preload("res://scripts/music.gd")
 const ArmaScript := preload("res://scripts/arma.gd")
 const BuracoScript := preload("res://scripts/buraco_negro.gd")
 const FeixeScript := preload("res://scripts/feixe.gd")
+# HADOUKEN: so a nave ROXA usa (o super dela no lugar dos 3 raios)
+const HadoukenScript := preload("res://scripts/hadouken.gd")
 const PortalScript := preload("res://scripts/portal.gd")
 const DanoNumScript := preload("res://scripts/dano_num.gd")
 const MissilScript := preload("res://scripts/missil.gd")
@@ -817,8 +819,10 @@ func _disparar_shuriken() -> void:
 	_num(player.position + Vector2(0, -110), "SHURIKEN!", 26, Color(1.0, 0.55, 0.20))
 
 func _disparar_super_raio(pos: Vector2) -> void:
+	# NAVE ROXA: super tiro HADOUKEN (feixe grosso de plasma, estilo
+	# Akuma). A nave verde continua com os 3 raios serpenteantes.
 	var f := Node2D.new()
-	f.set_script(FeixeScript)
+	f.set_script(HadoukenScript if Escolha.e_roxa() else FeixeScript)
 	add_child(f)
 	f.call("setup", player)
 	var melhor: Node2D = null

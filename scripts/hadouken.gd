@@ -145,16 +145,29 @@ func _draw() -> void:
 		var ini := _dir.orthogonal() * voa
 		draw_line(ini, fim, _t(cam[1]), w, false)
 
-	# ---- branco extra no miolo perto da boca (o "cuspe" mais quente)
-	var boca := _dir * 60.0
-	draw_circle(boca, 11.0 * pulsa, Color(1.0, 1.0, 1.0, 0.55))
-	# ---- faiscas saltando da boca
+	# ---- funil de luz na boca (cone que afunila do canhao ao feixe)
+	var funil := PackedVector2Array()
+	funil.append(_dir.orthogonal() * 18.0)
+	funil.append(-_dir.orthogonal() * 18.0)
+	funil.append(_dir * 52.0 - _dir.orthogonal() * 7.0)
+	funil.append(_dir * 52.0 + _dir.orthogonal() * 7.0)
+	draw_colored_polygon(funil, Color(1.0, 0.55, 0.80, 0.40 * pulsa))
+	# ---- orbe de carga maior e mais viva na boca
+	var boca := _dir * 6.0
+	draw_circle(boca, 30.0 * pulsa, Color(1.0, 0.30, 0.65, 0.22))
+	draw_circle(boca, 20.0 * pulsa, Color(1.0, 0.55, 0.80, 0.40))
+	draw_circle(boca, 13.0 * pulsa, Color(1.0, 0.80, 0.92, 0.70))
+	draw_circle(boca, 7.0 * pulsa, Color(1.0, 1.0, 1.0, 0.95))
+	# ---- flash branco intenso no ponto de saida
+	draw_circle(Vector2.ZERO, 11.0 * pulsa, Color(1.0, 1.0, 1.0, 0.90))
+	# ---- faisca saltando da boca (mais e mais brilhantes)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = int(age * 30.0) * 37 + 11
-	for k in 4:
-		var f0: float = fmod(age * 2.2 + float(k) * 0.27, 1.0)
-		var sp := _dir * (40.0 + f0 * 140.0) + _dir.orthogonal() * rng.randf_range(-26.0, 26.0)
-		draw_circle(sp, 2.0, Color(1.0, 0.92, 1.0, 0.6 * (1.0 - f0)))
+	for k in 9:
+		var f0: float = fmod(age * 2.6 + float(k) * 0.19, 1.0)
+		var sp := _dir * (22.0 + f0 * 200.0) + _dir.orthogonal() * rng.randf_range(-32.0, 32.0)
+		draw_circle(sp, 2.6, Color(1.0, 0.95, 1.0, 0.75 * (1.0 - f0)))
+		draw_circle(sp, 1.1, Color(1.0, 1.0, 1.0, 0.9 * (1.0 - f0)))
 
 	# ---- raios negros: relampagos pretos saltando do feixe (estilo Akuma)
 	var rng2 := RandomNumberGenerator.new()

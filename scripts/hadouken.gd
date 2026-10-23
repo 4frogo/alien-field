@@ -103,16 +103,16 @@ func _process(delta: float) -> void:
 	modulate.a = a
 
 	# ---- rastro de particulas: mais intenso no fim do disparo (dissipa pra frente)
-	var spawn_rate := 4 if life > 0.30 else 9
+	var spawn_rate := 10 if life > 0.30 else 22
 	var rngp := RandomNumberGenerator.new()
 	rngp.seed = int(age * 60.0) * 131 + 7
 	for i in spawn_rate:
 		_particulas.append({
 			"pos": Vector2.ZERO,
-			"vel": _dir * rngp.randf_range(180.0, 420.0) + _dir.orthogonal() * rngp.randf_range(-60.0, 60.0),
-			"life": rngp.randf_range(0.35, 0.75),
+			"vel": _dir * rngp.randf_range(260.0, 620.0) + _dir.orthogonal() * rngp.randf_range(-90.0, 90.0),
+			"life": rngp.randf_range(0.6, 1.3),
 			"max": 0.0,
-			"size": rngp.randf_range(1.5, 4.5),
+			"size": rngp.randf_range(2.0, 6.0),
 		})
 		_particulas[-1]["max"] = _particulas[-1]["life"]
 	# atualiza particulas
@@ -127,7 +127,7 @@ func _process(delta: float) -> void:
 		else:
 			i += 1
 	# limita pra nao explodir
-	while _particulas.size() > 260:
+	while _particulas.size() > 600:
 		_particulas.remove_at(0)
 	queue_redraw()
 

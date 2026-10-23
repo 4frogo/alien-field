@@ -18,7 +18,7 @@ const CENTRO := Vector2(270.0, 480.0)  # centro do design 540x960
 # Botao ESCOLHER NAVE (assets/escolher nave.png, ~2000x780 com fundo preto —
 # o preto do PNG funde com o fundo da tela, entao nao precisa de shader)
 const IMG_BOTAO := "res://assets/escolher nave.png"
-const MUSICA := "res://assets/alien field intro.mp3"
+const MUSICA := "res://assets/alien field intro.ogg"
 const MUSICA_DB := -14.0              # mesmo volume da musica do jogo
 const BOTAO_LARGURA := 460.0           # cabe com folga nos 540 de largura
 const CENTRO_BOTAO := Vector2(270.0, 760.0)  # logo termina ~y615, botao 690..870

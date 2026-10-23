@@ -93,7 +93,7 @@ func _process(delta: float) -> void:
 		_travar_direcao()
 		_travado = true
 	if glow != null:
-		var gs := 86.0 + 8.0 * sin(age * 24.0)
+		var gs := 120.0 + 12.0 * sin(age * 24.0)
 		glow.scale = Vector2(gs / 64.0, gs / 64.0)
 	var a := 1.0
 	if age < 0.08:
@@ -102,33 +102,7 @@ func _process(delta: float) -> void:
 		a = maxf(0.0, life / 0.30)
 	modulate.a = a
 
-	# ---- rastro de particulas: mais intenso no fim do disparo (dissipa pra frente)
-	var spawn_rate := 10 if life > 0.30 else 22
-	var rngp := RandomNumberGenerator.new()
-	rngp.seed = int(age * 60.0) * 131 + 7
-	for i in spawn_rate:
-		_particulas.append({
-			"pos": Vector2.ZERO,
-			"vel": _dir * rngp.randf_range(260.0, 620.0) + _dir.orthogonal() * rngp.randf_range(-90.0, 90.0),
-			"life": rngp.randf_range(0.6, 1.3),
-			"max": 0.0,
-			"size": rngp.randf_range(2.0, 6.0),
-		})
-		_particulas[-1]["max"] = _particulas[-1]["life"]
-	# atualiza particulas
-	var i := 0
-	while i < _particulas.size():
-		var pt: Dictionary = _particulas[i]
-		pt["pos"] = pt["pos"] + pt["vel"] * delta
-		pt["vel"] = pt["vel"] * (1.0 - 1.6 * delta)
-		pt["life"] = pt["life"] - delta
-		if pt["life"] <= 0.0:
-			_particulas.remove_at(i)
-		else:
-			i += 1
-	# limita pra nao explodir
-	while _particulas.size() > 600:
-		_particulas.remove_at(0)
+	# (rastro de particulas removido: feixe puro de luz)
 	queue_redraw()
 
 
@@ -143,7 +117,7 @@ func atingido(p: Vector2, tol: float = 26.0) -> bool:
 	var proj: float = lp.dot(_dir)
 	if proj < -20.0 or proj > comprimento() + 40.0:
 		return false
-	return absf(lp.cross(_dir)) <= (23.0 + tol)
+	return absf(lp.cross(_dir)) <= (40.0 + tol)
 
 
 # ------------------------------------------------------------------ desenho
@@ -165,7 +139,7 @@ func _draw() -> void:
 		[0.18, Color(1.00, 1.00, 1.00, 1.00)],
 	]
 	for cam in camadas:
-		var w: float = 46.0 * cam[0] * larg * pulsa
+		var w: float = 78.0 * cam[0] * larg * pulsa
 		var fim := _dir * comprimento()
 		# leve tremor perpendicular so no comeco do feixe
 		var ini := _dir.orthogonal() * voa
@@ -199,8 +173,4 @@ func _draw() -> void:
 		draw_polyline(segs, Color(0.0, 0.0, 0.0, 0.85), 2.6, false)
 		draw_polyline(segs, Color(1.0, 0.7, 0.85, 0.30), 1.0, false)
 
-	# ---- rastro de particulas se desfazendo pra frente
-	for pt in _particulas:
-		var k: float = clampf(pt["life"] / pt["max"], 0.0, 1.0)
-		var col := Color(1.0, 0.6, 0.85, 0.7 * k * k)
-		draw_circle(pt["pos"], pt["size"] * (1.0 + (1.0 - k) * 1.6), col)
+	# (sem rastro de particulas)

@@ -12,7 +12,7 @@ extends Node2D
 const PERFURAR := 3
 const VIDA := 3.6
 const DANO := 15             # dano aumentado de 8 para 15
-const GIRO := 19.0
+const GIRO := 26.0
 # HOMING = 0: a shuriken vai reto, sem rastreamento de alvo
 
 var vel := Vector2(0, -1)
@@ -55,7 +55,13 @@ func _criar_visual() -> void:
 		if mat.shader != null:
 			mat.set_shader_parameter("comprimento_ponta", 0.95)
 			mat.set_shader_parameter("largura_lama", 0.24)
-			mat.set_shader_parameter("giro", 19.0)
+			mat.set_shader_parameter("giro", 26.0)
+			if Escolha.e_roxa():
+				mat.set_shader_parameter("cor_energia", Color(1.0, 0.42, 0.10))
+				mat.set_shader_parameter("cor_quente", Color(1.0, 0.90, 0.60))
+			else:
+				mat.set_shader_parameter("cor_energia", Color(0.10, 0.95, 0.30))
+				mat.set_shader_parameter("cor_quente", Color(0.70, 1.0, 0.75))
 			spr.material = mat
 			spr.scale = Vector2(120.0 / 4.0, 120.0 / 4.0)
 		else:
@@ -75,10 +81,19 @@ func _criar_visual() -> void:
 		fx_mat.shader = load("res://assets/energy_ball.gdshader") as Shader
 		if fx_mat.shader != null:
 			fx_mat.set_shader_parameter("charge", 0.35)
-			fx_mat.set_shader_parameter("speed", 3.0)
+			fx_mat.set_shader_parameter("speed", 4.0)
+			if Escolha.e_roxa():
+				fx_mat.set_shader_parameter("core_color", Color(1.0, 0.95, 0.85))
+				fx_mat.set_shader_parameter("mid_color", Color(1.0, 0.55, 0.20))
+				fx_mat.set_shader_parameter("outer_color", Color(0.8, 0.25, 0.05))
+				fx.modulate = Color(1.0, 0.45, 0.10, 0.30)
+			else:
+				fx_mat.set_shader_parameter("core_color", Color(0.85, 1.0, 0.90))
+				fx_mat.set_shader_parameter("mid_color", Color(0.15, 0.95, 0.40))
+				fx_mat.set_shader_parameter("outer_color", Color(0.02, 0.45, 0.15))
+				fx.modulate = Color(0.10, 0.95, 0.30, 0.30)
 			fx.material = fx_mat
 			fx.scale = Vector2(190.0 / 4.0, 190.0 / 4.0)
-			fx.modulate = Color(1.0, 0.45, 0.10, 0.30)
 		else:
 			fx_mat = null
 		add_child(fx)

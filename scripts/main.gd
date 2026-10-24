@@ -306,27 +306,27 @@ func _ready() -> void:
 	charge_bar.visible = true
 	hud.add_child(charge_bar)
 
-	# BOTAO DE PAUSE entre a barra de super (esq) e a de escudo (dir)
+	# Botao PAUSAR (arte completa) no canto superior direito.
 	var _tex_pause := load("res://assets/pause.png") as Texture2D
 	if _tex_pause != null:
 		var btn_pause := TextureButton.new()
 		btn_pause.name = "btn_pause"
 		btn_pause.texture_normal = _tex_pause
-		var esc_p: float = 180.0 / float(_tex_pause.get_width())
-		btn_pause.size = _tex_pause.get_size()
-		btn_pause.scale = Vector2(esc_p, esc_p)
-		btn_pause.pivot_offset = _tex_pause.get_size() * 0.5
-		btn_pause.position = Vector2(540.0 - (_tex_pause.get_width() * esc_p) - 12.0, 12.0)
+		btn_pause.ignore_texture_size = true
+		btn_pause.stretch_mode = TextureButton.STRETCH_SCALE
+		btn_pause.size = Vector2(180.0, 68.0)
+		btn_pause.pivot_offset = btn_pause.size * 0.5
+		btn_pause.position = Vector2(540.0 - btn_pause.size.x - 12.0, 12.0)
 		btn_pause.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 		btn_pause.process_mode = Node.PROCESS_MODE_ALWAYS
 		btn_pause.button_down.connect(func():
 			var tw := btn_pause.create_tween()
-			tw.tween_property(btn_pause, "scale", Vector2(esc_p * 0.86, esc_p * 0.86), 0.06)
+			tw.tween_property(btn_pause, "scale", Vector2(0.86, 0.86), 0.06)
 			tw.parallel().tween_property(btn_pause, "position:y", 16.0, 0.06)
 		)
 		btn_pause.button_up.connect(func():
 			var tw := btn_pause.create_tween()
-			tw.tween_property(btn_pause, "scale", Vector2(esc_p, esc_p), 0.10)
+			tw.tween_property(btn_pause, "scale", Vector2.ONE, 0.10)
 			tw.parallel().tween_property(btn_pause, "position:y", 12.0, 0.10)
 		)
 		btn_pause.pressed.connect(func():
@@ -379,17 +379,33 @@ func _ready() -> void:
 		mold.set_anchors_preset(Control.PRESET_FULL_RECT)
 		mold.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		pause_layer.add_child(mold)
-	var pl := Label.new()
-	pl.text = "PAUSADO"
-	pl.add_theme_font_size_override("font_size", 48)
-	if _fonte() != null:
-		pl.add_theme_font_override("font", _fonte())
-	pl.add_theme_color_override("font_color", Color(0.45, 1.0, 0.6))
-	pl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	pl.position = Vector2(0, 200)
-	pl.size = Vector2(540, 60)
-	pause_layer.add_child(pl)
-
+	# Logo NOVO acima do botao de recomecar, centralizado na moldura.
+	var tex_novo := load("res://assets/NOVO.png") as Texture2D
+	if tex_novo != null:
+		var logo_novo := TextureRect.new()
+		logo_novo.name = "logo_novo_pause"
+		logo_novo.texture = tex_novo
+		logo_novo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		logo_novo.stretch_mode = TextureRect.STRETCH_SCALE
+		logo_novo.size = Vector2(280.0, 280.0 * float(tex_novo.get_height()) / float(tex_novo.get_width()))
+		logo_novo.position = Vector2((540.0 - logo_novo.size.x) * 0.5, 264.0)
+		logo_novo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		pause_layer.add_child(logo_novo)
+	# Botao RECOMECAR MENU: usa a arte do jogador no centro escuro da moldura.
+	var tex_recomecar := load("res://assets/recomeçar menu.png") as Texture2D
+	if tex_recomecar != null:
+		var btn_recomecar := TextureButton.new()
+		btn_recomecar.name = "btn_recomecar_menu"
+		btn_recomecar.texture_normal = tex_recomecar
+		btn_recomecar.ignore_texture_size = true
+		btn_recomecar.stretch_mode = TextureButton.STRETCH_SCALE
+		btn_recomecar.size = Vector2(360.0, 136.0)
+		btn_recomecar.position = Vector2(90.0, 412.0)
+		btn_recomecar.pivot_offset = btn_recomecar.size * 0.5
+		btn_recomecar.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		btn_recomecar.process_mode = Node.PROCESS_MODE_ALWAYS
+		btn_recomecar.pressed.connect(_reiniciar_para_escolha)
+		pause_layer.add_child(btn_recomecar)
 	for i in 3:
 		_spawn_small()
 	_cartao_fase()
@@ -439,6 +455,12 @@ func _alternar_pause() -> void:
 		pause_layer.visible = get_tree().paused
 	if musica != null and musica.has_method("set_pausado"):
 		musica.call("set_pausado", get_tree().paused)
+
+func _reiniciar_para_escolha() -> void:
+	# O botao so existe na tela de pause; despausa antes de trocar de cena
+	# para que a tela de escolha nao herde o estado pausado.
+	get_tree().paused = false
+	get_tree().change_scene_to_file("res://scenes/EscolherNave.tscn")
 
 func _cartao_fase() -> void:
 	# cartao FASE 1-3 deslizando com tween
@@ -1970,3 +1992,4 @@ func _ir_para_menu() -> void:
 	h.position = Vector2(0, center.y + 130)
 	h.size = Vector2(540, 26)
 	menu_layer.add_child(h)
+

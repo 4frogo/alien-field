@@ -424,8 +424,6 @@ func _ready() -> void:
 		_spawn_small()
 	_cartao_fase()
 
-# (pause por tecla P removido: agora so o botao de pause funciona)
-
 func _botao_vivo(b: Button, cor_texto: Color, cor_borda: Color) -> void:
 	b.pivot_offset = b.size / 2.0
 	var normal := StyleBoxFlat.new()
@@ -460,6 +458,12 @@ func _soco_botao(b: Button) -> void:
 	var tw := create_tween()
 	tw.tween_property(b, "scale", Vector2(0.92, 0.92), 0.07)
 	tw.tween_property(b, "scale", Vector2.ONE, 0.12).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
+func _input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo:
+		if event.keycode == KEY_P:
+			_alternar_pause()
+			get_viewport().set_input_as_handled()
 
 func _alternar_pause() -> void:
 	if em_menu or vidas <= 0:

@@ -332,5 +332,3 @@ func _tocar_click() -> void:
 	_ui.stop()   # o arquivo tem 6 s: corta a cauda antes de tocar de novo
 	_ui.pitch_scale = randf_range(0.97, 1.04)
 	_ui.play()
-
-

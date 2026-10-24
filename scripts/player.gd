@@ -472,7 +472,7 @@ func _process(delta: float) -> void:
 		if not carregando:
 			carregando = true
 			carga = 0.0
-			usando_shuriken = not (Escolha.e_roxa() or (power_ativo and super_tiros_restantes > 0)) # TEMP TESTE hadouken
+			usando_shuriken = not (power_ativo and super_tiros_restantes > 0)
 			carga_alvo_atual = carga_max_super if not usando_shuriken else carga_max_shuriken
 		carga += delta
 		if carga < 0.45:
@@ -485,7 +485,7 @@ func _process(delta: float) -> void:
 	else:
 		if carregando:
 			var offset_y := -70.0 if tem_sprite else -48.0
-			if not usando_shuriken and (Escolha.e_roxa() or (power_ativo and super_tiros_restantes > 0)): # TEMP TESTE hadouken
+			if not usando_shuriken and power_ativo and super_tiros_restantes > 0:
 				# super tiro triplo (FeixeScript) - 3 raios serpenteantes
 				if carga >= carga_alvo_atual:
 					super_tiro.emit(position + Vector2(0, offset_y))
@@ -508,7 +508,7 @@ func _process(delta: float) -> void:
 				charge_mat.set_shader_parameter("charge", k)
 				charge_mat.set_shader_parameter("speed", 3.5 + 4.0 * k)
 				# cor da carga: verde para super tiro triplo, laranja para shuriken
-				if not usando_shuriken and (Escolha.e_roxa() or (power_ativo and super_tiros_restantes > 0)): # TEMP TESTE hadouken
+				if not usando_shuriken and power_ativo and super_tiros_restantes > 0:
 					if Escolha.e_roxa():
 						# hadouken: carga rosa -> branco
 						charge_mat.set_shader_parameter("cor_a", Color(1.0, 0.25, 0.60))

@@ -3,22 +3,21 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://rq480p26rktx"
-path.bptc="res://.godot/imported/cenarioV_seamless.png-9f435bcc3eb4b9ac5df98e777479e8ae.bptc.ctex"
+path="res://.godot/imported/cenarioV_seamless.png-9f435bcc3eb4b9ac5df98e777479e8ae.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
-"vram_texture": true
+"vram_texture": false
 }
 
 [deps]
 
 source_file="res://assets/cenarioV_seamless.png"
-dest_files=["res://.godot/imported/cenarioV_seamless.png-9f435bcc3eb4b9ac5df98e777479e8ae.bptc.ctex"]
+dest_files=["res://.godot/imported/cenarioV_seamless.png-9f435bcc3eb4b9ac5df98e777479e8ae.ctex"]
 
 [params]
 
-compress/mode=2
+compress/mode=1
 compress/high_quality=true
-compress/lossy_quality=0.7
+compress/lossy_quality=0.85
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0
 compress/hdr_compression=1

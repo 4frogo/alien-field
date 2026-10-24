@@ -1031,8 +1031,7 @@ func _killcam_boss(pos: Vector2) -> void:
 		return
 	Engine.time_scale = 0.3
 	await get_tree().create_timer(1.4, true, false, true).timeout
-	if meu != morto_id:
-		return
+	# restaura SEMPRE (mesmo se o jogador morreu no meio), evitando zoom travado
 	if cam != null and is_instance_valid(cam):
 		cam.zoom = Vector2(CAM_ZOOM, CAM_ZOOM)
 		cam.position = CAM_POS_NORMAL

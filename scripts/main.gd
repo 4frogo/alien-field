@@ -379,18 +379,6 @@ func _ready() -> void:
 		mold.set_anchors_preset(Control.PRESET_FULL_RECT)
 		mold.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		pause_layer.add_child(mold)
-	# Logo NOVO acima do botao de recomecar, centralizado na moldura.
-	var tex_novo := load("res://assets/NOVO.png") as Texture2D
-	if tex_novo != null:
-		var logo_novo := TextureRect.new()
-		logo_novo.name = "logo_novo_pause"
-		logo_novo.texture = tex_novo
-		logo_novo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		logo_novo.stretch_mode = TextureRect.STRETCH_SCALE
-		logo_novo.size = Vector2(280.0, 280.0 * float(tex_novo.get_height()) / float(tex_novo.get_width()))
-		logo_novo.position = Vector2((540.0 - logo_novo.size.x) * 0.5, 264.0)
-		logo_novo.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		pause_layer.add_child(logo_novo)
 	# Botao RECOMECAR MENU: usa a arte do jogador no centro escuro da moldura.
 	var tex_recomecar := load("res://assets/recomeçar menu.png") as Texture2D
 	if tex_recomecar != null:

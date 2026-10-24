@@ -316,18 +316,18 @@ func _ready() -> void:
 		btn_pause.size = _tex_pause.get_size()
 		btn_pause.scale = Vector2(esc_p, esc_p)
 		btn_pause.pivot_offset = _tex_pause.get_size() * 0.5
-		btn_pause.position = Vector2(270.0 - (_tex_pause.get_width() * esc_p) * 0.5, 810.0)
+		btn_pause.position = Vector2(540.0 - (_tex_pause.get_width() * esc_p) - 12.0, 12.0)
 		btn_pause.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 		btn_pause.process_mode = Node.PROCESS_MODE_ALWAYS
 		btn_pause.button_down.connect(func():
 			var tw := btn_pause.create_tween()
 			tw.tween_property(btn_pause, "scale", Vector2(esc_p * 0.86, esc_p * 0.86), 0.06)
-			tw.parallel().tween_property(btn_pause, "position:y", 814.0, 0.06)
+			tw.parallel().tween_property(btn_pause, "position:y", 16.0, 0.06)
 		)
 		btn_pause.button_up.connect(func():
 			var tw := btn_pause.create_tween()
 			tw.tween_property(btn_pause, "scale", Vector2(esc_p, esc_p), 0.10)
-			tw.parallel().tween_property(btn_pause, "position:y", 810.0, 0.10)
+			tw.parallel().tween_property(btn_pause, "position:y", 12.0, 0.10)
 		)
 		btn_pause.pressed.connect(func():
 			_alternar_pause()

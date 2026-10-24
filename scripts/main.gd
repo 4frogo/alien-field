@@ -306,6 +306,34 @@ func _ready() -> void:
 	charge_bar.visible = true
 	hud.add_child(charge_bar)
 
+	# BOTAO DE PAUSE entre a barra de super (esq) e a de escudo (dir)
+	var _tex_pause := load("res://assets/pause.png") as Texture2D
+	if _tex_pause != null:
+		var btn_pause := TextureButton.new()
+		btn_pause.name = "btn_pause"
+		btn_pause.texture_normal = _tex_pause
+		var esc_p: float = 180.0 / float(_tex_pause.get_width())
+		btn_pause.size = _tex_pause.get_size()
+		btn_pause.scale = Vector2(esc_p, esc_p)
+		btn_pause.pivot_offset = _tex_pause.get_size() * 0.5
+		btn_pause.position = Vector2(270.0 - (_tex_pause.get_width() * esc_p) * 0.5, 810.0)
+		btn_pause.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		btn_pause.process_mode = Node.PROCESS_MODE_ALWAYS
+		btn_pause.button_down.connect(func():
+			var tw := btn_pause.create_tween()
+			tw.tween_property(btn_pause, "scale", Vector2(esc_p * 0.86, esc_p * 0.86), 0.06)
+			tw.parallel().tween_property(btn_pause, "position:y", 814.0, 0.06)
+		)
+		btn_pause.button_up.connect(func():
+			var tw := btn_pause.create_tween()
+			tw.tween_property(btn_pause, "scale", Vector2(esc_p, esc_p), 0.10)
+			tw.parallel().tween_property(btn_pause, "position:y", 810.0, 0.10)
+		)
+		btn_pause.pressed.connect(func():
+			get_tree().paused = not get_tree().paused
+		)
+		hud.add_child(btn_pause)
+
 	# TEXTO DE CARGA (SUPER/PERIGO/SOLTE!) REMOVIDO: as 3 frases do canto
 	# direito sairam e o espaco agora e do icone de escudo (hud.gd).
 	# O script charge_txt.gd continua no projeto, sem uso.

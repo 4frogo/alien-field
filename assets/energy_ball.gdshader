@@ -28,9 +28,13 @@ void fragment() {
 	col += mid_color * mid * (0.45 + 0.9 * charge);
 	col += core_color * core * (0.7 + 0.9 * charge);
 
-	// raios eletricos
+	// raios eletricos (azuis)
 	float bolt = pow(energy, 3.0) * smoothstep(1.0, 0.0, d) * (0.3 + charge);
 	col += vec3(0.45, 0.85, 1.0) * bolt * 1.6;
+
+	// raios eletricos NEGROS (estilo rasengan carregado)
+	float blackbolt = pow(swirl * swirl2, 1.6) * smoothstep(0.9, 0.15, d) * charge;
+	col = mix(col, vec3(0.0, 0.0, 0.0), clamp(blackbolt * 0.75, 0.0, 0.85));
 
 	// RGB split animado estilo kamehameha
 	float wob = sin(t * 5.0 + d * 11.0);

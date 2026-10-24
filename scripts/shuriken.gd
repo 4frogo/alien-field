@@ -53,9 +53,10 @@ func _criar_visual() -> void:
 		mat = ShaderMaterial.new()
 		mat.shader = load("res://assets/shuriken_energia.gdshader") as Shader
 		if mat.shader != null:
-			mat.set_shader_parameter("comprimento_ponta", 0.95)
-			mat.set_shader_parameter("largura_lama", 0.24)
-			mat.set_shader_parameter("giro", 26.0)
+			mat.set_shader_parameter("comprimento_ponta", 0.99)
+			mat.set_shader_parameter("largura_lama", 0.20)
+			mat.set_shader_parameter("curvatura", 0.30)
+			mat.set_shader_parameter("giro", 28.0)
 			if Escolha.e_roxa():
 				mat.set_shader_parameter("cor_energia", Color(1.0, 0.42, 0.10))
 				mat.set_shader_parameter("cor_quente", Color(1.0, 0.90, 0.60))

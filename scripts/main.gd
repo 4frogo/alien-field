@@ -1,4 +1,4 @@
-extends Node2D
+﻿extends Node2D
 # Alien field - main
 
 const BulletScript := preload("res://scripts/bullet.gd")
@@ -52,7 +52,7 @@ const PORTAL_NUCLEO := 178.0
 # CAM_Y sobe um pouco junto, para a folga extra nao ficar toda embaixo.
 const CAM_ZOOM := 0.92
 const CAM_Y := 470.0
-# posicao "padrão" da camera: todo reset usa estes dois, para nao
+# posicao "padrÃ£o" da camera: todo reset usa estes dois, para nao
 # voltar sozinho pra 1.0 / 480 no meio da partida.
 const CAM_POS_NORMAL := Vector2(270.0, CAM_Y)
 # nave protetora do portal: bloqueia a travessia e as caixas de tiro ate
@@ -215,7 +215,7 @@ func _ready() -> void:
 	# para a nave subir e descer sem encostar nas bordas. Como o
 	# viewport e 540x960 e o jogo e 540x960, qualquer valor diferente de
 	# 1.0 mostra alem da tela (as laterais ficam vazias, cortadas pela
-	# margem preta do navegador — por isso so mexemos no eixo Y via
+	# margem preta do navegador â€” por isso so mexemos no eixo Y via
 	# zoom igual nos dois eixos + posicao ajustada).
 	cam.zoom = Vector2(CAM_ZOOM, CAM_ZOOM)
 	cam.position = Vector2(270, CAM_Y)
@@ -257,7 +257,7 @@ func _ready() -> void:
 	aviso_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hud.add_child(aviso_label)
 
-	# crista vermelha so nas bordas (shader) â€” o centro fica limpo
+	# crista vermelha so nas bordas (shader) Ã¢â‚¬â€ o centro fica limpo
 	aviso_tex = ColorRect.new()
 	aviso_tex.set_anchors_preset(Control.PRESET_FULL_RECT)
 	aviso_tex.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -330,7 +330,7 @@ func _ready() -> void:
 			tw.parallel().tween_property(btn_pause, "position:y", 810.0, 0.10)
 		)
 		btn_pause.pressed.connect(func():
-			get_tree().paused = not get_tree().paused
+			_alternar_pause()
 		)
 		hud.add_child(btn_pause)
 
@@ -393,9 +393,7 @@ func _ready() -> void:
 		_spawn_small()
 	_cartao_fase()
 
-func _input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_P:
-		_alternar_pause()
+# (pause por tecla P removido: agora so o botao de pause funciona)
 
 func _botao_vivo(b: Button, cor_texto: Color, cor_borda: Color) -> void:
 	b.pivot_offset = b.size / 2.0
@@ -495,7 +493,7 @@ func _spawn_protetor(pos_portal: Vector2) -> void:
 	inimigos.append(e)
 	# aviso curto: o jogador precisa saber oq fazer com essa nave
 	if aviso_label != null:
-		# (sem aviso "PROTETOR DO PORTAL" — pedido do jogador)
+		# (sem aviso "PROTETOR DO PORTAL" â€” pedido do jogador)
 		aviso_label.visible = false
 
 
@@ -894,7 +892,7 @@ func _on_player_atirar(pos: Vector2) -> void:
 	if vidas <= 0:
 		return
 	# Tiro normal: sempre os mesmos 3 cristais. Com a caixa verde ativa
-	# eles ficam MAIORES (1.9x) — e so isso, sem efeitos extras.
+	# eles ficam MAIORES (1.9x) â€” e so isso, sem efeitos extras.
 	var esc: float = 1.9 if power_timer > 0 else 1.0
 	if Escolha.e_roxa():
 		# NAVE ROXA: disparo QUADRUPLE rosa - um par central apertado e
@@ -924,7 +922,7 @@ func _on_player_atirar(pos: Vector2) -> void:
 
 # Dano do raio triplo. Fica numa funcao SEPARADA de proposito:
 # dentro do _process existia um `await` (renascimento do chefe) que
-# transformava o _process inteiro em corrotina â€” e o resto do bloco de
+# transformava o _process inteiro em corrotina Ã¢â‚¬â€ e o resto do bloco de
 # dano ficava sem executar. Nenhum await aqui dentro.
 func _dano_do_raio(delta: float) -> void:
 	feixes = feixes.filter(func(x): return is_instance_valid(x))
@@ -951,7 +949,7 @@ func _dano_do_raio(delta: float) -> void:
 			if tipo_e == "small":
 				# UNICA coisa que o raio limpa: nave pequena eletrocucada
 				# explode na hora. Capanga, torre, caixa e chefe NAO
-				# tomam dano â€” o feixe passa direto por eles.
+				# tomam dano Ã¢â‚¬â€ o feixe passa direto por eles.
 				pontos += 100
 				_registrar_abate()
 				e.call("levar_dano", 99999)
@@ -966,7 +964,7 @@ func _dano_do_raio(delta: float) -> void:
 			elif tipo_e == "guard":
 				# NAVE PROTETORA: este e o UNICO alvo que o raio consegue
 				# matar (alem do small). Ela e imune a tiro normal, entao
-				# o super e a resposta â€” e a unica forma de abrir o portal.
+				# o super e a resposta Ã¢â‚¬â€ e a unica forma de abrir o portal.
 				# 25 por tick a 20 ticks/s => ~500 de dano por segundo.
 				var restou: float = clampf(float(e.get("hp")) / 260.0, 0.0, 1.0)
 				var morreu := bool(e.call("levar_dano_super", 25))
@@ -1210,7 +1208,7 @@ func _process(delta: float) -> void:
 			var zoom: float = lerpf(1.0, 2.15, ze)
 			var s: float = fit * zoom
 			art.scale = Vector2(s, s)
-			# Comeca centralizado e SÃ“ deriva durante o zoom. Se a imagem
+			# Comeca centralizado e SÃƒâ€œ deriva durante o zoom. Se a imagem
 			# ja nascesse deslocada pra manter a ancora no centro, sobraria
 			# faixa preta na borda oposta (a escala de "cobrir" nao cobre o
 			# deslocamento). Com o lerp, no fim a ancora chega ao centro.
@@ -1225,7 +1223,7 @@ func _process(delta: float) -> void:
 		if poe != null and poe.has_method("set"):
 			poe.set("intensidade", prog)
 		if flash != null:
-			# clarÃ£o curto, sÃ³ pra cobrir o corte da entrada
+			# clarÃƒÂ£o curto, sÃƒÂ³ pra cobrir o corte da entrada
 			flash.color.a = maxf(0.0, 0.85 - transicao_anim * 3.4)
 		if not transicao_trocou and transicao_anim >= 1.8:
 			transicao_trocou = true
@@ -1342,7 +1340,7 @@ func _process(delta: float) -> void:
 
 	# bonus a cada 30s
 	# caixa VERDE: so aparece na DIMENSAO 2 (com o chefe). Na primeira parte
-	# da fase ela nao sai de jeito nenhum — sem o poder de triplo, o
+	# da fase ela nao sai de jeito nenhum â€” sem o poder de triplo, o
 	# jogador encara a protetora com o tiro normal.
 	if dimensao == 2:
 		bonus_timer -= delta
@@ -1443,8 +1441,8 @@ func _colisoes() -> void:
 			if b.position.distance_to(e.position) < raio_e + raio_b * 0.5:
 				# tiro NORMAL agora machuca a protetora (pedido do jogador).
 				# Antes era bloqueado aqui; hoje a colisao segue para
-				# levar_dano normalmente. O super ainda Ã© o que finaliza
-				# mais rapido, mas nÃ£o e a unica resposta.
+				# levar_dano normalmente. O super ainda ÃƒÂ© o que finaliza
+				# mais rapido, mas nÃƒÂ£o e a unica resposta.
 				var dano: int = int(b.get("dano"))
 				var perfurante: bool = bool(b.get("perfurante"))
 				if not perfurante:
@@ -1480,7 +1478,7 @@ func _colisoes() -> void:
 						# 	sfx.call("explosao")
 					# A PROTETORA tambem pode cair por TIRO NORMAL (ela
 						# nao e mais imune). Esse caminho precisa ligar a
-						# trava da tela limpa igual ao do super raio — sem
+						# trava da tela limpa igual ao do super raio â€” sem
 						# isso os inimigos continuavam nascendo depois.
 						if e.get("tipo") == "guard":
 							protetor = null
@@ -1912,7 +1910,7 @@ func _ir_para_menu() -> void:
 	add_child(menu_layer)
 	var center := Vector2(270, 480) # fixo do projeto
 	var f := _fonte()
-	# arte cheia de fundo (bg da fase 1) + vÃ©u escuro pra leitura
+	# arte cheia de fundo (bg da fase 1) + vÃƒÂ©u escuro pra leitura
 	for mp in ["res://assets/bg.png", "res://assets/bg.jpg", "res://assets/VENOM.png"]:
 		if ResourceLoader.exists(mp):
 			var mtex := load(mp) as Texture2D

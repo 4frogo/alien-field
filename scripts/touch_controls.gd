@@ -14,10 +14,8 @@ func _input(event: InputEvent) -> void:
 		# viewport -> coordenadas do jogo
 		var p: Vector2 = make_canvas_position_local(event.position)
 		if event.pressed:
-			if p.y < 60.0:
-				if main_ref != null and main_ref.has_method("_alternar_pause"):
-					main_ref.call("_alternar_pause")
-			elif p.x < 270.0 and move_id < 0:
+			# pause agora so pelo botao de pause (pause.png)
+			if p.x < 270.0 and move_id < 0:
 				move_id = event.index
 				move_anchor = p
 				player.set("analog", Vector2.ZERO)

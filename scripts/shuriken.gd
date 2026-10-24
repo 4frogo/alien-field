@@ -1,4 +1,4 @@
-extends Node2D
+﻿extends Node2D
 # SHURIKEN DE ENERGIA — tiro carregado da CAIXA VERMELHA.
 #
 # E energia girando, nao lamina fisica:
@@ -58,8 +58,8 @@ func _criar_visual() -> void:
 			mat.set_shader_parameter("curvatura", 0.30)
 			mat.set_shader_parameter("giro", 28.0)
 			if Escolha.e_roxa():
-				mat.set_shader_parameter("cor_energia", Color(1.0, 0.42, 0.10))
-				mat.set_shader_parameter("cor_quente", Color(1.0, 0.90, 0.60))
+				mat.set_shader_parameter("cor_energia", Color(0.55, 0.15, 0.95))
+				mat.set_shader_parameter("cor_quente", Color(0.90, 0.75, 1.0))
 			else:
 				mat.set_shader_parameter("cor_energia", Color(0.10, 0.95, 0.30))
 				mat.set_shader_parameter("cor_quente", Color(0.70, 1.0, 0.75))
@@ -84,10 +84,10 @@ func _criar_visual() -> void:
 			fx_mat.set_shader_parameter("charge", 0.35)
 			fx_mat.set_shader_parameter("speed", 4.0)
 			if Escolha.e_roxa():
-				fx_mat.set_shader_parameter("core_color", Color(1.0, 0.95, 0.85))
-				fx_mat.set_shader_parameter("mid_color", Color(1.0, 0.55, 0.20))
-				fx_mat.set_shader_parameter("outer_color", Color(0.8, 0.25, 0.05))
-				fx.modulate = Color(1.0, 0.45, 0.10, 0.30)
+				fx_mat.set_shader_parameter("core_color", Color(0.90, 0.75, 1.0))
+				fx_mat.set_shader_parameter("mid_color", Color(0.55, 0.15, 0.95))
+				fx_mat.set_shader_parameter("outer_color", Color(0.25, 0.05, 0.55))
+				fx.modulate = Color(0.55, 0.15, 0.95, 0.30)
 			else:
 				fx_mat.set_shader_parameter("core_color", Color(0.85, 1.0, 0.90))
 				fx_mat.set_shader_parameter("mid_color", Color(0.15, 0.95, 0.40))

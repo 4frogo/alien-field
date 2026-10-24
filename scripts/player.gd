@@ -517,8 +517,12 @@ func _process(delta: float) -> void:
 						charge_mat.set_shader_parameter("cor_a", Color(0.10, 0.95, 0.28))
 						charge_mat.set_shader_parameter("cor_b", Color(0.45, 1.0, 0.60))
 				else:
-					charge_mat.set_shader_parameter("cor_a", Color(1.0, 0.45, 0.10))
-					charge_mat.set_shader_parameter("cor_b", Color(1.0, 0.92, 0.60))
+					if Escolha.e_roxa():
+						charge_mat.set_shader_parameter("cor_a", Color(0.55, 0.15, 0.95))
+						charge_mat.set_shader_parameter("cor_b", Color(0.90, 0.75, 1.0))
+					else:
+						charge_mat.set_shader_parameter("cor_a", Color(0.10, 0.95, 0.30))
+						charge_mat.set_shader_parameter("cor_b", Color(0.70, 1.0, 0.75))
 			# tremor cresce com a carga (perigo), respeitando a faixa do HUD
 			var tremor := k * k * 7.0
 			position.x = clamp(position.x + randf_range(-tremor, tremor),

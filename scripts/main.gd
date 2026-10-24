@@ -365,29 +365,30 @@ func _ready() -> void:
 	pause_layer.visible = false
 	add_child(pause_layer)
 	var dim := ColorRect.new()
-	dim.color = Color(0, 0, 0, 0.65)
+	dim.color = Color(0, 0, 0, 0.85)
 	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
 	pause_layer.add_child(dim)
+	# moldura de pause (assets/moldura pause.png): borda decorativa,
+	# centro transparente -> fundo escuro (dim) aparece no centro
+	var moldura_tex := load("res://assets/moldura pause.png") as Texture2D
+	if moldura_tex != null:
+		var mold := TextureRect.new()
+		mold.texture = moldura_tex
+		mold.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		mold.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		mold.set_anchors_preset(Control.PRESET_FULL_RECT)
+		mold.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		pause_layer.add_child(mold)
 	var pl := Label.new()
 	pl.text = "PAUSADO"
-	pl.add_theme_font_size_override("font_size", 56)
+	pl.add_theme_font_size_override("font_size", 48)
 	if _fonte() != null:
 		pl.add_theme_font_override("font", _fonte())
 	pl.add_theme_color_override("font_color", Color(0.45, 1.0, 0.6))
 	pl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	pl.position = Vector2(0, 420)
-	pl.size = Vector2(540, 80)
+	pl.position = Vector2(0, 200)
+	pl.size = Vector2(540, 60)
 	pause_layer.add_child(pl)
-	var ph := Label.new()
-	ph.text = "P continua"
-	ph.add_theme_font_size_override("font_size", 22)
-	if _fonte() != null:
-		ph.add_theme_font_override("font", _fonte())
-	ph.add_theme_color_override("font_color", Color(0.8, 0.85, 0.82))
-	ph.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	ph.position = Vector2(0, 500)
-	ph.size = Vector2(540, 32)
-	pause_layer.add_child(ph)
 
 	for i in 3:
 		_spawn_small()

@@ -420,6 +420,35 @@ func _ready() -> void:
 		)
 		btn_recomecar.pressed.connect(_reiniciar_para_escolha)
 		pause_layer.add_child(btn_recomecar)
+	# Botao para voltar a partida: fica abaixo de RECOMECAR no painel.
+	var tex_voltar := load("res://assets/voltar pro jogo.png") as Texture2D
+	if tex_voltar != null:
+		var btn_voltar := TextureButton.new()
+		btn_voltar.name = "btn_voltar_pro_jogo"
+		btn_voltar.texture_normal = tex_voltar
+		btn_voltar.ignore_texture_size = true
+		btn_voltar.stretch_mode = TextureButton.STRETCH_SCALE
+		btn_voltar.size = Vector2(360.0, 136.0)
+		btn_voltar.position = Vector2(90.0, 560.0)
+		btn_voltar.pivot_offset = btn_voltar.size * 0.5
+		btn_voltar.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		btn_voltar.process_mode = Node.PROCESS_MODE_ALWAYS
+		btn_voltar.button_down.connect(func():
+			var tw := btn_voltar.create_tween()
+			tw.set_parallel(true)
+			tw.tween_property(btn_voltar, "scale", Vector2(0.92, 0.92), 0.06)
+			tw.tween_property(btn_voltar, "position:y", 566.0, 0.06)
+			tw.tween_property(btn_voltar, "modulate", Color(0.82, 0.82, 0.82, 1.0), 0.06)
+		)
+		btn_voltar.button_up.connect(func():
+			var tw := btn_voltar.create_tween()
+			tw.set_parallel(true)
+			tw.tween_property(btn_voltar, "scale", Vector2.ONE, 0.10)
+			tw.tween_property(btn_voltar, "position:y", 560.0, 0.10)
+			tw.tween_property(btn_voltar, "modulate", Color.WHITE, 0.10)
+		)
+		btn_voltar.pressed.connect(_alternar_pause)
+		pause_layer.add_child(btn_voltar)
 	for i in 3:
 		_spawn_small()
 	_cartao_fase()

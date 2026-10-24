@@ -390,15 +390,13 @@ func _process(delta: float) -> void:
 			queue_redraw()
 			return
 		if fase == 3:
-			if randf() < delta * 1.1:
+			if randf() < delta * 0.55:
 				quer_atirar.emit(position + Vector2(randf_range(-40, 40), 80), true)
 		elif fase == 2:
-			if randf() < delta * 1.5:
-				quer_atirar.emit(position + Vector2(-55, 70), true)
+			if randf() < delta * 0.75:
 				quer_atirar.emit(position + Vector2(0, 85), true)
-				quer_atirar.emit(position + Vector2(55, 70), true)
 		else:
-			if randf() < delta * 2.0:
+			if randf() < delta * 1.0:
 				quer_atirar.emit(position + Vector2(randf_range(-70, 70), 80), true)
 	else:
 		# bonus e caixa vermelha: descem devagar no meio, sem atirar

@@ -58,8 +58,8 @@ func _criar_visual() -> void:
 			mat.set_shader_parameter("curvatura", 0.30)
 			mat.set_shader_parameter("giro", 28.0)
 			if Escolha.e_roxa():
-				mat.set_shader_parameter("cor_energia", Color(0.55, 0.15, 0.95))
-				mat.set_shader_parameter("cor_quente", Color(0.90, 0.75, 1.0))
+				mat.set_shader_parameter("cor_energia", Color(0.75, 0.0, 1.0))
+				mat.set_shader_parameter("cor_quente", Color(1.0, 0.85, 1.0))
 			else:
 				mat.set_shader_parameter("cor_energia", Color(0.10, 0.95, 0.30))
 				mat.set_shader_parameter("cor_quente", Color(0.70, 1.0, 0.75))
@@ -84,9 +84,9 @@ func _criar_visual() -> void:
 			fx_mat.set_shader_parameter("charge", 0.35)
 			fx_mat.set_shader_parameter("speed", 4.0)
 			if Escolha.e_roxa():
-				fx_mat.set_shader_parameter("core_color", Color(0.90, 0.75, 1.0))
-				fx_mat.set_shader_parameter("mid_color", Color(0.55, 0.15, 0.95))
-				fx_mat.set_shader_parameter("outer_color", Color(0.25, 0.05, 0.55))
+				fx_mat.set_shader_parameter("core_color", Color(0.95, 0.85, 1.0))
+				fx_mat.set_shader_parameter("mid_color", Color(0.75, 0.0, 1.0))
+				fx_mat.set_shader_parameter("outer_color", Color(0.35, 0.0, 0.6))
 				fx.modulate = Color(0.55, 0.15, 0.95, 0.30)
 			else:
 				fx_mat.set_shader_parameter("core_color", Color(0.85, 1.0, 0.90))

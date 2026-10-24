@@ -404,6 +404,20 @@ func _ready() -> void:
 		btn_recomecar.pivot_offset = btn_recomecar.size * 0.5
 		btn_recomecar.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 		btn_recomecar.process_mode = Node.PROCESS_MODE_ALWAYS
+		btn_recomecar.button_down.connect(func():
+			var tw := btn_recomecar.create_tween()
+			tw.set_parallel(true)
+			tw.tween_property(btn_recomecar, "scale", Vector2(0.92, 0.92), 0.06)
+			tw.tween_property(btn_recomecar, "position:y", 418.0, 0.06)
+			tw.tween_property(btn_recomecar, "modulate", Color(0.82, 0.82, 0.82, 1.0), 0.06)
+		)
+		btn_recomecar.button_up.connect(func():
+			var tw := btn_recomecar.create_tween()
+			tw.set_parallel(true)
+			tw.tween_property(btn_recomecar, "scale", Vector2.ONE, 0.10)
+			tw.tween_property(btn_recomecar, "position:y", 412.0, 0.10)
+			tw.tween_property(btn_recomecar, "modulate", Color.WHITE, 0.10)
+		)
 		btn_recomecar.pressed.connect(_reiniciar_para_escolha)
 		pause_layer.add_child(btn_recomecar)
 	for i in 3:

@@ -10,6 +10,8 @@ const SfxScript := preload("res://scripts/sfx.gd")
 const ExplosaoScript := preload("res://scripts/explosao.gd")
 const ExplodeNaveScript := preload("res://scripts/explode_nave.gd")
 const ExplodeSeqScript := preload("res://scripts/explode_seq.gd")
+# estilhaco direcional (cacos na direcao do tiro que matou)
+const CacosDirScript := preload("res://scripts/cacos_dir.gd")
 const TELA_CENTRO := Vector2(270, 480)
 var tex_explode_nave: Texture2D = null
 var tex_explode_seq: Array = []
@@ -33,6 +35,9 @@ var bg_no: Node2D = null
 var cam: Camera2D = null
 var trauma := 0.0
 var hitstop_id := 0
+# contagem de abates em janela curta: 3+ em ~0.35s = MULTI-KILL (corte e vibrão)
+var _multi_kills := 0
+var _multi_kills_t := 0.0
 var dimensao := 1
 var tempo_fase := 0.0
 var portal: Node2D = null
@@ -778,6 +783,22 @@ func hitstop(dur: float, escala: float = 0.05) -> void:
 	if meu == hitstop_id:
 		Engine.time_scale = 1.0
 
+
+# MULTI-KILL: 3+ abates na mesma janela (~0.35s) = o tiro "limpou o combo".
+# Corte seco mais longo + vibração forte (o hitstop individual ja cuida de 1).
+# Guarda Engine.time_scale: NAO dispara durante killcam (0.02/0.3) nem
+# durante outro hitstop, senao restaura time_scale errado e quebra o slow-mo.
+func _registrar_multi() -> void:
+	if _multi_kills_t <= 0.0:
+		_multi_kills = 0
+	_multi_kills += 1
+	_multi_kills_t = 0.35
+	if _multi_kills < 3 or Engine.time_scale < 0.9:
+		return
+	_multi_kills = 0
+	hitstop(0.12)
+	add_trauma(0.5)
+
 func _spawn_turret() -> void:
 	var n := 0
 	for e in inimigos:
@@ -1016,8 +1037,9 @@ func _dano_do_raio(delta: float) -> void:
 				# explosao. Com 4 na tela, o super tiro tocava o boom varias
 				# vezes seguidas. O estrondo no seu lugar fica a charge_fx
 				# do player.
-				_fx_explosao(ep, false, false)
-				hitstop(0.04)
+				_fx_explosao(ep, false, false, ep - (f as Node2D).position)
+				_registrar_multi()
+				hitstop(0.06)
 				add_trauma(0.18)
 			elif tipo_e == "guard":
 				# NAVE PROTETORA: este e o UNICO alvo que o raio consegue
@@ -1194,7 +1216,7 @@ func _atualizar_flash(delta: float) -> void:
 		if flash_t <= 0.0:
 			flash_forca = 0.0
 
-func _fx_explosao(pos: Vector2, grande: bool, com_som: bool = false) -> void:
+func _fx_explosao(pos: Vector2, grande: bool, com_som: bool = false, dir: Vector2 = Vector2.ZERO) -> void:
 	if tex_explode_seq.size() == 4:
 		# sequencia de 4 frames
 		var es := Node2D.new()
@@ -1213,6 +1235,13 @@ func _fx_explosao(pos: Vector2, grande: bool, com_som: bool = false) -> void:
 		add_child(e)
 		e.call("setup", pos, Color(1.0, 0.25, 0.1) if grande else Color(1.0, 0.55, 0.18),
 			110.0 if grande else 46.0, grande)
+	# ESTILHACO DIRECIONAL: chamadores de abate passam a direcao do tiro
+	# (de onde veio o impacto); sem direcao (= Vector2.ZERO) nao gera cacos.
+	if dir != Vector2.ZERO:
+		var cs := Node2D.new()
+		cs.set_script(CacosDirScript)
+		add_child(cs)
+		cs.call("setup", pos, dir.normalized(), grande)
 	if grande:
 		_boom_flipbook(pos, 2.2)
 		flash_tela(0.42, Color(1.0, 0.88, 0.75))
@@ -1236,6 +1265,9 @@ func _fx_bonus(pos: Vector2) -> void:	# explosao verde em 2 camadas: flash branc
 
 func _process(delta: float) -> void:
 	_atualizar_flash(delta)
+	# janela do multi-kill: passa do tempo, o combo "abriu" de novo
+	if _multi_kills_t > 0.0:
+		_multi_kills_t -= delta
 	if get_tree().paused:
 		return
 	if em_menu:
@@ -1554,7 +1586,11 @@ func _colisoes() -> void:
 						pontos += 100
 						_registrar_abate()
 						_kill_confirm(e.position, 100, Color(0.5, 1.0, 0.55))
-						_fx_explosao(e.position, false, false)
+						var dkb := (e as Node2D).position - (b as Node2D).position
+						if dkb.length() < 1.0:
+							dkb = Vector2(0, -1)
+						_fx_explosao(e.position, false, false, dkb)
+						_registrar_multi()
 						hitstop(0.06)
 						add_trauma(0.22)
 						e.set("vivo", false)
@@ -1662,7 +1698,11 @@ func _colisoes_misseis() -> void:
 							pontos += 100
 							_registrar_abate()
 							_kill_confirm((e as Node2D).position, 100, Color(0.5, 1.0, 0.55))
-							_fx_explosao((e as Node2D).position, false, false)
+							var dkm := (e as Node2D).position - (m as Node2D).position
+							if dkm.length() < 1.0:
+								dkm = Vector2(0, -1)
+							_fx_explosao((e as Node2D).position, false, false, dkm)
+							_registrar_multi()
 							hitstop(0.06)
 							add_trauma(0.22)
 					if not m.call("registrar_hit"):
@@ -1689,7 +1729,11 @@ func _colisoes_misseis() -> void:
 							pontos += 100
 							_registrar_abate()
 							_kill_confirm((e as Node2D).position, 100, Color(0.5, 1.0, 0.55))
-							_fx_explosao((e as Node2D).position, false, false)
+							var dkx := (e as Node2D).position - (m as Node2D).position
+							if dkx.length() < 1.0:
+								dkx = Vector2(0, -1)
+							_fx_explosao((e as Node2D).position, false, false, dkx)
+							_registrar_multi()
 							hitstop(0.06)
 							add_trauma(0.22)
 					else:

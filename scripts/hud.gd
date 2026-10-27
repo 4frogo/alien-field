@@ -13,6 +13,11 @@ var _vidas_atual := 3
 var _pontos_atual := 0
 var bar_boss: Control
 
+# PULSO DE DANO na barra da vida do chefe: quando ele apanha, a barra
+# pisca branca por um instante (feedback de hit no HUD).
+var _boss_last := 1.0
+var _pulse := 0.0
+
 var verde := Color(0.25, 1.0, 0.45)
 var verde_escuro := Color(0.1, 0.6, 0.25)
 var fonte_horror: Font = null
@@ -81,6 +86,8 @@ func _ready() -> void:
 	bar_boss.set("alvo", 1.0)
 	bar_boss.visible = false
 	bar_boss.name = "bar_boss"
+	# pivot no centro: a barra cresce/encolhe do meio quando sofre hit
+	bar_boss.pivot_offset = Vector2(150.0, 8.0)
 	add_child(bar_boss)
 
 func atualizar(pontos: int, vidas: int, escudo: float) -> void:
@@ -96,6 +103,10 @@ func boss_vida(hp: int, hp_max: int) -> void:
 	bar_boss.visible = true
 	var mx := maxf(1.0, float(hp_max))
 	var v := clampf(float(hp) / mx, 0.0, 1.0)
+	# perdeu vida desde o ultimo valor = HIT na cara do chefe: liga o pulso
+	if v < _boss_last - 0.004:
+		_pulse = 1.0
+	_boss_last = v
 	# etapa 1 (vermelha) ate a metade da vida; etapa 2 (amarela) depois
 	var cor := Color(1.0, 0.26, 0.10) if v > 0.5 else Color(1.0, 0.80, 0.18)
 	bar_boss.set("cor", cor)
@@ -108,6 +119,20 @@ func boss_vida(hp: int, hp_max: int) -> void:
 
 func boss_fora() -> void:
 	bar_boss.visible = false
+	# reset: proximo chefe comeca sem pulso e com valor "cheio" na memoria
+	_pulse = 0.0
+	_boss_last = 1.0
+
+func _process(delta: float) -> void:
+	# pulso de dano: barra pisca branca e volta a cor normal em ~0.25s
+	if not bar_boss.visible or _pulse <= 0.0:
+		if _pulse <= 0.0 and bar_boss.modulate != Color(1, 1, 1, 1):
+			bar_boss.modulate = Color(1, 1, 1, 1)
+		return
+	_pulse = maxf(0.0, _pulse - delta * 4.0)
+	var k := _pulse
+	# clareia pro branco conforme apagar (modulate acima de 1 clareia o shader)
+	bar_boss.modulate = Color(1.0 + 2.2 * k, 1.0 + 1.2 * k, 1.0 + 1.2 * k, 1.0)
 
 func _alinhar_com_o_jogo() -> void:
 	# Desloca o HUD pra ele ficar em cima da coluna de 540 px do jogo,

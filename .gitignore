@@ -1,4 +1,4 @@
-# Godot 4
+﻿# Godot 4
 .godot/
 *.godot.imported
 
@@ -15,3 +15,5 @@ _err.txt
 _out.txt
 dbg_*.txt
 *.tmp
+docs/*.import
+web/*.import

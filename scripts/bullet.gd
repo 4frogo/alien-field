@@ -1,6 +1,11 @@
 extends Node2D
 # Tiro verde do jogador e orbe laranja do inimigo
 
+# Shaders fixos do projeto: preloads no topo (sem lookup de path a cada tiro)
+const SH_ENERGY_BALL := preload("res://assets/energy_ball.gdshader")
+const SH_TIRO_PLASMA := preload("res://assets/tiro_plasma.gdshader")
+const SH_ENEMY_BALL := preload("res://assets/enemy_ball.gdshader")
+
 var vel := Vector2(0, -620)
 var amigo := true
 var raio := 8.0
@@ -80,13 +85,11 @@ func setup(p: Vector2, v: Vector2, e_amigo: bool, p_dano: int = 1, p_super: bool
 		fx = Sprite2D.new()
 		fx.texture = _fazer_textura_radial()
 		fx.scale = Vector2(1.15, 1.15)
-		if ResourceLoader.exists("res://assets/energy_ball.gdshader"):
-			var sh := load("res://assets/energy_ball.gdshader") as Shader
-			var mat := ShaderMaterial.new()
-			mat.shader = sh
-			mat.set_shader_parameter("charge", 1.0)
-			mat.set_shader_parameter("speed", 5.0)
-			fx.material = mat
+		var mat := ShaderMaterial.new()
+		mat.shader = SH_ENERGY_BALL
+		mat.set_shader_parameter("charge", 1.0)
+		mat.set_shader_parameter("speed", 5.0)
+		fx.material = mat
 		add_child(fx)
 	elif not amigo:
 		# plasma vermelho dos inimigos (tema do jogo)
@@ -105,8 +108,6 @@ func setup(p: Vector2, v: Vector2, e_amigo: bool, p_dano: int = 1, p_super: bool
 # com a origem no CENTRO e e rotacionado toda frame para a velocidade,
 # de modo que o UV.y do shader corre da cauda (0) ate a ponta (1).
 func _criar_rastro_plasma() -> void:
-	if not ResourceLoader.exists("res://assets/tiro_plasma.gdshader"):
-		return
 	var img := Image.create(4, 8, false, Image.FORMAT_RGBA8)
 	img.fill(Color(1, 1, 1, 1))
 	fx_plasma = Sprite2D.new()
@@ -114,12 +115,7 @@ func _criar_rastro_plasma() -> void:
 	fx_plasma.centered = true
 	fx_plasma.z_index = -1
 	_plasma_mat = ShaderMaterial.new()
-	_plasma_mat.shader = load("res://assets/tiro_plasma.gdshader") as Shader
-	if _plasma_mat.shader == null:
-		_plasma_mat = null
-		fx_plasma.queue_free()
-		fx_plasma = null
-		return
+	_plasma_mat.shader = SH_TIRO_PLASMA
 	_plasma_mat.set_shader_parameter("semente", randf() * 30.0)
 	_plasma_mat.set_shader_parameter("comprimento", 0.82)
 	_plasma_mat.set_shader_parameter("largura", 0.42)
@@ -150,13 +146,11 @@ func _atualiza_rastro_plasma() -> void:
 	_plasma_mat.set_shader_parameter("tempo", fmod(tempo, 100.0))
 
 func _aplicar_shader_inimigo(sp: Sprite2D, carga: float, vel: float) -> void:
-	if ResourceLoader.exists("res://assets/enemy_ball.gdshader"):
-		var sh := load("res://assets/enemy_ball.gdshader") as Shader
-		var mat := ShaderMaterial.new()
-		mat.shader = sh
-		mat.set_shader_parameter("charge", carga)
-		mat.set_shader_parameter("speed", vel)
-		sp.material = mat
+	var mat := ShaderMaterial.new()
+	mat.shader = SH_ENEMY_BALL
+	mat.set_shader_parameter("charge", carga)
+	mat.set_shader_parameter("speed", vel)
+	sp.material = mat
 
 func setup_triplotiro(p: Vector2, v: Vector2, p_dano: int = 6) -> void:
 	# triplo 100% procedural: orbe de plasma + 3 raios desenhados

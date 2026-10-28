@@ -38,6 +38,9 @@ var hitstop_id := 0
 # contagem de abates em janela curta: 3+ em ~0.35s = MULTI-KILL (corte e vibrão)
 var _multi_kills := 0
 var _multi_kills_t := 0.0
+# MORTE SEGMENTADA DO CHEFE: geraçao da sequencia; restart no meio
+# cancela os estagios pendentes (mesmo padrao do hitstop_id)
+var boss_morte_id := 0
 var dimensao := 1
 var tempo_fase := 0.0
 var portal: Node2D = null
@@ -78,7 +81,14 @@ var transicao_anim := 0.0
 var em_transicao := false
 var transicao_trocou := false
 var portal_chegada: Node2D = null
-var turret_timer := 3.0
+# TORRE: 1a aos 9s da partida, depois repetindo (curva de dificuldade)
+var turret_timer := 9.0
+
+# --- CURVA DE DIFICULDADE --------------------------------------------
+# pressao 0..1 cresce com o tempo de jogo (150s ate o topo). 0.0 = exata-
+# mente o balance atual; 1.0 = spawn mais rapido, mais navinhas, tiro
+# inimigo mais rapido e mais frequente. Reset via tempo_batalha.
+var pressao := 0.0
 
 var tiros: Array = []
 var tiros_inimigos: Array = []
@@ -707,7 +717,9 @@ func _spawn_boss() -> void:
 	add_child(boss)
 	boss.call("setup", "boss", Vector2(270, -180), Vector2(0, 1))
 	boss.set("entrando", true)
+	boss.set("alvo", player)
 	boss.connect("quer_atirar", _on_enemy_atirar)
+	boss.connect("avisou", _on_boss_aviso)
 	inimigos.append(boss)
 	# descida cinematica com ease-out
 	var tw := create_tween()
@@ -813,6 +825,8 @@ func _spawn_turret() -> void:
 			add_child(e)
 			var x := 62.0 if lado == 0 else 478.0
 			e.call("setup", "turret", Vector2(x + randf_range(-8, 8), -30), Vector2(0, 1))
+			# curva de dificuldade: torres atiram mais conforme a run avanca
+			e.set("dif", 1.0 + 0.6 * pressao)
 			e.connect("quer_atirar", _on_enemy_atirar)
 			inimigos.append(e)
 
@@ -846,6 +860,10 @@ func _spawn_small() -> void:
 		pos = Vector2(-30 if esquerda else 570, -30)
 		dir = Vector2(1.0 if esquerda else -1.0, 1.0)
 	e.call("setup", "small", pos, dir)
+	# curva de dificuldade: taxa de tiro e velocidade escalam com a
+	# pressao da run (dif 1.0 no comeco = sempre de antes)
+	e.set("dif", 1.0 + 0.6 * pressao)
+	e.set("vel_base", float(e.get("vel_base")) * (1.0 + 0.3 * pressao))
 	e.connect("quer_atirar", _on_enemy_atirar)
 	inimigos.append(e)
 
@@ -1088,13 +1106,67 @@ func _on_enemy_atirar(pos: Vector2, grande: bool = false) -> void:
 	else:
 		dir = Vector2(0, 1)
 	if grande:
-		# bola gigante do chefao - maior que a nave
-		b.call("setup_gigante", pos, dir * 130.0)
+		# bola gigante do chefao - maior que a nave (curva: fica levemente
+		# mais rapida conforme a partida avanca)
+		b.call("setup_gigante", pos, dir * lerpf(130.0, 165.0, pressao))
 	else:
-		b.call("setup", pos, dir * 180.0, false)
+		b.call("setup", pos, dir * lerpf(180.0, 240.0, pressao), false)
 	tiros_inimigos.append(b)
 	_fx_tiro_inimigo(pos)
 	# som do tiro inimigo mutado por enquanto
+
+
+# Aviso do chefe carregando a bola gigante: blip curto de "preparo"
+# (telegrafia). Sutil, para o jogador aprender o som = esquiva.
+func _on_boss_aviso() -> void:
+	if sfx != null:
+		sfx.call("tiro_inimigo")
+
+
+# MORTE SEGMENTADA DO CHEFE: uma unica funcao para os 3 caminhos de
+# abate (tiro, shuriken, missil). O casco fica em cena tremendo enquanto
+# estoura em 3 etapas; so no FINAL vem a explosao grande + RANK + killcam
+# e o corpo sai de cena. Timers reais (ignore_time_scale=true) para o
+# roteiro avancar mesmo no hitstop/slow-mo. Cancelavel no restart.
+func _morte_do_chefe(pos: Vector2) -> void:
+	boss_morte_id += 1
+	var meu := boss_morte_id
+	# snapshot pro RANK: a nota sai na explosao final, mas calculada com
+	# o estado do MOMENTO da morte (senao dano no meio da sequencia
+	# roubava o rank S). A pontuacao do rank entra no fim.
+	var morreu_com_dano := dano_no_chefe
+	var escudo_na_morte := escudo
+	pontos += 2000
+	_registrar_abate()
+	_kill_confirm(pos, 2000, Color(1, 0.85, 0.3))
+	# --- etapa 1: centro do casco ---
+	_fx_explosao(pos, false, false)
+	add_trauma(0.35)
+	await get_tree().create_timer(0.35, true, false, true).timeout
+	if meu != boss_morte_id:
+		return
+	# --- etapa 2: lateral esquerda ---
+	_fx_explosao(pos + Vector2(-70, -20), false, false, Vector2(-1.0, -0.3))
+	add_trauma(0.35)
+	await get_tree().create_timer(0.35, true, false, true).timeout
+	if meu != boss_morte_id:
+		return
+	# --- etapa 3: lateral direita com corte seco ---
+	_fx_explosao(pos + Vector2(70, 10), false, false, Vector2(1.0, -0.3))
+	hitstop(0.10)
+	add_trauma(0.4)
+	await get_tree().create_timer(0.35, true, false, true).timeout
+	if meu != boss_morte_id:
+		return
+	# --- final: Explosao GRANDE + RANK + killcam ---
+	_fx_explosao(pos, true, false)
+	flash_tela(0.5, Color(1.0, 0.9, 0.8))
+	add_trauma(0.8)
+	_rank_chefe(morreu_com_dano, escudo_na_morte)
+	_killcam_boss(pos)
+	if boss != null and is_instance_valid(boss):
+		boss.queue_free()
+	boss = null
 
 func _fx_tiro(pos: Vector2) -> void:
 	var e := Node2D.new()
@@ -1143,14 +1215,15 @@ func _killcam_boss(pos: Vector2) -> void:
 		cam.position = CAM_POS_NORMAL
 	Engine.time_scale = 1.0
 
-func _rank_chefe() -> void:
+func _rank_chefe(levou_dano: bool, escudo_atual: float) -> void:
 	# S sem sofrer dano no chefao, A escudo alto, B resto
+	# (recebe o estado do momento da MORTE via _morte_do_chefe)
 	var rank := "S"
 	var extra := 5000
-	if dano_no_chefe and escudo < 50.0:
+	if levou_dano and escudo_atual < 50.0:
 		rank = "B"
 		extra = 500
-	elif dano_no_chefe:
+	elif levou_dano:
 		rank = "A"
 		extra = 2000
 	pontos += extra
@@ -1353,6 +1426,9 @@ func _process(delta: float) -> void:
 	# FASE 1: portal abre aos 18s | DIMENSAO 2: chefao 35s depois de entrar
 	tempo_batalha += delta
 	tempo_fase += delta
+	# curva de dificuldade: pressao sobe com o tempo da partida (nao
+	# reseta na travessia do portal — é a curva da RUN inteira)
+	pressao = clampf(tempo_batalha / 150.0, 0.0, 1.0)
 	if dimensao == 1:
 		if portal == null and tempo_batalha >= 18.0:
 			_spawn_portal()
@@ -1426,7 +1502,14 @@ func _process(delta: float) -> void:
 
 	# escudo 0-100: -25 por dano, +25 a cada 5 abates
 
-	# torres desativadas por enquanto
+	# TORRES: pressao nas laterais da DIMENSAO 1. Primeira aos ~9s e de
+	# la em diante repetindo; nao spawna com a protetora morta (fase
+	# livre) nem na dimensao 2, onde o chefe manda.
+	if dimensao == 1 and not fase_livre:
+		turret_timer -= delta
+		if turret_timer <= 0.0:
+			turret_timer = lerpf(15.0, 11.0, pressao)
+			_spawn_turret()
 
 	# bonus a cada 30s
 	# caixa VERDE: so aparece na DIMENSAO 2 (com o chefe). Na primeira parte
@@ -1482,17 +1565,19 @@ func _process(delta: float) -> void:
 	_dano_do_raio(delta)
 
 
-	# spawn continuo
+	# spawn continuo (curva: intervalo encurta e teto de navinhas sobe
+	# conforme a pressao da run; pressao 0 = os valores de sempre)
 	spawn_timer -= delta
 	if spawn_timer <= 0:
-		spawn_timer = 1.6
+		spawn_timer = lerpf(1.6, 0.85, pressao)
 		# conta vivos small
 		var n_small := 0
 		for e in inimigos:
 			if is_instance_valid(e) and e.get("tipo") == "small":
 				n_small += 1
 		# apos a protetora cair a tela fica vazia ate a travessia
-		if n_small < 5 and not fase_livre:
+		var teto_small := int(round(lerpf(5.0, 8.0, pressao)))
+		if n_small < teto_small and not fase_livre:
 			_spawn_small()
 
 	_colisoes()
@@ -1548,18 +1633,10 @@ func _colisoes() -> void:
 				var morreu: bool = e.call("levar_dano", dano)
 				if morreu:
 					if e.get("tipo") == "boss":
-						pontos += 2000
-						_registrar_abate()
-						_kill_confirm(e.position, 2000, Color(1, 0.85, 0.3))
-						_fx_explosao(e.position, true, false)
-						_rank_chefe()
-						_killcam_boss(e.position)
-						add_trauma(0.7)
-						boss = null
-						# sem respawn: o boss morreu, ponto final. O jogador
-						# segue para o proximo ato (portal) sem voltar o
-						# dragao. (pedido do jogador)
-						# _respawn_boss_apos(5.0) desativado
+						# MORTE SEGMENTADA: casca em 3 etapas, rank e
+						# killcam na final. Sem respawn (pedido do jogador
+						# — agora valendo para TODOS os caminhos de abate).
+						_morte_do_chefe(e.position)
 					elif e.get("tipo") == "bonus":
 						pontos += 200
 						_spawn_arma(e.position)
@@ -1595,6 +1672,19 @@ func _colisoes() -> void:
 						add_trauma(0.22)
 						e.set("vivo", false)
 						e.queue_free()
+					elif e.get("tipo") == "turret":
+						# TORRE derrotada: antes morria no vazio (sem pontos,
+						# sem explosao, sem kill confirm).
+						pontos += 150
+						_registrar_abate()
+						_kill_confirm(e.position, 150, Color(1.0, 0.85, 0.4))
+						var dkt := (e as Node2D).position - (b as Node2D).position
+						if dkt.length() < 1.0:
+							dkt = Vector2(0, -1)
+						_fx_explosao(e.position, false, false, dkt)
+						_registrar_multi()
+						hitstop(0.05)
+						add_trauma(0.15)
 				else:
 					if e.get("tipo") == "boss":
 						pontos += 10 * dano
@@ -1685,15 +1775,7 @@ func _colisoes_misseis() -> void:
 					var morreu: bool = e.call("levar_dano", dano)
 					if morreu:
 						if te == "boss":
-							pontos += 2000
-							_registrar_abate()
-							_kill_confirm((e as Node2D).position, 2000, Color(1, 0.85, 0.3))
-							_fx_explosao((e as Node2D).position, true, false)
-							_rank_chefe()
-							_killcam_boss((e as Node2D).position)
-							add_trauma(0.7)
-							boss = null
-							_respawn_boss_apos(5.0)
+							_morte_do_chefe((e as Node2D).position)
 						else:
 							pontos += 100
 							_registrar_abate()
@@ -1716,15 +1798,7 @@ func _colisoes_misseis() -> void:
 					var morreu: bool = e.call("levar_dano", 36)
 					if morreu:
 						if te == "boss":
-							pontos += 2000
-							_registrar_abate()
-							_kill_confirm((e as Node2D).position, 2000, Color(1, 0.85, 0.3))
-							_fx_explosao((e as Node2D).position, true, false)
-							_rank_chefe()
-							_killcam_boss((e as Node2D).position)
-							add_trauma(0.7)
-							boss = null
-							_respawn_boss_apos(5.0)
+							_morte_do_chefe((e as Node2D).position)
 						else:
 							pontos += 100
 							_registrar_abate()
@@ -1866,6 +1940,10 @@ func _reiniciar() -> void:
 	trauma = 0.0
 	hitstop_id += 1
 	morto_id += 1
+	# cancela morte segmentada em andamento (R no meio da sequencia)
+	boss_morte_id += 1
+	boss = null
+	turret_timer = 9.0
 	if cam != null and is_instance_valid(cam):
 		cam.offset = Vector2.ZERO
 		cam.zoom = Vector2(CAM_ZOOM, CAM_ZOOM)

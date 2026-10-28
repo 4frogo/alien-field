@@ -1,6 +1,16 @@
 extends Node2D
 # Inimigos: small | guard | turret | boss
 
+# Cache de shaders: mesmo conjunto fixo para todo inimigo, carregado 1x
+# no parse (evita load()/exists() a cada spawn e o hitch do primeiro)
+const SHADERS := {
+	"res://assets/remove_black.gdshader": preload("res://assets/remove_black.gdshader"),
+	"res://assets/remove_white.gdshader": preload("res://assets/remove_white.gdshader"),
+	"res://assets/contorno.gdshader": preload("res://assets/contorno.gdshader"),
+	"res://assets/bonus_ring.gdshader": preload("res://assets/bonus_ring.gdshader"),
+	"res://assets/boss_cut.gdshader": preload("res://assets/boss_cut.gdshader"),
+}
+
 var tipo := "small" # small | guard | turret | boss | bonus | bonus2
 var hp := 9
 var hp_max := 9
@@ -41,9 +51,26 @@ var pos_portal := Vector2(270, 310)
 var pos_cruzeiro := Vector2(270, 300)
 # quanto de tiro normal bateu nela e foi devolvido (faisca do escudo)
 var deflection := 0.0
+
+# --- curva de dificuldade e telegrafia do chefe ----------------------
+# multiplicador da taxa de tiro (main seta no spawn; 1.0 = partida nova)
+var dif := 1.0
+# TORRE: desce ate o ponto de estacionamento, fica e se retira
+var torre_tempo := 0.0
+const TORRE_Y := 150.0      # altura de estacionamento nas laterais
+const TORRE_FICA := 20.0    # segundos em estacao antes de sair
+# chefe: carga do canhao. < 0.0 = ocioso; >= 0.0 = TELEGRAGIA ativa
+# (mira tracejada + anel crescendo na boca). Soltou a bola, volta a -1.
+var t_charge := -1.0
+var boca := Vector2(0, 80)          # ponto do canhao escolhido na carga
+# nave do player (main seta no spawn do chefe): mira da telegrafia
+var alvo: Node2D = null
 # o player sobreviveu a ultima onda? (so pra msg de vitoria)
 
 signal quer_atirar(pos: Vector2, grande: bool)
+# aviso de ataque do chefe: dispara 1 vez no inicio da carga do canhao
+# (o main toca o blip de aviso — telegrafia da bola gigante)
+signal avisou
 
 func _criar_sprite(path: String, largura_alvo: float, shader_path: String = "res://assets/remove_black.gdshader") -> void:
 	if ResourceLoader.exists(path):
@@ -145,7 +172,10 @@ func setup(p_tipo: String, p_pos: Vector2, p_dir: Vector2 = Vector2(0, 1)) -> vo
 	elif tipo == "turret":
 		hp = 6
 		hp_max = 6
-		vel_base = 14.0
+		# desce rapido e ESTACIONA nas laterais (antes ia a 14 px/s:
+		# atravessava a tela inteira, parecia torre voadora lenta)
+		vel_base = 45.0
+		torre_tempo = 0.0
 	elif tipo == "bonus":
 		hp = 6
 		hp_max = 6
@@ -283,7 +313,7 @@ func _process(delta: float) -> void:
 		# ondulacao lateral
 		var perp := Vector2(-dir_entrada.y, dir_entrada.x)
 		position += perp * sin(tempo * 2.2) * 30.0 * delta
-		if randf() < delta * 0.22 and position.y > 0 and position.y < 750 and position.x > 60 and position.x < 480:
+		if randf() < delta * 0.22 * dif and position.y > 0 and position.y < 750 and position.x > 60 and position.x < 480:
 			quer_atirar.emit(position + Vector2(0, 18), false)
 		if position.y > 1020 or position.x < -90 or position.x > 630 or position.y < -140:
 			if tempo > 2.0:
@@ -339,18 +369,39 @@ func _process(delta: float) -> void:
 		queue_redraw()
 		return
 	elif tipo == "turret":
-		position.y += vel_base * delta
-		if position.y > 40 and position.y < 820 and randf() < delta * 0.55:
+		torre_tempo += delta
+		# TORRE: desce ate o ponto de estacionamento, fica balancando e
+		# atirando; depois de um tempo se retira com fade (evita
+		# acumular torres que ninguem mata).
+		if position.y < TORRE_Y:
+			position.y += vel_base * delta
+		elif torre_tempo <= TORRE_FICA:
+			position.y = TORRE_Y + sin(tempo * 2.0) * 7.0
+		else:
+			# retirada: sobe de volta com fade
+			position.y -= 60.0 * delta
+			if sprite != null:
+				sprite.modulate.a = clampf(1.0 - (torre_tempo - TORRE_FICA) / 1.2, 0.0, 1.0)
+			if position.y < 40.0:
+				vivo = false
+				queue_free()
+		if position.y > 40.0 and position.y < 820.0 and randf() < delta * 0.55 * dif:
 			quer_atirar.emit(position + Vector2(0, 22), false)
-		if position.y > 1020:
-			vivo = false
-			queue_free()
 	elif tipo == "boss":
 		# raios regeneram rapido: o piscar irregular da faísca
 		raio_tmp -= delta
 		if raio_tmp <= 0.0:
 			raio_tmp = 0.06 if hp < hp_max * 0.5 else 0.11
 			_gerar_raios()
+		if not vivo:
+			# MORTE SEGMENTADA: o main esta estourando o casco em etapas
+			# (corpo congelado na posicao, flash no sprite e nenhum tiro).
+			# O corpo so some de cena quando o main libera no final.
+			if sprite != null:
+				sprite.modulate = Color(2.2, 1.6, 1.6) if int(tempo * 30.0) % 2 == 0 \
+					else Color(1.0, 0.35, 0.35)
+			queue_redraw()
+			return
 		if entrando:
 			queue_redraw()
 			return
@@ -374,6 +425,9 @@ func _process(delta: float) -> void:
 		if brilho_nucleo != null:
 			var falta := 1.0 - clampf(float(hp) / 120.0, 0.0, 1.0)
 			var pb := 0.8 + 2.2 * falta + 0.25 * sin(tempo * 6.0)
+			# nucleo também esquentam na TELEGRAFIA (carga do canhao)
+			if t_charge >= 0.0:
+				pb += 2.2 * (1.0 - clampf(t_charge / 0.70, 0.0, 1.0))
 			brilho_nucleo.scale = Vector2(pb, pb)
 			brilho_nucleo.modulate.a = 0.3 + 0.6 * falta + 0.15 * sin(tempo * 6.0)
 		# enquanto atordoado o casco fica esverdeado (eletrocutado)
@@ -390,14 +444,36 @@ func _process(delta: float) -> void:
 			queue_redraw()
 			return
 		if fase == 3:
-			if randf() < delta * 0.55:
-				quer_atirar.emit(position + Vector2(randf_range(-40, 40), 80), true)
+			if t_charge >= 0.0:
+				# TELEGRAFIA em andamento: solta a bola ao fim da carga
+				t_charge -= delta
+				if t_charge <= 0.0:
+					t_charge = -1.0
+					quer_atirar.emit(position + boca, true)
+			elif randf() < delta * 0.55:
+				boca = Vector2(randf_range(-40.0, 40.0), 80.0)
+				t_charge = 0.70
+				avisou.emit()
 		elif fase == 2:
-			if randf() < delta * 0.75:
-				quer_atirar.emit(position + Vector2(0, 85), true)
+			if t_charge >= 0.0:
+				t_charge -= delta
+				if t_charge <= 0.0:
+					t_charge = -1.0
+					quer_atirar.emit(position + boca, true)
+			elif randf() < delta * 0.75:
+				boca = Vector2(0.0, 85.0)
+				t_charge = 0.60
+				avisou.emit()
 		else:
-			if randf() < delta * 1.0:
-				quer_atirar.emit(position + Vector2(randf_range(-70, 70), 80), true)
+			if t_charge >= 0.0:
+				t_charge -= delta
+				if t_charge <= 0.0:
+					t_charge = -1.0
+					quer_atirar.emit(position + boca, true)
+			elif randf() < delta * 1.0:
+				boca = Vector2(randf_range(-70.0, 70.0), 80.0)
+				t_charge = 0.50
+				avisou.emit()
 	else:
 		# bonus e caixa vermelha: descem devagar no meio, sem atirar
 		position.y += vel_base * delta
@@ -426,9 +502,14 @@ func levar_dano(d: int) -> bool:
 	flash = 1.0
 	if sprite != null and tipo != "boss":
 		sprite.scale = escala0 * 1.12
+	if d <= 0:
+		return false
 	if hp <= 0:
 		vivo = false
-		queue_free()
+		# CHEFE: NAO queue_free. O corpo fica em cena tremendo enquanto
+		# o main estoura a morte em 3 etapas; quem libera e o main.
+		if tipo != "boss":
+			queue_free()
 		return true
 	return false
 
@@ -444,6 +525,7 @@ func levar_dano_super(d: int) -> bool:
 func _draw() -> void:
 	if tem_sprite and sprite != null:
 		if tipo == "boss":
+			_draw_telegrafia()
 			_draw_boss_raios()
 			return
 		elif tipo == "guard":
@@ -558,6 +640,40 @@ func _draw_small() -> void:
 	# luzes laterais
 	draw_circle(Vector2(-16, 4), 2.5, Color(0.4, 1.0, 0.55))
 	draw_circle(Vector2(16, 4), 2.5, Color(0.4, 1.0, 0.55))
+
+# ---- TELEGRAFIA do ataque do chefe ----------------------------------
+# Antes de soltar a bola gigante o canhao carrega 0.5-0.7s. Visual:
+# anel pulsando crescendo na boca + mira tracejada ate a nave do player
+# + ponta marcando onde a bola nasce. Sobe a tensao conforme o tempo
+# (near = mais espesso e mais cheio de linhas).
+func _draw_telegrafia() -> void:
+	if t_charge < 0.0 or not vivo:
+		return
+	var fase := 3 if hp > 80 else (2 if hp > 40 else 1)
+	var dur := 0.70 if fase == 3 else (0.60 if fase == 2 else 0.50)
+	var p := clampf(1.0 - t_charge / dur, 0.0, 1.0)
+	var pulso := 0.75 + 0.25 * sin(tempo * 30.0)
+	# anel crescendo na boca do canhao
+	var r := 6.0 + 26.0 * p
+	draw_arc(boca, r, 0.0, TAU, 28, Color(1.0, 0.25, 0.15, (0.25 + 0.55 * p) * pulso), 2.0 + 2.0 * p, false)
+	# nucleo branco-quente no centro
+	draw_circle(boca, 3.0 + 5.0 * p, Color(1.0, 0.85, 0.6, 0.35 + 0.5 * p))
+	# mira tracejada do canhao ate a nave do player
+	if alvo != null and is_instance_valid(alvo) and (alvo as Node2D).visible:
+		var ate := to_local((alvo as Node2D).global_position)
+		var dir := ate - boca
+		var dist := dir.length()
+		if dist > 46.0:
+			dir /= dist
+			var nd := 7 + int(4.0 * p)
+			var passo := dist / float(nd)
+			var cor_mira := Color(1.0, 0.2, 0.12, 0.25 + 0.5 * p * pulso)
+			for i in nd:
+				var a0 := boca + dir * (passo * float(i) + passo * 0.18)
+				var a1 := boca + dir * (passo * float(i) + passo * 0.58)
+				draw_line(a0, a1, cor_mira, 1.5 + 2.4 * p, false)
+			# marca de queda: onde a bola vai nascer
+			draw_circle(ate, 4.0 + 5.0 * p, Color(1.0, 0.2, 0.12, 0.15 + 0.45 * p))
 
 # ---- raios do chefe -------------------------------------------------
 # Cada raio e um polyline torto gerado por deslocamento lateral aleatorio.

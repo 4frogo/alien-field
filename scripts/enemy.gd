@@ -1,5 +1,5 @@
 extends Node2D
-# Inimigos: small | guard | turret | boss
+# Inimigos: small | guard | bonus | bonus2 | boss
 
 # Cache de shaders: mesmo conjunto fixo para todo inimigo, carregado 1x
 # no parse (evita load()/exists() a cada spawn e o hitch do primeiro)
@@ -11,7 +11,7 @@ const SHADERS := {
 	"res://assets/boss_cut.gdshader": preload("res://assets/boss_cut.gdshader"),
 }
 
-var tipo := "small" # small | guard | turret | boss | bonus | bonus2
+var tipo := "small" # small | guard | boss | bonus | bonus2
 var hp := 9
 var hp_max := 9
 var tempo := 0.0
@@ -55,10 +55,6 @@ var deflection := 0.0
 # --- curva de dificuldade e telegrafia do chefe ----------------------
 # multiplicador da taxa de tiro (main seta no spawn; 1.0 = partida nova)
 var dif := 1.0
-# TORRE: desce ate o ponto de estacionamento, fica e se retira
-var torre_tempo := 0.0
-const TORRE_Y := 150.0      # altura de estacionamento nas laterais
-const TORRE_FICA := 20.0    # segundos em estacao antes de sair
 # chefe: carga do canhao. < 0.0 = ocioso; >= 0.0 = TELEGRAGIA ativa
 # (mira tracejada + anel crescendo na boca). Soltou a bola, volta a -1.
 var t_charge := -1.0
@@ -169,13 +165,6 @@ func setup(p_tipo: String, p_pos: Vector2, p_dir: Vector2 = Vector2(0, 1)) -> vo
 		hp = 240
 		hp_max = 240
 		_criar_sprite_boss()
-	elif tipo == "turret":
-		hp = 6
-		hp_max = 6
-		# desce rapido e ESTACIONA nas laterais (antes ia a 14 px/s:
-		# atravessava a tela inteira, parecia torre voadora lenta)
-		vel_base = 45.0
-		torre_tempo = 0.0
 	elif tipo == "bonus":
 		hp = 6
 		hp_max = 6
@@ -368,25 +357,6 @@ func _process(delta: float) -> void:
 			quer_atirar.emit(position + Vector2(60, 64), false)
 		queue_redraw()
 		return
-	elif tipo == "turret":
-		torre_tempo += delta
-		# TORRE: desce ate o ponto de estacionamento, fica balancando e
-		# atirando; depois de um tempo se retira com fade (evita
-		# acumular torres que ninguem mata).
-		if position.y < TORRE_Y:
-			position.y += vel_base * delta
-		elif torre_tempo <= TORRE_FICA:
-			position.y = TORRE_Y + sin(tempo * 2.0) * 7.0
-		else:
-			# retirada: sobe de volta com fade
-			position.y -= 60.0 * delta
-			if sprite != null:
-				sprite.modulate.a = clampf(1.0 - (torre_tempo - TORRE_FICA) / 1.2, 0.0, 1.0)
-			if position.y < 40.0:
-				vivo = false
-				queue_free()
-		if position.y > 40.0 and position.y < 820.0 and randf() < delta * 0.55 * dif:
-			quer_atirar.emit(position + Vector2(0, 22), false)
 	elif tipo == "boss":
 		# raios regeneram rapido: o piscar irregular da faísca
 		raio_tmp -= delta
@@ -529,11 +499,10 @@ func _draw() -> void:
 			_draw_boss_raios()
 			return
 		elif tipo == "guard":
-			# SEM escudo verde: era um aro de energia com dois arcos
-			# girando, e tirava a leitura da nave. A unica coisa que fica
-			# e o disco escuro atras do casco (sem ele a nave preta some
-			# dentro do vortice laranja) e a barrinha de vida.
-			draw_circle(Vector2.ZERO, 108, Color(0.02, 0.03, 0.06, 0.62))
+			# SEM escudo verde e SEM disco escuro (pedido do jogador): sem
+			# nenhum aro/circulo atras do casco. A nave fica "limpa" sobre
+			# o vortice do portal.
+			pass
 			# barrinha de vida: so aparece depois que ela saiu do portal.
 			# Contra-rotacionada, senao ela gira junto com a nave e vira
 			# um risco torto em cima da nave.
@@ -555,8 +524,6 @@ func _draw() -> void:
 		_draw_small()
 	elif tipo == "guard":
 		return
-	elif tipo == "turret":
-		_draw_turret()
 	elif tipo == "bonus":
 		_draw_bonus()
 	elif tipo == "bonus2":
@@ -611,22 +578,6 @@ func _draw_bonus2() -> void:
 	var k := clampf(float(hp) / float(maxi(1, hp_max)), 0.0, 1.0)
 	draw_rect(Rect2(-w / 2 - 1, -36, w + 2, 7), Color(0, 0, 0, 0.7))
 	draw_rect(Rect2(-w / 2, -35, w * k, 5), Color(1.0, 0.25, 0.1))
-
-func _draw_turret() -> void:
-	# base rochosa + canhao vermelho mirando pra baixo
-	draw_circle(Vector2.ZERO, 24, Color(0.08, 0.08, 0.1))
-	draw_circle(Vector2.ZERO, 19, Color(0.14, 0.13, 0.14))
-	draw_circle(Vector2.ZERO, 19, Color(0, 0, 0, 0))
-	# cristais laterais
-	draw_circle(Vector2(-14, -6), 3, Color(0.9, 0.2, 0.12))
-	draw_circle(Vector2(14, -6), 3, Color(0.9, 0.2, 0.12))
-	# canhao
-	draw_rect(Rect2(-6, 0, 12, 24), Color(0.16, 0.15, 0.16))
-	draw_rect(Rect2(-6, 0, 12, 24), Color(0.9, 0.25, 0.12), false, 1.5)
-	var pulse := 0.6 + 0.4 * sin(tempo * 5.0)
-	draw_circle(Vector2(0, 24), 6.0 * pulse + 2.0, Color(1.0, 0.25, 0.1, 0.5))
-	draw_circle(Vector2(0, 24), 4.0, Color(1.0, 0.3, 0.1))
-	draw_circle(Vector2(0, 24), 2.0, Color(1.0, 0.7, 0.3))
 
 func _draw_small() -> void:
 	draw_circle(Vector2.ZERO, 26, Color(0.1, 1.0, 0.4, 0.12))

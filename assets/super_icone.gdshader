@@ -35,9 +35,9 @@ uniform vec3 cor_tanque = vec3(0.10, 0.035, 0.02);// tanque vazio
 // PREENCHIMENTO: tubo_larg = meia-altura do nucleo brilhante do plasma
 // (0.42 = so o miolo; 1.6 = o liquido ilumina o interior INTEIRO do vidro).
 // base_liq = alfa base do liquido (o quanto ele "aparece" no fundo).
-uniform float tubo_larg : hint_range(0.02, 2.0) = 0.42;
-uniform float base_liq : hint_range(0.0, 1.0) = 0.52;
-uniform float cor_escura : hint_range(0.0, 1.0) = 0.18; // quanto o plasma apaga nas bordas
+uniform float tubo_larg : hint_range(0.02, 2.0) = 1.6;
+uniform float base_liq : hint_range(0.0, 1.0) = 0.85;
+uniform float cor_escura : hint_range(0.0, 1.0) = 0.10; // quanto o plasma apaga nas bordas
 
 const vec3 VERMELHO = vec3(1.0, 0.14, 0.09);
 const vec3 LARANJA = vec3(1.0, 0.52, 0.07);
@@ -187,7 +187,12 @@ void fragment() {
 	cl *= 1.0 + 0.30 * clamp(energia - 1.0, 0.0, 1.0);
 
 	// alpha emissivo mais opaco (plasma e luz, nao tinta)
-	float a_liq = liq * dentro * clamp(base_liq + energia * 0.60, 0.0, 1.0);
+	float a_liq = liq * dentro * clamp(base_liq + energia * 0.72, 0.0, 1.0);
+	// faixa quente atrás da frente: o líquido parece "cheio" de plasma
+	float profundidade = clamp(df * 6.0, 0.0, 1.0);
+	float calha = (1.0 - profundidade) * (0.65 + 0.35 * turb);
+	cl = mix(cl, cor_branco * 1.25, calha * 0.55);
+	a_liq = max(a_liq, liq * dentro * calha * 0.85);
 
 	// menisco: nucleo branco + halo largo sangrando pra fora
 	float m_core = smoothstep(0.007, 0.0, abs(df)) * dentro;
@@ -223,11 +228,11 @@ void fragment() {
 	// quente com halo azulado, estroboscopio e RESTRIKE (novo raio a
 	// cada ciclo de tempo, com semente nova -> caminho sempre diferente)
 	if (pronto > 0.02) {
-		float flick = 0.45 + 0.55
-			* step(0.30, hash(vec2(floor(tempo * 43.0), 2.0)));
+		float flick = 0.60 + 0.55
+			* step(0.22, hash(vec2(floor(tempo * 43.0), 2.0)));
 		float alpha_r = 0.0;
 		vec3 cor_r = vec3(0.0);
-		for (int k = 0; k < 3; k++) {
+		for (int k = 0; k < 5; k++) {
 			float fk = float(k);
 			float s = floor(tempo * 6.5) * 3.13 + fk * 19.7;
 			// nasce em algum ponto do liquido (a camara estah cheia)
@@ -245,8 +250,8 @@ void fragment() {
 			vec2 base = mix(ini, fim, 0.35 + 0.30 * hash(vec2(s, 6.0)));
 			vec2 bdir = normalize(dir + nor * (hash(vec2(s, 7.0)) - 0.5) * 3.2);
 			d = min(d, raio_zig(UV, base, base + bdir * comp * 0.30, s + 91.0, 0.22));
-			float nuc = smoothstep(0.0042, 0.0, d);
-			float halo = smoothstep(0.052, 0.004, d) * 0.60;
+			float nuc = smoothstep(0.0062, 0.0, d);
+			float halo = smoothstep(0.085, 0.004, d) * 0.85;
 			vec3 cb = cor_branco * nuc
 				+ mix(cor_branco, cor_azul, 0.72) * halo;
 			cor_r = max(cor_r, cb);

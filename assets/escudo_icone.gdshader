@@ -120,7 +120,12 @@ void fragment() {
 	float prof = clamp(1.0 - (fx - uva.x) * 3.0, 0.0, 1.0); // 1 = na frente
 	vec3 cl = mix(cor_fund, cor_liq, prof * leito_cor);
 	// particulas por cima do leito
-	cl = mix(cl, cor_dens, clamp(dens, 0.0, 1.0));
+	cl = mix(cl, cor_dens, clamp(dens * 1.25, 0.0, 1.0));
+	// brilho atrás da frente: enche melhor o vidro, como um líquido
+	// de plasma denso, não só pontos soltos
+	float calha = liq * dentro * clamp((fx - uva.x) * 5.0, 0.0, 1.0);
+	cl = mix(cl, cor_liq * 1.35, calha * 0.45);
+	cl *= 1.0 + calha * 0.35;
 
 	// menisco na frente (nucleo + halo); CRITICO esquenta a cor dele
 	vec3 cor_men = mix(cor_part, vec3(1.0, 0.62, 0.55), critico);
@@ -129,6 +134,24 @@ void fragment() {
 	cl = mix(cl, cor_men, m_core * 0.85);
 	// CRITICO: liquido pulsa em brilho ate o escudo ser recomprado
 	cl *= 1.0 + 0.32 * critico * (0.5 + 0.5 * sin(tempo * 9.0));
+
+	// BARRA CHEIA: raios elétricos difundindo pelo vidro (pele verde e roxa).
+	// É o sinal visual de "escudo no máximo".
+	float cheia = smoothstep(0.88, 0.99, nivel);
+	if (cheia > 0.02) {
+		float da1 = arco(uva, tempo * 1.6, 0.0);
+		float da2 = arco(uva, tempo * 2.1, 1.7);
+		float raios = smoothstep(0.040, 0.0, da1) * 0.85
+			+ smoothstep(0.014, 0.0, da1) * 1.35
+			+ smoothstep(0.034, 0.0, da2) * 0.70
+			+ smoothstep(0.012, 0.0, da2) * 1.15;
+		raios *= liq * dentro * cheia
+			* (0.35 + 0.65 * hash(vec2(floor(tempo * 11.0), 5.0)));
+		cl = mix(cl, cor_part * 1.3, clamp(raios, 0.0, 1.0) * 0.90);
+		// rim aceso contornando o vidro cheio
+		float aro = smoothstep(0.68, 0.88, d) * dentro * cheia;
+		cl = mix(cl, cor_part * 1.2, aro * 0.55);
+	}
 
 	// ARCOS ELETRICOS no liquido (pele roxa): 2 trilhos serrilhados
 	// atravessando o plasma, piscando em fatias de tempo
@@ -151,8 +174,8 @@ void fragment() {
 	// vidro escuro de fundo (container legivel com escudo vazio)
 	float a1 = 0.30 * dentro * vidro;
 	// liquido por cima do vidro
-	float a2 = clamp(leito * leito_alfa + dens * leito * 0.85
-		+ m_core * 0.85 + m_halo * 0.28, 0.0, 1.0) * liq_exp;
+	float a2 = clamp(leito * max(leito_alfa, 0.60) + dens * leito * 1.05
+		+ m_core * 0.85 + m_halo * 0.35, 0.0, 1.0) * liq_exp;
 	vec3 c = cl * a2 + cor_vidro * a1 * (1.0 - a2);
 	float a = a2 + a1 * (1.0 - a2);
 	if (a > 0.001) {

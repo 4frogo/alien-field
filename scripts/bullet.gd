@@ -26,6 +26,10 @@ var fx_fase := 0.0
 # em _draw() assume sem erro.
 var fx_plasma: Sprite2D = null
 var _plasma_mat: ShaderMaterial = null
+# trilha fantasma: posicoes recentes do projetil, desenhadas atras dele
+# com alpha e tamanho decrescendo (da o rastro liquido, sem "pulos")
+const RASTRO_N := 8
+var hist: Array[Vector2] = []
 
 # escala do projetil: a caixa VERDE aumenta os disparos normais, entao
 # o raio de colisao e o tamanho desenhado crescem junto (area maior).
@@ -183,6 +187,9 @@ func setup_gigante(p: Vector2, v: Vector2) -> void:
 
 func _process(delta: float) -> void:
 	tempo += delta
+	hist.append(position)
+	if hist.size() > RASTRO_N:
+		hist.remove_at(0)
 	position += vel * delta
 	_atualiza_rastro_plasma()
 	if e_triplo and fx != null:
@@ -228,6 +235,24 @@ func _rastro(dir: Vector2, comp: float, larg: float, cor: Color) -> void:
 		var w: float = larg * (1.0 - f) * 0.85
 		if w > 0.4:
 			draw_circle(d * comp * f, w, Color(1, 1, 1, 0.30 * (1.0 - f)))
+
+func _fantasmas(cor: Color, raio_base: float) -> void:
+	var n := hist.size()
+	for i in n:
+		var k := float(i + 1) / float(n + 1)
+		draw_circle(hist[i] - position, raio_base * (0.3 + 0.7 * k), Color(cor.r, cor.g, cor.b, cor.a * k * k))
+
+# faiscas soltas que escapam pra tras e apagam: o rastro fica "vivo"
+func _faiscas_rastro(dir_tras: Vector2, cor: Color, comp: float) -> void:
+	if dir_tras.length() < 0.01:
+		return
+	var d := dir_tras.normalized()
+	var per := Vector2(-d.y, d.x)
+	for i in 4:
+		var f := fmod(tempo * 1.9 + float(i) * 0.27 + fx_fase * 0.1, 1.0)
+		var lado := sin(float(i) * 2.9 + fx_fase) * 4.0
+		var p := d * comp * f + per * lado * (0.3 + f)
+		draw_circle(p, 1.4 * (1.0 - f) + 0.4, Color(cor.r, cor.g, cor.b, 0.85 * (1.0 - f)))
 
 func _raio_plasma(base: Vector2, ang: float, comp: float, fase: float) -> void:
 	# raio de plasma em 3 camadas com tremor eletrico
@@ -275,6 +300,11 @@ func _draw() -> void:
 			c_body2 = Color(1.0, 0.55, 0.92, 0.92)
 			c_core = Color(1.0, 0.93, 0.99, 0.97)
 			c_faisca = Color(1.0, 0.80, 0.97, 0.85)
+		# trilha fantasma + faiscas soltas (fluidez do disparo)
+		var cor_fan := c_tracer
+		cor_fan.a = 0.75
+		_fantasmas(cor_fan, 5.0 * s)
+		_faiscas_rastro(-vel.normalized(), c_core, 34.0 * s)
 		# rastro: glow na base + tracer atras
 		draw_circle(Vector2(0, 12 * s), 5.0 * s, c_glow)
 		draw_circle(Vector2(0, 8 * s), 3.0 * s, c_glow2)
@@ -312,6 +342,21 @@ func _draw() -> void:
 		# 100% shader (super verde, plasma vermelho, gigante), zero vetor
 		# + tracer atras pra deixar o tiro legivel
 		var tras := -vel.normalized()
+		# trilha fantasma na cor de cada tipo: super verde, bola do chefe
+		# vermelha (grande), plasma inimigo laranja-avermelhado
+		var cor_fan := Color(1.0, 0.36, 0.16, 0.5)
+		var raio_fan := 5.0
+		var comp_fan := 30.0
+		if e_super:
+			cor_fan = Color(0.4, 1.0, 0.6, 0.5)
+			raio_fan = 8.0
+			comp_fan = 40.0
+		elif raio > 25.0:
+			cor_fan = Color(1.0, 0.3, 0.15, 0.45)
+			raio_fan = 14.0
+			comp_fan = 55.0
+		_fantasmas(cor_fan, raio_fan)
+		_faiscas_rastro(tras, Color(cor_fan.r, cor_fan.g, cor_fan.b, 1.0), comp_fan)
 		if e_super:
 			_rastro(tras, 70.0, 9.0, Color(0.35, 1.0, 0.55))
 		elif raio > 25.0:

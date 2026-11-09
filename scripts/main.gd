@@ -81,8 +81,6 @@ var transicao_anim := 0.0
 var em_transicao := false
 var transicao_trocou := false
 var portal_chegada: Node2D = null
-# TORRE: 1a aos 9s da partida, depois repetindo (curva de dificuldade)
-var turret_timer := 9.0
 
 # --- CURVA DE DIFICULDADE --------------------------------------------
 # pressao 0..1 cresce com o tempo de jogo (150s ate o topo). 0.0 = exata-
@@ -117,6 +115,11 @@ var bonus_timer := 8.0    # com o chefe: primeira caixa verde ~8s depois de entr
 var power_label: Label = null
 var gameover_layer: CanvasLayer = null
 var gameover_anim := 0.0
+# TELA DE VITORIA (chefe morto): fica true desde o fim da explosao e congela
+# a partida; vitoria_id cancela a sequencia no restart/menu
+var em_vitoria := false
+var vitoria_layer: CanvasLayer = null
+var vitoria_id := 0
 var menu_layer: CanvasLayer = null
 var em_menu := false
 var fonte_horror: Font = null
@@ -498,7 +501,7 @@ func _input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 
 func _alternar_pause() -> void:
-	if em_menu or vidas <= 0:
+	if em_menu or vidas <= 0 or em_vitoria:
 		return
 	get_tree().paused = not get_tree().paused
 	if pause_layer != null:
@@ -811,25 +814,6 @@ func _registrar_multi() -> void:
 	hitstop(0.12)
 	add_trauma(0.5)
 
-func _spawn_turret() -> void:
-	var n := 0
-	for e in inimigos:
-		if is_instance_valid(e) and e.get("tipo") == "turret":
-			n += 1
-	if n >= 4:
-		return
-	for lado in [0, 1]:
-		if randf() < 0.6:
-			var e := Node2D.new()
-			e.set_script(EnemyScript)
-			add_child(e)
-			var x := 62.0 if lado == 0 else 478.0
-			e.call("setup", "turret", Vector2(x + randf_range(-8, 8), -30), Vector2(0, 1))
-			# curva de dificuldade: torres atiram mais conforme a run avanca
-			e.set("dif", 1.0 + 0.6 * pressao)
-			e.connect("quer_atirar", _on_enemy_atirar)
-			inimigos.append(e)
-
 func _spawn_small() -> void:
 	# TRAVA DEFENSIVA: com a protetora ja derrotada (fase_livre) nada mais
 	# nasce ate a travessia do portal. O bloqueio tambem existe no timer de
@@ -924,7 +908,7 @@ func _disparar_shuriken() -> void:
 		if not is_instance_valid(e) or not e.get("vivo"):
 			continue
 		var te := str(e.get("tipo"))
-		if te == "bonus" or te == "turret":
+		if te == "bonus":
 			continue
 		var d: float = player.position.distance_to((e as Node2D).position)
 		if d < melhor:
@@ -1045,7 +1029,7 @@ func _dano_do_raio(delta: float) -> void:
 			var tipo_e := str(e.get("tipo"))
 			if tipo_e == "small":
 				# UNICA coisa que o raio limpa: nave pequena eletrocucada
-				# explode na hora. Capanga, torre, caixa e chefe NAO
+				# explode na hora. Capanga, caixa e chefe NAO
 				# tomam dano Ã¢â‚¬â€ o feixe passa direto por eles.
 				pontos += 100
 				_registrar_abate()
@@ -1162,11 +1146,159 @@ func _morte_do_chefe(pos: Vector2) -> void:
 	_fx_explosao(pos, true, false)
 	flash_tela(0.5, Color(1.0, 0.9, 0.8))
 	add_trauma(0.8)
-	_rank_chefe(morreu_com_dano, escudo_na_morte)
+	var rank := _rank_chefe(morreu_com_dano, escudo_na_morte)
 	_killcam_boss(pos)
 	if boss != null and is_instance_valid(boss):
 		boss.queue_free()
 	boss = null
+	_iniciar_vitoria(rank)
+
+# TELA DE VITORIA: depois do killcam a tela vai ficando branca (timers
+# reais, nao dependem do slow-mo). No branco nasce o titulo, o rank e as
+# estatisticas; no fim a partida congela e aparecem os botoes.
+func _iniciar_vitoria(rank: String) -> void:
+	vitoria_id += 1
+	var meu := vitoria_id
+	em_vitoria = true
+	if vitoria_layer != null:
+		vitoria_layer.queue_free()
+	vitoria_layer = CanvasLayer.new()
+	vitoria_layer.layer = 65
+	vitoria_layer.process_mode = Node.PROCESS_MODE_ALWAYS
+	add_child(vitoria_layer)
+	var branco := ColorRect.new()
+	branco.size = Vector2(540, 960)
+	branco.color = Color(1, 1, 1, 0)
+	branco.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	vitoria_layer.add_child(branco)
+	await get_tree().create_timer(1.0, true, false, true).timeout
+	if meu != vitoria_id:
+		return
+	var ini := Time.get_ticks_msec()
+	while true:
+		var k := clampf((Time.get_ticks_msec() - ini) / 2400.0, 0.0, 1.0)
+		branco.color.a = k * k * (3.0 - 2.0 * k)
+		if k >= 1.0:
+			break
+		await get_tree().process_frame
+		if meu != vitoria_id:
+			return
+	await get_tree().create_timer(0.5, true, false, true).timeout
+	if meu != vitoria_id:
+		return
+	if sfx != null:
+		sfx.call("stinger")
+	var f := _fonte()
+	var roxo := Color(0.16, 0.04, 0.3)
+	var violeta := Color(0.55, 0.2, 0.95)
+	var cor_rank := Color(0.95, 0.6, 0.05) if rank == "S" else (Color(0.2, 0.5, 0.95) if rank == "A" else Color(0.55, 0.32, 0.15))
+	var seg := int(tempo_batalha)
+	var itens: Array[Control] = []
+	itens.append(_vitoria_linha_fina(178.0))
+	var titulo := _vitoria_texto("VITÓRIA", 78, roxo, 196.0, f)
+	titulo.add_theme_color_override("font_outline_color", violeta)
+	titulo.add_theme_constant_override("outline_size", 6)
+	itens.append(titulo)
+	itens.append(_vitoria_texto("DIMENSÃO 2 CONQUISTADA", 19, violeta, 336.0, f))
+	itens.append(_vitoria_linha_fina(372.0))
+	var rk := _vitoria_texto("RANK " + rank, 66, cor_rank, 390.0, f)
+	rk.add_theme_color_override("font_outline_color", roxo)
+	rk.add_theme_constant_override("outline_size", 8)
+	itens.append(rk)
+	# painel escuro com as estatisticas da run
+	var painel := Panel.new()
+	painel.position = Vector2(100, 484)
+	painel.size = Vector2(340, 170)
+	var sb_painel := StyleBoxFlat.new()
+	sb_painel.bg_color = Color(0.1, 0.03, 0.18, 0.94)
+	sb_painel.border_color = violeta
+	sb_painel.set_border_width_all(2)
+	sb_painel.set_corner_radius_all(14)
+	painel.add_theme_stylebox_override("panel", sb_painel)
+	painel.modulate.a = 0.0
+	vitoria_layer.add_child(painel)
+	itens.append(painel)
+	var linhas := [
+		["PONTOS", "%06d" % pontos, Color(1, 0.85, 0.35)],
+		["ABATES", str(abates), Color.WHITE],
+		["TEMPO", "%d:%02d" % [seg / 60, seg % 60], Color.WHITE],
+		["ESCUDO", "%d%%" % int(escudo), Color(0.6, 1.0, 0.75)],
+	]
+	var ly := 504.0
+	for ln in linhas:
+		itens.append(_vitoria_texto(ln[0], 19, Color(0.75, 0.6, 1.0), ly, f, 130.0, 150.0, HORIZONTAL_ALIGNMENT_LEFT))
+		itens.append(_vitoria_texto(ln[1], 19, ln[2], ly, f, 250.0, 150.0, HORIZONTAL_ALIGNMENT_RIGHT))
+		ly += 36.0
+	itens.append(_vitoria_botao("JOGAR NOVAMENTE", true, _reiniciar, 690.0))
+	itens.append(_vitoria_botao("ESCOLHER NAVE", false, _reiniciar_para_escolha, 762.0))
+	var tw := vitoria_layer.create_tween().set_parallel(true)
+	var i := 0
+	for c in itens:
+		tw.tween_property(c, "modulate:a", 1.0, 0.5).set_delay(minf(0.08 * i, 1.2))
+		i += 1
+	tw.chain().tween_callback(func(): get_tree().paused = true)
+
+func _vitoria_linha_fina(y: float) -> ColorRect:
+	var r := ColorRect.new()
+	r.position = Vector2(70, y)
+	r.size = Vector2(400, 2)
+	r.color = Color(0.55, 0.2, 0.95, 0.8)
+	r.modulate.a = 0.0
+	vitoria_layer.add_child(r)
+	return r
+
+func _vitoria_botao(txt: String, primario: bool, acao: Callable, y: float) -> Button:
+	var f := _fonte()
+	var b := Button.new()
+	b.text = txt
+	b.position = Vector2(100, y)
+	b.size = Vector2(340, 56 if primario else 48)
+	b.pivot_offset = b.size / 2.0
+	b.add_theme_font_size_override("font_size", 22 if primario else 19)
+	if f != null:
+		b.add_theme_font_override("font", f)
+	var normal := StyleBoxFlat.new()
+	normal.set_corner_radius_all(12)
+	normal.set_border_width_all(2)
+	var hover := normal.duplicate() as StyleBoxFlat
+	var pressed := normal.duplicate() as StyleBoxFlat
+	hover.border_color = Color(0.12, 0.02, 0.2)
+	if primario:
+		normal.bg_color = Color(0.5, 0.18, 0.92)
+		normal.border_color = Color(0.12, 0.02, 0.2)
+		hover.bg_color = Color(0.62, 0.3, 1.0)
+		pressed.bg_color = Color(0.38, 0.1, 0.75)
+		b.add_theme_color_override("font_color", Color.WHITE)
+	else:
+		normal.bg_color = Color(1, 1, 1, 0.95)
+		normal.border_color = Color(0.5, 0.18, 0.92)
+		hover.bg_color = Color(0.93, 0.88, 1.0)
+		pressed.bg_color = Color(0.85, 0.78, 0.98)
+		b.add_theme_color_override("font_color", Color(0.25, 0.06, 0.45))
+	b.add_theme_stylebox_override("normal", normal)
+	b.add_theme_stylebox_override("hover", hover)
+	b.add_theme_stylebox_override("focus", hover)
+	b.add_theme_stylebox_override("pressed", pressed)
+	b.modulate.a = 0.0
+	b.mouse_entered.connect(_ui_tick)
+	b.pressed.connect(acao)
+	b.pressed.connect(_soco_botao.bind(b))
+	vitoria_layer.add_child(b)
+	return b
+
+func _vitoria_texto(txt: String, tam: int, cor: Color, y: float, f: Font, x: float = 0.0, w: float = 540.0, alinha: HorizontalAlignment = HORIZONTAL_ALIGNMENT_CENTER) -> Label:
+	var lbl := Label.new()
+	lbl.text = txt
+	lbl.add_theme_font_size_override("font_size", tam)
+	if f != null:
+		lbl.add_theme_font_override("font", f)
+	lbl.add_theme_color_override("font_color", cor)
+	lbl.horizontal_alignment = alinha
+	lbl.position = Vector2(x, y)
+	lbl.size = Vector2(w, 120)
+	lbl.modulate.a = 0.0
+	vitoria_layer.add_child(lbl)
+	return lbl
 
 func _fx_tiro(pos: Vector2) -> void:
 	var e := Node2D.new()
@@ -1215,7 +1347,7 @@ func _killcam_boss(pos: Vector2) -> void:
 		cam.position = CAM_POS_NORMAL
 	Engine.time_scale = 1.0
 
-func _rank_chefe(levou_dano: bool, escudo_atual: float) -> void:
+func _rank_chefe(levou_dano: bool, escudo_atual: float) -> String:
 	# S sem sofrer dano no chefao, A escudo alto, B resto
 	# (recebe o estado do momento da MORTE via _morte_do_chefe)
 	var rank := "S"
@@ -1249,6 +1381,7 @@ func _rank_chefe(levou_dano: bool, escudo_atual: float) -> void:
 	tw.tween_callback(lbl.queue_free)
 	if sfx != null:
 		sfx.call("boss")
+	return rank
 
 func _morte_buraco() -> void:
 	# morte instantanea com buraco negro (2 tiros do chefao sem escudo)
@@ -1343,7 +1476,7 @@ func _process(delta: float) -> void:
 		_multi_kills_t -= delta
 	if get_tree().paused:
 		return
-	if em_menu:
+	if em_menu or em_vitoria:
 		return
 	if em_transicao:
 		transicao_anim += delta
@@ -1502,15 +1635,6 @@ func _process(delta: float) -> void:
 
 	# escudo 0-100: -25 por dano, +25 a cada 5 abates
 
-	# TORRES: pressao nas laterais da DIMENSAO 1. Primeira aos ~9s e de
-	# la em diante repetindo; nao spawna com a protetora morta (fase
-	# livre) nem na dimensao 2, onde o chefe manda.
-	if dimensao == 1 and not fase_livre:
-		turret_timer -= delta
-		if turret_timer <= 0.0:
-			turret_timer = lerpf(15.0, 11.0, pressao)
-			_spawn_turret()
-
 	# bonus a cada 30s
 	# caixa VERDE: so aparece na DIMENSAO 2 (com o chefe). Na primeira parte
 	# da fase ela nao sai de jeito nenhum â€” sem o poder de triplo, o
@@ -1599,6 +1723,35 @@ func _process(delta: float) -> void:
 	if player != null and player.get("invencivel") == null:
 		pass
 
+# Colisao tiro inimigo x player: hitbox em ELIPSE no nucleo da nave
+# (rx=30, ry=38). A sprite tem ~170px com margens transparentes, entao a
+# elipse cobre o casco de verdade sem ser generosa demais. O caminho do
+# tiro SO no ultimo frame (hist[-1]..posicao) e testado, entao tiro rapido
+# nao "pula" por cima da nave, mas tambem nao acerta de longe.
+func _dist_seg_ponto(a: Vector2, b: Vector2, p: Vector2) -> float:
+	var ab := b - a
+	var t := 0.0
+	if ab.length_squared() > 0.0001:
+		t = clampf((p - a).dot(ab) / ab.length_squared(), 0.0, 1.0)
+	return (a + ab * t).distance_to(p)
+
+func _atingiu_player(b: Node2D) -> bool:
+	if player == null or not is_instance_valid(player):
+		return false
+	var centro: Vector2 = player.position
+	var rx := 30.0
+	var ry := 38.0
+	var a: Vector2 = centro
+	var hist = b.get("hist")
+	if hist != null and hist.size() > 0:
+		a = hist[hist.size() - 1]
+	# na elipse vira circulo: escala o espaco por (1/rx, 1/ry)
+	var inv := Vector2(1.0 / rx, 1.0 / ry)
+	var aa := (a - centro) * inv
+	var bb := (b.position - centro) * inv
+	var d := _dist_seg_ponto(aa, bb, Vector2.ZERO)
+	return d < 1.0 + float(b.get("raio")) / minf(rx, ry)
+
 func _colisoes() -> void:
 	# tiro amigo x inimigo (normal dano 1, super dano 10 perfurante)
 	for b in tiros:
@@ -1612,7 +1765,7 @@ func _colisoes() -> void:
 				break
 			var raio_b: float = float(b.get("raio"))
 			var tipo_e := str(e.get("tipo"))
-			var raio_e := 115.0 if tipo_e == "boss" else (95.0 if tipo_e == "guard" else (22.0 if tipo_e == "turret" else (26.0 if tipo_e == "bonus" else 30.0)))
+			var raio_e := 115.0 if tipo_e == "boss" else (95.0 if tipo_e == "guard" else (26.0 if tipo_e == "bonus" else 30.0))
 			if b.position.distance_to(e.position) < raio_e + raio_b * 0.5:
 				# tiro NORMAL agora machuca a protetora (pedido do jogador).
 				# Antes era bloqueado aqui; hoje a colisao segue para
@@ -1672,19 +1825,6 @@ func _colisoes() -> void:
 						add_trauma(0.22)
 						e.set("vivo", false)
 						e.queue_free()
-					elif e.get("tipo") == "turret":
-						# TORRE derrotada: antes morria no vazio (sem pontos,
-						# sem explosao, sem kill confirm).
-						pontos += 150
-						_registrar_abate()
-						_kill_confirm(e.position, 150, Color(1.0, 0.85, 0.4))
-						var dkt := (e as Node2D).position - (b as Node2D).position
-						if dkt.length() < 1.0:
-							dkt = Vector2(0, -1)
-						_fx_explosao(e.position, false, false, dkt)
-						_registrar_multi()
-						hitstop(0.05)
-						add_trauma(0.15)
 				else:
 					if e.get("tipo") == "boss":
 						pontos += 10 * dano
@@ -1699,7 +1839,7 @@ func _colisoes() -> void:
 			if not is_instance_valid(b) or not b.get("vivo"):
 				continue
 			if float(b.get("raio")) > 20.0:
-				if b.position.distance_to(player.position) < float(b.get("raio")) + 16.0:
+				if _atingiu_player(b):
 					b.set("vivo", false)
 					b.queue_free()
 					if escudo > 0.0:
@@ -1717,14 +1857,13 @@ func _colisoes() -> void:
 							_fx_explosao(player.position, false, false)
 					return
 	# tiro inimigo normal x player
-	if player != null and is_instance_valid(player) and player.get("invencivel") <= 0:
+	if player != null and is_instance_valid(player) and player.visible and player.get("invencivel") <= 0:
 		for b in tiros_inimigos:
 			if not is_instance_valid(b) or not b.get("vivo"):
 				continue
 			if float(b.get("raio")) > 20.0:
 				continue # gigante ja tratado acima
-			var br: float = float(b.get("raio"))
-			if b.position.distance_to(player.position) < br + 14.0:
+			if _atingiu_player(b):
 				b.set("vivo", false)
 				b.queue_free()
 				_dano_no_player(25.0)
@@ -1737,7 +1876,7 @@ func _colisoes() -> void:
 			if not is_instance_valid(e):
 				continue
 			var te := str(e.get("tipo"))
-			var r := 115.0 if te == "boss" else (78.0 if te == "guard" else (22.0 if te == "turret" else (26.0 if te == "bonus" else 26.0)))
+			var r := 115.0 if te == "boss" else (78.0 if te == "guard" else (26.0 if te == "bonus" else 26.0))
 			if player.position.distance_to(e.position) < r:
 				if te == "bonus":
 					_equipar_power()
@@ -1764,7 +1903,7 @@ func _colisoes_misseis() -> void:
 			if not is_instance_valid(m) or not m.get("vivo"):
 				break
 			var te := str(e.get("tipo"))
-			if te == "bonus" or te == "turret":
+			if te == "bonus":
 				continue
 			var raio_e := 115.0 if te == "boss" else (85.0 if te == "guard" else 30.0)
 			var raio_extra := 25.0 if eh_shuriken else 0.0
@@ -1943,7 +2082,6 @@ func _reiniciar() -> void:
 	# cancela morte segmentada em andamento (R no meio da sequencia)
 	boss_morte_id += 1
 	boss = null
-	turret_timer = 9.0
 	if cam != null and is_instance_valid(cam):
 		cam.offset = Vector2.ZERO
 		cam.zoom = Vector2(CAM_ZOOM, CAM_ZOOM)
@@ -2012,6 +2150,11 @@ func _reiniciar() -> void:
 		menu_layer = null
 	game_over_timer = -1.0
 	gameover_anim = 0.0
+	vitoria_id += 1
+	em_vitoria = false
+	if vitoria_layer != null:
+		vitoria_layer.queue_free()
+		vitoria_layer = null
 	if gameover_layer != null:
 		gameover_layer.queue_free()
 		gameover_layer = null
@@ -2080,6 +2223,11 @@ func _ir_para_menu() -> void:
 	if gameover_layer != null:
 		gameover_layer.queue_free()
 		gameover_layer = null
+	vitoria_id += 1
+	em_vitoria = false
+	if vitoria_layer != null:
+		vitoria_layer.queue_free()
+		vitoria_layer = null
 	em_menu = true
 	if player != null:
 		player.visible = false

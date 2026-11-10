@@ -1723,35 +1723,6 @@ func _process(delta: float) -> void:
 	if player != null and player.get("invencivel") == null:
 		pass
 
-# Colisao tiro inimigo x player: hitbox em ELIPSE no nucleo da nave
-# (rx=30, ry=38). A sprite tem ~170px com margens transparentes, entao a
-# elipse cobre o casco de verdade sem ser generosa demais. O caminho do
-# tiro SO no ultimo frame (hist[-1]..posicao) e testado, entao tiro rapido
-# nao "pula" por cima da nave, mas tambem nao acerta de longe.
-func _dist_seg_ponto(a: Vector2, b: Vector2, p: Vector2) -> float:
-	var ab := b - a
-	var t := 0.0
-	if ab.length_squared() > 0.0001:
-		t = clampf((p - a).dot(ab) / ab.length_squared(), 0.0, 1.0)
-	return (a + ab * t).distance_to(p)
-
-func _atingiu_player(b: Node2D) -> bool:
-	if player == null or not is_instance_valid(player):
-		return false
-	var centro: Vector2 = player.position
-	var rx := 30.0
-	var ry := 38.0
-	var a: Vector2 = centro
-	var hist = b.get("hist")
-	if hist != null and hist.size() > 0:
-		a = hist[hist.size() - 1]
-	# na elipse vira circulo: escala o espaco por (1/rx, 1/ry)
-	var inv := Vector2(1.0 / rx, 1.0 / ry)
-	var aa := (a - centro) * inv
-	var bb := (b.position - centro) * inv
-	var d := _dist_seg_ponto(aa, bb, Vector2.ZERO)
-	return d < 1.0 + float(b.get("raio")) / minf(rx, ry)
-
 func _colisoes() -> void:
 	# tiro amigo x inimigo (normal dano 1, super dano 10 perfurante)
 	for b in tiros:
@@ -1839,7 +1810,7 @@ func _colisoes() -> void:
 			if not is_instance_valid(b) or not b.get("vivo"):
 				continue
 			if float(b.get("raio")) > 20.0:
-				if _atingiu_player(b):
+				if b.position.distance_to(player.position) < float(b.get("raio")) + 16.0:
 					b.set("vivo", false)
 					b.queue_free()
 					if escudo > 0.0:
@@ -1857,13 +1828,14 @@ func _colisoes() -> void:
 							_fx_explosao(player.position, false, false)
 					return
 	# tiro inimigo normal x player
-	if player != null and is_instance_valid(player) and player.visible and player.get("invencivel") <= 0:
+	if player != null and is_instance_valid(player) and player.get("invencivel") <= 0:
 		for b in tiros_inimigos:
 			if not is_instance_valid(b) or not b.get("vivo"):
 				continue
 			if float(b.get("raio")) > 20.0:
 				continue # gigante ja tratado acima
-			if _atingiu_player(b):
+			var br: float = float(b.get("raio"))
+			if b.position.distance_to(player.position) < br + 14.0:
 				b.set("vivo", false)
 				b.queue_free()
 				_dano_no_player(25.0)

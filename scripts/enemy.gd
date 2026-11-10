@@ -254,22 +254,33 @@ func _criar_sprite_bonus2() -> void:
 
 
 # helper: monta a caixa a partir de uma textura (com recorte opcional) e
-# aplica o bonus_ring (recorte circular que remove os cantos do JPG)
+# remove o fundo preto (remove_black.gdshader)
 func _prite_bonus(caminho: String, region: Rect2, largura_alvo: float) -> void:
 	if not ResourceLoader.exists(caminho):
 		return
 	var tex := load(caminho) as Texture2D
 	if tex == null:
 		return
+	# A textura IMPORTADA pode ser menor que a region pedida (o import
+	# redimensiona: caixaGREN.png e 1254x1254 no arquivo, mas entra como
+	# 256x256). A region e recortada no tamanho REAL da textura e a escala
+	# sai desse tamanho — antes usava o tamanho pedido e a caixa verde
+	# ficava com 16px dentro de um brilho de 68px (parecia um disco
+	# verde vazio).
+	var tw := float(tex.get_width())
+	var th := float(tex.get_height())
+	var eff := Rect2(region.position, Vector2(minf(region.size.x, tw), minf(region.size.y, th)))
+	if eff.size.x < 1.0 or eff.size.y < 1.0:
+		return
 	var atlas := AtlasTexture.new()
 	atlas.atlas = tex
-	atlas.region = region
+	atlas.region = eff
 	sprite = Sprite2D.new()
 	sprite.texture = atlas
-	var rw := maxf(region.size.x, 1.0)
+	var rw := maxf(eff.size.x, 1.0)
 	sprite.scale = Vector2(largura_alvo / rw, largura_alvo / rw)
-	if ResourceLoader.exists("res://assets/bonus_ring.gdshader"):
-		var sh := load("res://assets/bonus_ring.gdshader") as Shader
+	if ResourceLoader.exists("res://assets/remove_black.gdshader"):
+		var sh := load("res://assets/remove_black.gdshader") as Shader
 		var mat := ShaderMaterial.new()
 		mat.shader = sh
 		sprite.material = mat

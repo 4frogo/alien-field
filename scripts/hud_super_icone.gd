@@ -62,14 +62,18 @@ func _ready() -> void:
 		_mat.set_shader_parameter("vidro_eixo", Vector2(0.341, 0.119))
 		_mat.set_shader_parameter("vidro_centro", Vector2(0.5, 0.506))
 		_mat.set_shader_parameter("key_alpha", 1.0)
-		# o plasma preenche o interior INTEIRO da moldura
-		_mat.set_shader_parameter("tubo_larg", 1.6)
-		_mat.set_shader_parameter("base_liq", 0.85)
-		_mat.set_shader_parameter("cor_escura", 0.55)
-		# plasma roxo: violeta -> magenta -> violeta claro na carga cheia
-		_mat.set_shader_parameter("cor_baixa", Color(0.45, 0.20, 0.95))
-		_mat.set_shader_parameter("cor_media", Color(0.72, 0.35, 1.0))
-		_mat.set_shader_parameter("cor_alta", Color(0.95, 0.70, 1.0))
+		# o plasma preenche o interior INTEIRO da moldura, mas com NUCLEO
+		# estreito: com tubo_larg muito largo a energia satura em todo o
+		# tubo e o vidro inteiro fica branco (sem cor de plasma). 0.55
+		# deixa o nucleo branco no meio e o violeta vivo nas bordas —
+		# o mesmo visual da barra da nave verde.
+		_mat.set_shader_parameter("tubo_larg", 0.55)
+		_mat.set_shader_parameter("base_liq", 0.72)
+		_mat.set_shader_parameter("cor_escura", 0.42)
+		# plasma roxo: violeta -> magenta -> violeta quente na carga cheia
+		_mat.set_shader_parameter("cor_baixa", Color(0.40, 0.14, 0.92))
+		_mat.set_shader_parameter("cor_media", Color(0.68, 0.28, 1.0))
+		_mat.set_shader_parameter("cor_alta", Color(0.85, 0.28, 1.0))
 		_mat.set_shader_parameter("cor_branco", Color(0.95, 0.85, 1.0))
 		_mat.set_shader_parameter("cor_azul", Color(0.55, 0.40, 1.0))
 		_mat.set_shader_parameter("cor_tanque", Color(0.10, 0.03, 0.18))

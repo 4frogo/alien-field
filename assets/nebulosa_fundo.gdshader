@@ -110,10 +110,19 @@ void fragment() {
 	st *= brilho_estrelas;
 
 	// --- vinheta suave nas bordas pra focar o centro ---
+	// Gradiente bem largo e fraco: com o vinheta antigo (0.55) as bordas
+	// escureciam forte e o contorno da nebulosa virava um oval visivel.
 	vec2 c = uv - vec2(0.5);
-	float vinh = 1.0 - smoothstep(0.32, 0.78, length(c * vec2(1.0, 0.62)));
-	neb *= mix(0.55, 1.0, vinh);
-	st  *= mix(0.65, 1.0, vinh);
+	float vinh = 1.0 - smoothstep(0.20, 1.10, length(c * vec2(0.85, 0.55)));
+	neb *= mix(0.80, 1.0, vinh);
+	st  *= mix(0.88, 1.0, vinh);
+
+	// --- preenchimento de base da nebulosa ---
+	// Sem isso o fbm deixa um BURACO escuro no meio da nuvem e o olho le
+	// um circulo gigante no centro da tela (a neblina da frente deixava
+	// a borda desse buraco ainda mais visivel). Um chao tenue de nebulosa
+	// preenche o vazio sem apagar o desenho da nuvem.
+	neb += vec3(0.045, 0.022, 0.070);
 
 	vec3 col = cor_base + neb + st;
 

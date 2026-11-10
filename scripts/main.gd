@@ -32,6 +32,8 @@ var boss: Node2D = null
 var sfx: Node = null
 var musica: Node = null
 var bg_no: Node2D = null
+# NEBLINA: nevoa procedural na frente do cenario (mas atras do HUD)
+var neblina: Node2D = null
 var cam: Camera2D = null
 var trauma := 0.0
 var hitstop_id := 0
@@ -224,6 +226,13 @@ func _ready() -> void:
 	bg.set_script(BgScript)
 	add_child(bg)
 	bg_no = bg
+
+	# NEBLINA: camada de nevoa na frente do cenario e das naves (z=60 no
+	# mundo, o HUD e CanvasLayer e fica por cima). Da profundidade sem
+	# esconder a acao: a clareira no centro mantem nave e tiros legiveis.
+	neblina = Node2D.new()
+	neblina.set_script(preload("res://scripts/neblina.gd"))
+	add_child(neblina)
 
 	# camera do jogo (shake/hit-stop); HUD fica parado
 	cam = Camera2D.new()
@@ -686,6 +695,9 @@ func _fim_transicao() -> void:
 	aviso_dragao = false
 	if bg_no != null and is_instance_valid(bg_no):
 		bg_no.call("trocar_dimensao", 2)
+	# a neblina esquenta na arena do chefe
+	if neblina != null and is_instance_valid(neblina):
+		neblina.call("trocar_dimensao", 2)
 	# portal de chegada onde a nave vai surgir
 	if portal_chegada != null and is_instance_valid(portal_chegada):
 		portal_chegada.queue_free()
@@ -2094,6 +2106,8 @@ func _reiniciar() -> void:
 		portal_label.visible = false
 	if bg_no != null and is_instance_valid(bg_no):
 		bg_no.call("trocar_dimensao", 1)
+	if neblina != null and is_instance_valid(neblina):
+		neblina.call("trocar_dimensao", 1)
 	tempo_batalha = 0.0
 	boss_ja_entrou = false
 	aviso_dragao = false
